@@ -41,6 +41,12 @@
       }
 
     </style>
+    <!-- <script src="js/three.js"></script> -->
+		<!-- <script src="js/GLTF2Loader.js"></script> -->
+     <!-- Three.js core (version r118, loader matches this version) -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.118.0/build/three.min.js"></script>
+    <!-- GLTFLoader for r118 -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.118.0/examples/js/loaders/GLTFLoader.js"></script>
   </head>
   <body>
 
@@ -80,7 +86,7 @@
       <p id='ai'>
         Significance (ChatGPT): <!-- TODO: SUMMARIZE THE AI OUTPUT -->
         RO.ME was important because it legitimized WebGL as a medium for storytelling and art, showing that the browser could deliver experiences 
-        previously reserved for native applications or plugins. It was a turning point from “tech demo” to “interactive art form.”
+        previously reserved for native applications or plugins. It was a turning point from "tech demo" to "interactive art form".
       </p>
 
       <div id='bonus'>
@@ -90,4 +96,80 @@
     </div>
 
   </body>
+  <script>
+    // Setup renderer
+    const width = 800;
+    const height = 400;
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(width, height); // shorter height for bonus section
+    document.getElementById('bonus').appendChild(renderer.domElement);
+
+    // Scene + Camera
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x222222);
+
+    const camera = new THREE.PerspectiveCamera(
+      45,
+      width / height,
+      0.1,
+      1000
+    );
+    
+
+    camera.position.set(-200, 100, -200);
+    camera.lookAt(0, 25, 0);
+
+
+    // Lights
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1.2);
+    scene.add(hemiLight);
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+    dirLight.position.set(5, 10, 7);
+    scene.add(dirLight);
+
+    // Animation mixers for each model
+    const mixers = [];
+
+    // Loader
+    const loader = new THREE.GLTFLoader();
+
+    function loadModel(path, xOffset) {
+      loader.load(path, (gltf) => {
+        const model = gltf.scene;
+        model.position.x = xOffset;
+        model.scale.set(0.5, 0.5, 0.5);
+        scene.add(model);
+
+        // // --- Center the model vertically ---
+        // const box = new THREE.Box3().setFromObject(model);
+        // const center = box.getCenter(new THREE.Vector3());
+        // model.position.sub(center); 
+
+        if (gltf.animations && gltf.animations.length > 0) {
+          const mixer = new THREE.AnimationMixer(model);
+          gltf.animations.forEach((clip) => mixer.clipAction(clip).play());
+          mixers.push(mixer);
+        }
+      });
+    }
+
+    // Load three models side by side
+    loadModel('./models/quadruped_bear.gltf', 200);
+    loadModel('./models/quadruped_frog.gltf', 100);
+    loadModel('./models/quadruped_fox.gltf',  0);
+
+    // Animate
+    const clock = new THREE.Clock();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const delta = clock.getDelta();
+      mixers.forEach((mixer) => mixer.update(delta));
+      renderer.render(scene, camera);
+    }
+    animate();
+  </script>
+
 </html>
