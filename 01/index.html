@@ -9,12 +9,27 @@
         font-size: 20pt;
       }
 
+      p {
+        margin: 0;
+      }
+      
+      /* Adjusted Hyperlink color to look better on black background */
+      a {
+        color: rgb(112, 179, 241);
+        
+      }
+
+      a:visited {
+        color: rgb(169, 57, 235)
+      }
+
+      /* Changed display of demo div to better fit my images next to text */
       .demo {
         display: flex;
         justify-content: center;
+        width: 75%;
         gap: 20px;
-        margin-left: 15px;
-        margin-right: 15px;
+        margin: auto;
       }
 
       #header {
@@ -23,19 +38,21 @@
 
       #screenshot {
         float:left;
-        max-width: 500px;
+        width: 400px;
         border: thin solid white;
         display: block;
       }
 
       #description {
         text-align: justify;
+        margin-bottom: 20px;
       }
       #technology {
         text-align: justify;
       }
       #comparison {
         text-align: justify;
+        margin-bottom: 20px;
       }
       #ai {
         text-align: justify;
@@ -54,38 +71,74 @@
       <h1>RO.ME "3 DREAMS OF BLACK"</h1>
     </div>
 
+    <!-- First demo flexbox contains the RO.ME screenshot, along with the description and technologies sections -->
     <div class='demo'>
 
       <!-- Screenshot from the end of the demo where the user is flying around a desert -->
       <div>
         <img id='screenshot' src='rome screenshot.png'>
       </div>
+
       <div>
-        <p id='description'>
-          <b>Description:</b> I thought the RO.ME demo was a very interesting and unique way to interact with music. 
-          I honestly haven't seen any other music video experiences similar to this one. 
-          The demo takes the user through 3 different settings:
+        <div id='description'>
+          <p>
+            <b>Description:</b><br>
+            I thought the RO.ME demo was an interesting and unique way to interact with music. 
+            I honestly haven't seen any other music video experiences similar to this one. 
+            The demo takes the user through 3 different settings:
+          </p>
           <ol>
-            <li>A broken down city where the users control animals roaming around.</li>
+            <li>A broken-down city where the user controls animals roaming around.</li>
             <li>An open field where a black void of insects is controlled by the user.</li>
-            <li>A vast desert where the user can freely control a flock of birds around floating masses of land.</li>
+            <li>A vast desert where the user can freely control a flock of birds flying around floating masses of land.</li>
           </ol>
-          Even for a demo made in 2011, this is still an impressive use of mixed media including 2D art, video, and 3D rendered graphics.
-        </p>
-        <p id='technology'>
-        Technology: TODO! <!-- TODO: FILL IN THE TECHNOLOGIES USED -->
-        </p>
+          <p>
+            Each setting has a different and unique feeling with elements that react to the music and user input.
+            Even for a demo made in 2011, this is still an impressive use of mixed media, including 2D art, video, and 3D rendered graphics.
+          </p>
+        </div>
+        
+        <div id='technology'>
+          <p><b>Technologies:</b></p>
+            <ul>
+              <li>WebGL</li>
+              <li>JavaScript</li>
+              <li>Three.js</li>
+              <li>HTML5</li>
+            </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Second demo flexbox contains the Crosswire screenshot, along with the comparison and ai sections -->
+    <div class="demo">
+
+      <div>
+        <img id='screenshot' src='crosswire screenshot.png'>
+      </div>
+
+      <div>
         <p id='comparison'>
-        Comparison: TODO! <!-- TODO: FILL IN THE COMPARISON -->
+          <b>Comparison:</b> <a href="https://crosswire.unseen.co/">Feature Scroll Interactions from Crosswire</a><br> 
+          This use of WebGL shows a completely different application of 3D graphics on a website, which is why I chose to compare it to RO.ME.
+          While this website does have an artistic example of 3D graphics, it is being used practically to visualize the product's features.
+          Similar to RO.ME, the user has some control over the graphics by scrolling through the page.
+          The graphics here are also synchronized with different text elements on the page, similar to how RO.ME's visuals were synchronized with the music.
+          Unlike RO.ME, these graphics serve to illustrate the product's features rather than create an immersive experience.
         </p>
+
         <p id='ai'>
-        Significance (AI): TODO! <!-- TODO: SUMMARIZE THE AI OUTPUT -->
+          <b>Significance: (ChatGPT)</b><br>
+          RO.ME: 3 Dreams of Black was one of the first large-scale interactive WebGL demos. 
+          It showcased the power of WebGL by delivering an interactive 3D music video rendered in real time with the browser without any plugins.
+          The project combined music, storytelling, and technology to prove that open web could rival Flash-based experiences.
+          Its influence helped establish WebGL as a serious platform for interactive art.
         </p>
       </div>
-      
     </div>
+
     <div id='bonus'>
-      <!-- TODO: BONUS TASK GOES HERE -->
+          <!-- TODO: BONUS TASK GOES HERE -->
     </div>
 
   </body>
