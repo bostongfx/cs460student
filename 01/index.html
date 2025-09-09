@@ -59,7 +59,16 @@
       }
 
       #bonus {
+        margin-top: 15px;
         width: 100%;
+        display: flex;
+        justify-content: center;
+        gap: 15px;
+      }
+
+      .viewer {
+        width: 350px;
+        height: 350px;
       }
 
     </style>
@@ -121,10 +130,10 @@
         <p id='comparison'>
           <b>Comparison:</b> <a href="https://crosswire.unseen.co/">Feature Scroll Interactions from Crosswire</a><br> 
           This use of WebGL shows a completely different application of 3D graphics on a website, which is why I chose to compare it to RO.ME.
-          While this website does have an artistic example of 3D graphics, it is being used practically to visualize the product's features.
+          While this website does have an artistic example of 3D graphics, it is being used practically to visualize a product's features.
           Similar to RO.ME, the user has some control over the graphics by scrolling through the page.
           The graphics here are also synchronized with different text elements on the page, similar to how RO.ME's visuals were synchronized with the music.
-          Unlike RO.ME, these graphics serve to illustrate the product's features rather than create an immersive experience.
+          Unlike RO.ME, these graphics serve to illustrate Crosswire's features rather than create an immersive artistic experience.
         </p>
 
         <p id='ai'>
@@ -138,7 +147,10 @@
     </div>
 
     <div id='bonus'>
-          <!-- TODO: BONUS TASK GOES HERE -->
+      <!-- Code for viewer iframe as well as three.js, GLTF2Loader.js, and .gltf model files found at: https://github.com/mrdoob/rome-gltf/tree/master -->
+      <iframe class="viewer" src="viewer.html?files/models/alligator.gltf"></iframe>
+      <iframe class="viewer" src="viewer.html?files/models/birds_raven.gltf"></iframe>
+      <iframe class="viewer" src="viewer.html?files/models/quadruped_horse.gltf"></iframe>
     </div>
 
   </body>
