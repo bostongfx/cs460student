@@ -51,23 +51,57 @@
     <div class='demo'>
 
       <!-- TODO: REPLACE WITH A SCREENSHOT OF RO.ME -->
-      <img id='screenshot' src='https://placehold.co/300x300'>
-      <p id='description'>
-      <!-- TODO: FILL IN YOUR DESCRIPTION -->
-      RO.ME is a very cool webgl demo!
-      </p>
-      <p id='technology'>
-      Technology: TODO! <!-- TODO: FILL IN THE TECHNOLOGIES USED -->
-      </p>
-      <p id='comparison'>
-      Comparison: TODO! <!-- TODO: FILL IN THE COMPARISON -->
-      </p>
-      <p id='ai'>
-      Significance (AI): TODO! <!-- TODO: SUMMARIZE THE AI OUTPUT -->
+      <img id='screenshot' src='ROME.png'>
+
+      <p id='description'> <!-- TODO: FILL IN YOUR DESCRIPTION -->
+      RO.ME is a very cool webgl demo! I can see a lot of animals ruining through different environments, and the
+      environments change as the music goes on. It starts from a some sort of realistic but non interactive black 
+      and white scene (real time rendering), and then it slowly transitions to a low poly colorful scene that I can 
+      do some interactions such as moving the camera and even adding objects to the movie. This demo came out right 
+      after the release of webgl. It shows the potential of webgl and this kind of framework. We can do a lot of cool 
+      and artistic things with webgl, and give audience a immersive 3D experience that could just run natively in the 
+      browser.
       </p>
 
-      <div id='bonus'>
-        <!-- TODO: BONUS TASK GOES HERE -->
+      <p id='technology'> <!-- TODO: FILL IN THE TECHNOLOGIES USED -->
+      Technology: 2D graphics, videos, 3D graphics are all merged in this demo. The demo is actually a real time rendering
+      model. The only usage of HTML and JavaScript create a 3D interactive environment. WebGL is hardware-accelerated 3D 
+      graphics without the use of plug-ins. It use your video card to do real time rendering, so it is very fast and smooth. 
+      It enables you to use your mouse to move your angle of vision, to move around objects and put objects in the scene.
+      </p>
+
+      <p id='comparison'> <!-- TODO: FILL IN THE COMPARISON -->
+      Comparison: Unlike the RO.ME experience that I can feel the passion and the energy from different animals 
+      and different environments from the video, the Le Voyage Azarien is a relaxing and quiet forest experience
+      that gives me peace and calm after watching it. It creates a vivid and peaceful forest environment with some 
+      birds singing and some leaves rustling that makes feel like I am actually in a forest. It uses LIDAR sensor to 
+      scan a real world tree, which is different from how the RO.ME build their environment. The interactions are 
+      boarder in RO.ME because I can put some stuffs I like in the video to make it unique, however, in Le Voyage 
+      Azarien, the interactions are minimal. I am only change some camera angles or zoom in and out. Last but not 
+      least, two of the videos have great music, but the RO.ME is music driven storytelling where the music is the 
+      soul and spine of the story. The Le Voyage Azarien, on the other hand, the music is a supportive tool for that
+      vivid forest environment. <a href="https://le-voyage-azarien.art/">Visit Le Voyage Azarien</a>  
+      </p>
+
+      <p id='ai'> <!-- TODO: SUMMARIZE THE AI OUTPUT -->
+      Significance (AI): When webgl just came out, most demos were simple cube or particle. RO.ME shows webgl
+      can support cinematic immversive storytelling, and proves real-time 3D could run directly in the browser 
+      without plugins. This was a radical departure from the past. It gave legitimacy to the idea that the web
+      browser is a stage for art and storytelling, inspiring countless interactive projects afterward. It also 
+      boosted Chrome's reputation. Google used RO.ME to market Chrome as the fastest, most advanced browser, 
+      positioning it as the future of the web. (ChaptGPT) 
+      </p>
+
+      <div id='bonus'> <!-- TODO: BONUS TASK GOES HERE -->
+        <iframe class="viewer" src="viewer.html?files/models/black_soup/quadruped_bear.gltf"></iframe>
+
+        <iframe class="viewer" src="viewer.html?files/models/life_soup/quadruped_fox.gltf"></iframe>
+
+        <iframe class="viewer" src="viewer.html?files/models/black_soup/quadruped_panther.gltf"></iframe>
+
+        <!-- Models and viewer code from: RO.ME GLTF viewer by mrdoob.
+             GitHub: https://github.com/mrdoob/rome-gltf -->
+
       </div>
 
     </div>
