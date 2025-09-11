@@ -1,0 +1,84 @@
+<!doctype html>
+<html>
+    <head>
+        <title> XTK Cube of Cubes</title>
+        <style>
+            html, body {
+                height: 100%; 
+                margin: 0; 
+                background: rgb(20, 20, 20);
+            } 
+            /* Makes the render fill up the whole screen */
+            #scene {
+                width: 100vw;
+                height: 100vh;
+                position: fixed;
+                inset: 0;
+            }
+        </style>
+
+        <!-- Gets the XTK library -->
+        <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+
+    </head>
+
+    <body>
+        <!-- Works with filling up the whole screen -->
+        <div id="scene"></div>
+
+        <script>
+            "use strict";
+
+            window.onload = function() {
+                // Creates the renderer
+                const r = new X.renderer3D();
+                r.container = 'scene';
+                r.init();
+                
+                // Variables to control aspects of the cube of cubes (I will make this interactive in browser eventually)
+                let numberOfCubes = 15; // on each axis
+                let size = 20; 
+                let spaceBetweenCubes = 10;
+                let varOpacity = 70; // percent
+
+                // Calculating any other variables needed
+                let spacing = size + spaceBetweenCubes;
+                let gradientIncrement = 1 / (numberOfCubes - 1);
+
+                // Sets the camera starting position
+                r.camera.position = [numberOfCubes * spacing, numberOfCubes * spacing, numberOfCubes * spacing];
+
+                // Builds the cude of cubes
+                let xPos = 0;
+                for (let i = 0; i <= 1; i += gradientIncrement) {
+                    let yPos = 0;
+                    for (let j = 0; j <= 1; j += gradientIncrement) {
+                        let zPos = 0;
+                        for (let k = 0; k <= 1; k += gradientIncrement) {
+
+                            // Creates the current cube
+                            const c = new X.cube()
+
+                            // Edits possition, size, color, and opacity
+                            c.center = [xPos, yPos, zPos];
+                            c.lengthX = size;
+                            c.lengthY = size;
+                            c.lengthZ = size;
+                            c.color = [k, j, i];
+                            c.opacity = varOpacity / 100;
+
+                            // Adds the current cube to the renderer
+                            r.add(c);
+                            
+                            zPos += spacing;
+                        }
+                        yPos += spacing;
+                    }
+                    xPos += spacing;
+                }
+
+                r.render(); 
+            };
+        </script>
+    </body>
+</html>
