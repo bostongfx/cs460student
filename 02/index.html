@@ -1,2 +1,90 @@
-Ready for assignment 2.
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>CS460 – HW2</title>
+  <style>
+    html, body { height:100%; margin:0; background:#000; }
+    canvas { display:block; background:#000; }
+  </style>
+</head>
+<body>
+  <script src="https://get.goxtk.com/xtk_edge.js"></script>
+  <script src="loader.js"></script> 
 
+
+  <script>
+    var r;
+    var SIZE = 5, GAP = 2;
+    var SELECTED_CUBE = null;
+    var SPIN = false;                 // <-- Part 6: toggle switch
+
+    // 0–255 helpers
+    function rand255(){ return Math.floor(Math.random()*256); }
+    function to01(n){ return n/255; }
+
+    window.onload = function () {
+      r = new X.renderer3D();
+      r.init();
+      r.bgColor = [0,0,0];
+      r.camera.position = [0,0,300];
+
+      // grid
+      for (var z=-5; z<6; z++) {
+        for (var y=-5; y<6; y++) {
+          for (var x=-5; x<6; x++) {
+            var c = new X.cube();
+            c.lengthX = c.lengthY = c.lengthZ = SIZE;
+            c.transform.translateX((SIZE+GAP)*x);
+            c.transform.translateY((SIZE+GAP)*y);
+            c.transform.translateZ((SIZE+GAP)*z);
+            r.add(c);
+          }
+        }
+      }
+
+      // Part 4: hover-pick
+      r.interactor.onMouseMove = function (event) {
+        var cubeid = r.pick(event.offsetX, event.offsetY);
+        SELECTED_CUBE = cubeid ? r.get(cubeid) : null;
+      };
+
+      // Part 6: spin camera when SPIN is true
+      r.onRender = function () {
+        if (SPIN) r.camera.rotate([1, 0]);  // +1° about X each frame
+      };
+
+      // Single key handler (Q/W/E + B + O/L)
+      window.onkeypress = function (e) {
+        var k = e.key.toLowerCase();
+        
+
+
+
+        if (k === 'b') { SPIN = !SPIN; return; }
+
+        // (optional) save/load for Part 7
+        if (k === 'o') { download(); return; }
+        if (k === 'l') { upload('scene.json'); return; }
+
+
+        // need a hovered cube for edits below
+        if (!SELECTED_CUBE) return;
+
+        if (k === 'q') {
+          SELECTED_CUBE.visible = false;                       // hide
+        } else if (k === 'w') {
+          var R = rand255(), G = rand255(), B = rand255();     // 0–255
+          SELECTED_CUBE.color = [to01(R), to01(G), to01(B)];   // convert to 0–1
+          console.log('color (0–255):', R, G, B);
+        } else if (k === 'e') {
+          SELECTED_CUBE.transform.rotateX(10);                 // +10° X
+        }
+      };
+
+      r.render();
+      console.log('objects in scene:', r.Ha.length); // expect 1331
+    };
+  </script>
+</body>
+</html>
