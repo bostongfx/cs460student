@@ -9,8 +9,13 @@
         <script type="text/javascript" src="loader.js"></script>
         <script>
             "use strict";
-            const SIZE = 20;
+            const SIZE = 10;
             const GAP  = 1;
+
+            let cameras = [];
+            let isCameraViewSwitching = false;
+            let cameraViewIntervalId = 0;
+            let cameraIndex = 0;
 
             window.onload = function() {
                 let r = new X.renderer3D();
@@ -19,7 +24,7 @@
                 for (let z = -5; z < 6; z++) {
                     for (let y = -5; y < 6; y++) {
                         for (let x = -5; x < 6; x++) {
-                            let newCube = new X.cube();
+                            let newCube = new X.sphere();
                             newCube.transform.translateX((SIZE + GAP) * x);
                             newCube.transform.translateY((SIZE + GAP) * y);
                             newCube.transform.translateZ((SIZE + GAP) * z);
@@ -55,6 +60,25 @@
                     }
                     if (e.key == 'l') {
                         upload(r, "scene.json");
+                    }
+                    if (e.key == 'c') {
+                        cameras.push(new Float32Array(r.camera.view));
+                    }
+                    if (e.key == 'v') {
+                        if (cameras.length === 0) {
+                            return;
+                        }
+                        if (isCameraViewSwitching) {
+                            clearInterval(cameraViewIntervalId);
+                        } else {
+                            cameraIndex = 0;
+                            cameraViewIntervalId = setInterval(() => {
+                                r.camera.view = new Float32Array(cameras[cameraIndex]);
+                                cameraIndex++;
+                                cameraIndex %= cameras.length;
+                            }, 1000)
+                        }
+                        isCameraViewSwitching = !isCameraViewSwitching;
                     }
                 }
 
