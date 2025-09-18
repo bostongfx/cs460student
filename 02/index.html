@@ -6,14 +6,19 @@
     </style>
     <head>
         <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+        <script type="text/javascript" src="./loader.js"></script>
     </head>
     <body>
         <script>
-            
+
             const SIZE = 20;
             const GAP = 10;
+            var SELECTED_CUBE;
+            var CAMERA_AUTOROTATE = false;
+            var r;
+
             window.onload = function() {
-                var r = new X.renderer3D();
+                r = new X.renderer3D();
                 r.init();
 
                 for (var z=-5; z < 6; z++) {
@@ -30,8 +35,55 @@
 
                 r.camera.position = [0,0,300];
                 r.render();
-            };
+            
 
+                r.interactor.onMouseMove = function(event) {
+                    cubeid = r.pick(event.offsetX, event.offsetY);
+
+                    if (cubeid != 0)
+                    {
+                        SELECTED_CUBE = r.get(cubeid);
+                        console.log(SELECTED_CUBE);
+                    }
+                };
+
+                window.onkeydown = function(event) {
+                    switch (event.key) {
+                        case 'q':
+                            SELECTED_CUBE.visible = false;
+                            break;
+                        
+                        case 'w':
+                            let red = Math.random();
+                            let green = Math.random();
+                            let blue = Math.random();
+                            SELECTED_CUBE.color = [red, green, blue];
+                            break;
+                        
+                        case 'e':
+                            SELECTED_CUBE.transform.rotateX(10);
+                            break;
+
+                        case 'b':
+                            CAMERA_AUTOROTATE = !CAMERA_AUTOROTATE;
+                            break;
+
+                        case 'o':
+                            download();
+                            break;
+
+                        case 'l':
+                            upload('./scene.json');
+                            break;
+                    }
+
+                    r.onRender = function() {
+                        if (CAMERA_AUTOROTATE) {
+                            r.camera.rotate([1,0]);
+                        }
+                    };
+                };
+            };
         </script>
     </body>
 </html>
