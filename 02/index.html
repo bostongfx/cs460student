@@ -1,2 +1,56 @@
-Ready for assignment 2.
+<html>
+  <head>
+    <style>
+      html,
+      body {
+        background-color: black;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+      }
+    </style>
 
+    <!-- Import XTK -->
+    <script
+      type="text/javascript"
+      src="https://get.goXTK.com/xtk_edge.js"
+    ></script>
+
+    <script>
+      // XTK Setup occurs after everything else loaded on page.
+      window.onload = function () {
+        // Initialize renderer
+        let r = new X.renderer3D();
+        r.init();
+        const SIZE = 11;
+        const GAP = 15;
+
+        // Each loop will run 11 times, creating 11^3 or 1,331 cubes.
+        for (let z = -5; z < 6; z++) {
+          for (let y = -5; y < 6; y++) {
+            for (let x = -5; x < 6; x++) {
+              // Create new cube.
+              let new_cube = new X.cube();
+
+              // Modified the for loop so SIZE actually determines the size of the cube.
+              new_cube.lengthX = SIZE;
+              new_cube.lengthY = SIZE;
+              new_cube.lengthZ = SIZE;
+
+              // GAP now determines how much the cubes will be translated from the origin.
+              new_cube.transform.translateX(GAP * x);
+              new_cube.transform.translateY(GAP * y);
+              new_cube.transform.translateZ(GAP * z);
+              r.add(new_cube);
+            }
+          }
+        }
+
+        r.camera.position = [0, 0, 300];
+
+        r.render();
+      };
+    </script>
+  </head>
+  <body></body>
+</html>
