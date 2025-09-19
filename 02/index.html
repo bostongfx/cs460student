@@ -1,2 +1,62 @@
-Ready for assignment 2.
+<html>
+<head>
+    <style>
+    body{background-color: black;}
+    </style>
+        <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+    <script>
+  	window.onload = function(){
+        
+  		r = new X.renderer3D();
+  		r.init();
 
+
+        var SIZE = 20;
+        var GAP = 20;
+        var SELECTED_CUBE;
+        
+  		for (var z=-5; z < 6; z++){ //100 cubes 10*10*10
+            for (var y=-5; y < 6; y++){
+                for(var x=-5; x < 6; x++){
+                    new_cube = new X.cube();
+                    new_cube.transform.translateX((SIZE + GAP) * x);
+                    new_cube.transform.translateY((SIZE + GAP) * y);
+                    new_cube.transform.translateZ((SIZE + GAP) * z);
+                    r.add(new_cube);
+                }
+            }
+			
+        }
+        
+        r.render();
+        r.camera.position = [0,0,300];
+        ///*
+        r.interactor.onMouseMove = function(event){
+            cubeid = r.pick(event.offsetX, event.offsetY);
+            if (cubeid != 0){
+                SELECTED_CUBE=r.get(cubeid);
+                console.log(SELECTED_CUBE);
+            }
+		}
+        
+        window.onkeypress = function(e){
+            if (e.key == 'q'){
+                SELECTED_CUBE.visible = false;
+                //console.log("q is correct");
+            }else if (e.key == 'w'){
+                var x =  Math.random();
+                var y =  Math.random();
+                var z =  Math.random();
+                SELECTED_CUBE.color = [x,y,z];
+                //console.log("w is correct");
+            }else if (e.key == 'e'){
+                SELECTED_CUBE.transform.rotateX(10);
+                //console.log("e is correct");
+            }
+        }
+    }
+    </script>
+</head>
+<body>
+</body>
+</html>
