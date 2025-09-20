@@ -40,7 +40,39 @@
         width: 100%;
       }
 
+      ul {
+          list-style-type: none;
+          align: center;
+          margin-left: auto;
+          margin-right: auto;
+      }
+      
+      li {
+          padding: 12pt 1rem;
+          display: inline-block;
+          text-align: center;
+      }
+      a {
+          color: white;
+          text-decoration: none;
+      }
+      a:hover {
+          color: gray;
+      }
+      
+      #content {
+          display: inline-block;
+          width: 800px;
+      }
+      .viewer {
+          border: 0px;
+          width: 200px;
+          height: 200px;
+          padding: 10px;
+      }
+
     </style>
+    <script></script>
   </head>
   <body>
 
@@ -51,23 +83,45 @@
     <div class='demo'>
 
       <!-- TODO: REPLACE WITH A SCREENSHOT OF RO.ME -->
-      <img id='screenshot' src='https://placehold.co/300x300'>
+      <img id='screenshot' src='rome_screenshot.png'>
       <p id='description'>
       <!-- TODO: FILL IN YOUR DESCRIPTION -->
-      RO.ME is a very cool webgl demo!
+      RO.ME is an interactive movie made with WebGL. It uses both 2D videos and 3D landscapes which run in the browser with WebGL,
+      sometimes mixing the two media to create a "2.5D" experience at times. It was released in 2011, which is the same year that WebGL was first released.
+      The creation of RO.ME pushed the boundaries of WebGL and pioneered further development for the technology.
       </p>
       <p id='technology'>
-      Technology: TODO! <!-- TODO: FILL IN THE TECHNOLOGIES USED -->
+      <b>Technology:</b>
+      <!-- TODO: FILL IN THE TECHNOLOGIES USED -->
+      <ul>
+          <li><a href="https://en.wikipedia.org/wiki/HTML5">HTML5</a></li>
+          <li><a href="https://www.khronos.org/webgl/">WebGL</a></li>
+          <li><a href="https://threejs.org/">Three.js</a></li>
+          <li><a href="https://www.blender.org/">Blender</a></li>
+      </ul>
       </p>
+
       <p id='comparison'>
-      Comparison: TODO! <!-- TODO: FILL IN THE COMPARISON -->
+      <b>Comparison: <!-- TODO: FILL IN THE COMPARISON -->
+          <a href="https://www.markclennon.com/diary/diary">Mark Clennon Photo Diary</a> </b> <br>
+      The RO.ME movie focuses on the narrative, where the spectator is on a tour through the various "dreams" in the movie.
+      Mark Clennon's personal website constructs a globe full of photos from his everyday, where the end
+      user in the middle of the globe, almost in the shoes of Mark himself. 
       </p>
       <p id='ai'>
-      Significance (AI): TODO! <!-- TODO: SUMMARIZE THE AI OUTPUT -->
+      <b>Significance (AI):</b> RO.ME was a groundbreaking interactive music video launched in 2011 that showcased 
+      the power of HTML5 and WebGL, running entirely in the browser without plugins. Created by Google, Chris Milk, 
+      and others, it blended storytelling, music, and 3D animation into a seamless web experience. It pushed the 
+      boundaries of what was possible on the web, inspiring a new wave of interactive and artistic websites. 
+      RO.ME also helped establish Chrome as a leading browser for various multimedia. <i>~ ChatGPT 2025</i><!-- TODO: SUMMARIZE THE AI OUTPUT -->
       </p>
 
       <div id='bonus'>
+        <iframe class="viewer" src="viewer.html?files/models/goat.gltf"></iframe>
+		<iframe class="viewer" src="viewer.html?files/models/parrot.gltf"></iframe>
+		<iframe class="viewer" src="viewer.html?files/models/fox.gltf"></iframe>
         <!-- TODO: BONUS TASK GOES HERE -->
+        <p><i>3D Models from <a href="https://github.com/mrdoob/rome-gltf">https://github.com/mrdoob/rome-gltf</a></i></p>
       </div>
 
     </div>
