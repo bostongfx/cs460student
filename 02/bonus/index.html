@@ -14,17 +14,23 @@
 
       var SIZE = 20;
       var GAP = 20;
-      var SELECTED_CUBE;
+      var SELECTED_SPHERE;
       let toggleB = false;
-      var c; 
+      let toggleV = true;
+      let startV;
+      var c;
+      const CAMERAS = [];
+      let cameraIndex = 0;
+
   		for (var z=-5; z < 6; z++){ //100 cubes 10*10*10
          for (var y=-5; y < 6; y++){
             for(var x=-5; x < 6; x++){
-               new_cube = new X.cube();
-               new_cube.transform.translateX((SIZE + GAP) * x);
-               new_cube.transform.translateY((SIZE + GAP) * y);
-               new_cube.transform.translateZ((SIZE + GAP) * z);
-               r.add(new_cube);
+               new_sphere = new X.sphere();
+               new_sphere.transform.translateX((SIZE + GAP) * x);
+               new_sphere.transform.translateY((SIZE + GAP) * y);
+               new_sphere.transform.translateZ((SIZE + GAP) * z);
+               new_sphere.radius = Math.random()*20;
+               r.add(new_sphere);
             }
          }	
       }
@@ -35,24 +41,21 @@
         r.interactor.onMouseMove = function(event){
             cubeid = r.pick(event.offsetX, event.offsetY);
             if (cubeid != 0){
-               SELECTED_CUBE=r.get(cubeid);
-               //console.log(SELECTED_CUBE);
+               SELECTED_SPHERE=r.get(cubeid);
+               //console.log(SELECTED_SPHERE);
             }
 		}
         
         window.onkeypress = function(e){
             if (e.key == 'q'){
-               SELECTED_CUBE.visible = false;
-               //console.log("q is correct");
+               SELECTED_SPHERE.visible = false;
             }else if (e.key == 'w'){
                var x =  Math.random();
                var y =  Math.random();
                var z =  Math.random();
-               SELECTED_CUBE.color = [x,y,z];
-               //console.log("w is correct");
+               SELECTED_SPHERE.color = [x,y,z];
             }else if (e.key == 'e'){
-               SELECTED_CUBE.transform.rotateX(10);
-               //console.log("e is correct");
+               SELECTED_SPHERE.transform.rotateX(10);
             }else if (e.key == 'b'){
                toggleB = !toggleB;
                //console.log(toggleB);
@@ -62,22 +65,33 @@
                      return;
                   }else{
                      r.camera.rotate([1, 0]);
-                     var x =  Math.random();
-                     var y =  Math.random();
-                     var z =  Math.random();
-                     c.color = [x,y,z];
-                     c.transform.rotateX(-10);
-                     c.transform.rotateY(-10);
                   }
                }
             }else if (e.key == 'o'){
                download();
-               //console.log("e is correct");
             }else if (e.key == 'l'){
                upload("scene.json");
-               c = new X.cube();
+               c = new X.sphere();
                r.add(c);
-               //console.log("e is correct");
+            }else if (e.key == 'c'){
+               CAMERAS.push(new Float32Array(r.camera.view));
+               //console.log(CAMERAS);
+               //console.log("check0");
+            }else if (e.key == 'v'){
+               toggleV = !toggleV;
+               if (!toggleV){
+                  clearInterval(startV);
+                  //console.log("check1");
+                  return;
+               }else{
+                  cameraIndex = 0;
+                  r.camera.view = new Float32Array(CAMERAS[cameraIndex]);
+                  startV = setInterval(function(){
+                     cameraIndex = (cameraIndex + 1) % CAMERAS.length;
+                     r.camera.view = new Float32Array(CAMERAS[cameraIndex]);
+                     //console.log("in loop" + cameraIndex);
+                  }, 1000);
+               }
             }
         }
     }
