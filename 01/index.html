@@ -39,6 +39,12 @@
       #bonus {
         width: 100%;
       }
+      .viewer {
+				border: 0px;
+				width: 200px;
+				height: 200px;
+				padding: 10px;
+			}
 
     </style>
   </head>
@@ -51,23 +57,26 @@
     <div class='demo'>
 
       <!-- TODO: REPLACE WITH A SCREENSHOT OF RO.ME -->
-      <img id='screenshot' src='https://placehold.co/300x300'>
+      <img id='screenshot' src='rome.png'>
       <p id='description'>
       <!-- TODO: FILL IN YOUR DESCRIPTION -->
-      RO.ME is a very cool webgl demo!
+      RO.ME is like a fever dream, traveling across the scenary that is semi-realistic but also not at the same time. The graphics is still suprisingly clear even after 14 years from the day of creation. The fact that they made webGL open sourced, the video describing ro.me showed that anyone can create something like this when enough effort is put into it. 
       </p>
       <p id='technology'>
-      Technology: TODO! <!-- TODO: FILL IN THE TECHNOLOGIES USED -->
+      Technology: WebGL, THreeWebGL, html and other js libraries. 
       </p>
       <p id='comparison'>
-      Comparison: TODO! <!-- TODO: FILL IN THE COMPARISON -->
+      Comparison: <a href="https://www.airforce.com/intothestorm/">Another webGL example: </a> The RO.ME experience is much more automatic, while this website makes you interact more by scrolling to progress the story. There's also actual words said in the website as well as notes that can be expanded upon by clicking on the plus sign.
       </p>
       <p id='ai'>
-      Significance (AI): TODO! <!-- TODO: SUMMARIZE THE AI OUTPUT -->
+      Significance (AI): It ran directly in browser without any plugin and was a completely new field back then. It presented the idea of navigating the web in 3D space and prove that webGL isn't just a tool for games but also for serious, creative, real-time graphics work that could be interactive, rich, and deeply immersive. [ChatGPT]
       </p>
 
       <div id='bonus'>
-        <!-- TODO: BONUS TASK GOES HERE -->
+        <iframe class="viewer" src="viewer.html?alligator.gltf"></iframe>
+        <iframe class="viewer" src="viewer.html?quadruped_chow.gltf"></iframe>
+        <iframe class="viewer" src="viewer.html?quadruped_fox.gltf"></iframe>
+        <iframe class="viewer" src="viewer.html?dinosaur.gltf"></iframe>
       </div>
 
     </div>
