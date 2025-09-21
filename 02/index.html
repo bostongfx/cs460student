@@ -25,6 +25,9 @@
         const SIZE = 11;
         const GAP = 15;
 
+        // Global variable for storing the selected cube. Null when no cube selected
+        let SELECTED_CUBE = null;
+
         // Each loop will run 11 times, creating 11^3 or 1,331 cubes.
         for (let z = -5; z < 6; z++) {
           for (let y = -5; y < 6; y++) {
@@ -46,9 +49,32 @@
           }
         }
 
+        // Set the initial camera position.
         r.camera.position = [0, 0, 300];
-
+        
+        // Render the scene.
         r.render();
+        
+        // Handles selecting the cube the user is hovering over.
+        r.interactor.onMouseMove = function(event) {
+          // Use pick to find the ID of the cube.
+          cubeid = r.pick(event.offsetX, event.offsetY);
+
+          // If the id isn't 0, update SELECTED_CUBE, otherwise set SELECTED_CUBE to null.
+          if (cubeid != 0){
+            SELECTED_CUBE = r.get(cubeid)
+          } else {
+            SELECTED_CUBE = null;
+          }
+        }
+        
+        // Only hide cube when q is pressed if SELECTED CUBE isn't null
+        window.onkeypress = function(e) {
+          if (e.key == 'q' && SELECTED_CUBE) {
+            SELECTED_CUBE.visible = false;
+          }
+        }
+
       };
     </script>
   </head>
