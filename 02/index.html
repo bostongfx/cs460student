@@ -1,2 +1,89 @@
-Ready for assignment 2.
+<html>  
+    <head>
+        <style>
+            body {
+                background-color: black;
+            }
+        </style>
+    </head>
+
+    <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+
+    <script type="text/javascript" src="loader.js"></script>
+
+    <script>
+        const SIZE = 10;
+        const GAP = 13;
+        
+        var SELECTED_CUBE = null;
+        var ROTATE_CAMERA = false;
+
+        window.onload = function() {
+            r = new X.renderer3D();
+            r.init();
+            
+            // Create a grid of cubes.
+            for (var z=-5; z < 6; z++) {
+                for (var y=-5; y < 6; y++) {
+                    for(var x=-5; x < 6; x++) {
+                        new_cube = new X.cube();
+                        new_cube.transform.translateX((SIZE + GAP) * x);
+                        new_cube.transform.translateY((SIZE + GAP) * y);
+                        new_cube.transform.translateZ((SIZE + GAP) * z);
+                        
+                        r.add(new_cube);
+                    }
+                }
+            }
+
+            // Move the camera to (0, 0, 360).
+            r.camera.position = [0, 0, 360];
+
+            // Select a cube when the mouse moves over it.
+            r.interactor.onMouseMove = function(event) {
+                cubeid = r.pick(event.offsetX, event.offsetY);
+                if (cubeid != 0) {
+                    cube = r.get(cubeid);
+                    SELECTED_CUBE = cube;
+                }
+            }
+
+            r.render();
+
+            // Rotate the camera around the center when rendering.
+            r.onRender = function() {
+                if (ROTATE_CAMERA) {
+                    r.camera.rotate([1, 0]);
+                }
+            };
+        };
+
+        window.onkeypress = function(event) {
+            if (event.key == 'q') { // Hide the cube when catching the q key.
+                if (SELECTED_CUBE != null) {
+                    SELECTED_CUBE.visible = false;
+                }
+            } else if (event.key == 'w') { // Change the color of the cube when catching the w key.
+                if (SELECTED_CUBE != null) {
+                    SELECTED_CUBE.color = [Math.random(0, 1), Math.random(0, 1), Math.random(0, 1)];
+                }
+            } else if (event.key == 'e') { // Rotate the cube 10 degrees in X-direction when catching the e key.
+                if (SELECTED_CUBE != null) {
+                    SELECTED_CUBE.transform.rotateX(10);
+                }
+            } else if (event.key == 'b') { // Toggle camera rotation when catching the b key.
+                ROTATE_CAMERA = !ROTATE_CAMERA;
+            } else if (event.key == 'o') { // Save the scene to a file when catching the o key.
+                if (typeof download === 'function') {
+                    download();
+                }
+            } else if (event.key == 'l') { // Load the scene from a file when catching the l key.
+                if (typeof upload === 'function') {
+                    upload("scene.json");
+                }
+            }
+        };
+    </script>
+
+</html>
 
