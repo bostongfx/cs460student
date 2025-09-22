@@ -1,0 +1,110 @@
+<html>  
+    <head>
+        <style>
+            body {
+                background-color: black;
+            }
+        </style>
+    </head>
+
+    <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+
+    <script type="text/javascript" src="loader.js"></script>
+
+    <script>
+        const SIZE = 1;
+        const GAP = 1;
+        
+        var SELECTED_sphere = null;
+        var ROTATE_CAMERA = false;
+
+        var CAMERA = [];
+        var CYCLING = false;
+        var index = 0;
+        var cycleInterval = null;
+
+        window.onload = function() {
+            r = new X.renderer3D();
+            r.init();
+            
+            // Create a grid of spheres.
+            for (var z=-5; z < 6; z++) {
+                for (var y=-5; y < 6; y++) {
+                    for(var x=-5; x < 6; x++) {
+                        new_sphere = new X.sphere();
+                        var radius = Math.random(50, 201);
+                        new_sphere.radius = radius;
+                        new_sphere.transform.translateX((SIZE + GAP) * x);
+                        new_sphere.transform.translateY((SIZE + GAP) * y);
+                        new_sphere.transform.translateZ((SIZE + GAP) * z);
+                        
+                        r.add(new_sphere);
+                    }
+                }
+            }
+
+            // Move the camera to (0, 0, 32).
+            r.camera.position = [0, 0, 32];
+
+            // Select a sphere when the mouse moves over it.
+            r.interactor.onMouseMove = function(event) {
+                sphereid = r.pick(event.offsetX, event.offsetY);
+                if (sphereid != 0) {
+                    sphere = r.get(sphereid);
+                    SELECTED_sphere = sphere;
+                }
+            }
+
+            r.render();
+
+            // Rotate the camera around the center when rendering.
+            r.onRender = function() {
+                if (ROTATE_CAMERA) {
+                    r.camera.rotate([1, 0]);
+                }
+            };
+        };
+
+        window.onkeypress = function(event) {
+            if (event.key == 'q') { // Hide the sphere when catching the q key.
+                if (SELECTED_sphere != null) {
+                    SELECTED_sphere.visible = false;
+                }
+            } else if (event.key == 'w') { // Change the color of the sphere when catching the w key.
+                if (SELECTED_sphere != null) {
+                    SELECTED_sphere.color = [Math.random(0, 1), Math.random(0, 1), Math.random(0, 1)];
+                }
+            } else if (event.key == 'e') { // Rotate the sphere 10 degrees in X-direction when catching the e key.
+                if (SELECTED_sphere != null) {
+                    SELECTED_sphere.transform.rotateX(10);
+                }
+            } else if (event.key == 'b') { // Toggle camera rotation when catching the b key.
+                ROTATE_CAMERA = !ROTATE_CAMERA;
+            } else if (event.key == 'o') { // Save the scene to a file when catching the o key.
+                if (typeof download === 'function') {
+                    download();
+                }
+            } else if (event.key == 'l') { // Load the scene from a file when catching the l key.
+                if (typeof upload === 'function') {
+                    upload("scene.json");
+                }
+            } else if (event.key == 'c') { // Store the current camera position when catching the c key.
+                CAMERA.push(new Float32Array(r.camera.view));
+                console.log(CAMERA);
+            } else if (event.key == 'v') { // Start or Stop cycling through the CAMERAS list automatically when catching the v key.
+                if (!CYCLING && CAMERA.length > 0) {
+                    CYCLING = true;
+                    cycleInterval = setInterval(function() {
+                        r.camera.view = CAMERA[index];
+                        index = (index + 1) % CAMERA.length;
+                    }, 1000);
+                } else if (CYCLING) {
+                    CYCLING = false;
+                    clearInterval(cycleInterval);
+                }
+            }
+        };
+    </script>
+
+</html>
+
