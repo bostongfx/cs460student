@@ -1,4 +1,5 @@
-function download() {
+// Added argument for the renderer to get scene info.
+function download(r) {
 
   // get all objects
   ALL_OBJECTS = [];
@@ -41,7 +42,8 @@ function download() {
 
 }
 
-function upload(scene) {
+// Added argument for the renderer to modify scene info.
+function upload(r, scene) {
 
   // remove all objects in the scene
   for (var obj in r.Ha) {
