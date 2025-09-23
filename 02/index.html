@@ -17,6 +17,7 @@
       var SELECTED_CUBE;
       let toggleB = false;
       var c; 
+      let uploaded = false;
   		for (var z=-5; z < 6; z++){ //100 cubes 10*10*10
          for (var y=-5; y < 6; y++){
             for(var x=-5; x < 6; x++){
@@ -61,13 +62,15 @@
                   if (!toggleB){
                      return;
                   }else{
-                     r.camera.rotate([1, 0]);
-                     var x =  Math.random();
-                     var y =  Math.random();
-                     var z =  Math.random();
-                     c.color = [x,y,z];
-                     c.transform.rotateX(-10);
-                     c.transform.rotateY(-10);
+                    r.camera.rotate([1, 0]);
+                    if (uploaded){
+                        var x =  Math.random();
+                        var y =  Math.random();
+                        var z =  Math.random();
+                        c.color = [x,y,z];
+                        c.transform.rotateX(-10);
+                        c.transform.rotateY(-10);
+                    }
                   }
                }
             }else if (e.key == 'o'){
@@ -77,6 +80,7 @@
                upload("scene.json");
                c = new X.cube();
                r.add(c);
+               uploaded = true;
                //console.log("e is correct");
             }
         }
