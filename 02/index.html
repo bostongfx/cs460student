@@ -1,2 +1,93 @@
-Ready for assignment 2.
+<html>
+  <head>
 
+      <style>
+        body {
+            background-color: black;
+        }
+      </style>
+
+      <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+
+      <script>
+      let isActive = false;
+      let cubeid;
+          window.onload = function() {
+
+              // once everything is done loading
+              r = new X.renderer3D();
+              r.init();
+              
+              SIZE = 15;GAP = 15;
+              for (var z=-5; z < 6; z++) {
+                for (var y=-5; y < 6; y++) {
+                  for(var x=-5; x < 6; x++) {
+                    new_cube = new X.cube();
+                    new_cube.transform.translateX((SIZE + GAP) * x);
+                    new_cube.transform.translateY((SIZE + GAP) * y);
+                    new_cube.transform.translateZ((SIZE + GAP) * z);
+                    r.add(new_cube);
+                  }
+                }
+              }
+              //TO DO Part 4
+              r.camera.position = [0,0,300];
+              r.interactor.onMouseMove = function(event) {
+              cubeid = r.pick(event.offsetX, event.offsetY);
+              if (cubeid  != 0) {
+                SELECTED_CUBE = r.get(cubeid);
+              }
+            };
+
+              console.log(cubeid); // test
+              window.onkeypress = function(e) {
+                if (e.key == 'q') {
+                  SELECTED_CUBE.visible = false;
+                }
+                if (e.key == 'e') {
+                  SELECTED_CUBE.rotationX += 10;
+                }
+                if (e.key == 'w') {
+                  SELECTED_CUBE.color = [Math.random(), Math.random(), Math.random()];
+                }
+              
+                if (e.key == 'b'){
+                isActive = !isActive; 
+                }
+            };
+              
+                r.onRender = function() {
+                  if (isActive == true && cubeid != 0) {
+                  // spin the camera in X direction by 1 degree
+                  r.camera.rotate([1, 0]);
+                }
+              };
+            
+            
+              r.render();
+          };
+              
+      
+
+
+          
+
+      </script>
+      <script src = "loader.js">
+      window.onkeypress = function(e) {
+        if (e.key == 'o') {
+          download();
+        }
+        if (e.key == 'p') {
+          upload(scene.json);
+        }
+      }
+
+      </script>
+
+  </head>
+  <body>
+  </body>
+</html>
+
+</html>
