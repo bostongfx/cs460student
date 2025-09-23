@@ -32,6 +32,8 @@ Ready for assignment 2.
 
             let SPINNING = false;
 
+            let totalCubes = 0;
+
             window.onload = function() {
 
 
@@ -48,9 +50,12 @@ Ready for assignment 2.
                             new_cube.transform.translateZ((SIZE + GAP) * z);
 
                             r.add(new_cube);
+                            totalCubes++;
                         }
                     }
                 }
+
+                console.log(totalCubes);
 
 
                 r.interactor.onMouseMove = function(event) {
