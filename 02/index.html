@@ -1,2 +1,37 @@
-Ready for assignment 2.
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>CS460 — Assignment 2 (Part 1)</title>
+    <style>
+      html, body, #r { margin: 0; width: 100%; height: 100%; background: #000; }
+    </style>
+  </head>
+  <body>
+    <!-- XTK renders into this div -->
+    <div id="r"></div>
+
+    <!-- XTK library (use your class’s URL if they gave one) -->
+    <script src="https://get.goxtk.com/xtk.js"></script>
+
+    <script>
+      // Part 1: renderer + a single cube
+      window.onload = function () {
+        var r = new X.renderer3D();
+        r.container = 'r';
+        r.init();
+
+        var cube = new X.cube();
+        cube.lengthX = 20;
+        cube.lengthY = 20;
+        cube.lengthZ = 20;
+        cube.color = [0.8, 0.2, 0.2]; // red-ish
+
+        r.add(cube);
+        r.render();
+      };
+    </script>
+  </body>
+</html>
+
 
