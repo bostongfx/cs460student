@@ -1,0 +1,116 @@
+<html>
+    <style>
+        body {
+            background-color: black;
+        }
+    </style>
+    <head>
+        <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+        <script type="text/javascript" src="./loader.js"></script>
+    </head>
+    <body>
+        <script>
+
+            const SIZE = 20;
+            const GAP = 10;
+            var SELECTED_SPHERE;
+            var CAMERA_AUTOROTATE = false;
+            var CAMERAS = new Array();
+            var CYCLE_CAMERAS = false;
+            var r;
+            var i = 0;
+            var intervalID;
+
+            window.onload = function() {
+                r = new X.renderer3D();
+                r.init();
+                r.camera.position = [0,0,300];
+
+                for (var z=-5; z < 6; z++) {
+                    for (var y=-5; y < 6; y++) {
+                        for(var x=-5; x < 6; x++) {
+                            new_sphere = new X.sphere();
+                            new_sphere.radius = SIZE * Math.random();
+                            new_sphere.transform.translateX((SIZE + GAP) * x);
+                            new_sphere.transform.translateY((SIZE + GAP) * y);
+                            new_sphere.transform.translateZ((SIZE + GAP) * z);
+                            r.add(new_sphere);
+                        }
+                    }
+                }
+
+                r.render();
+            
+
+                r.interactor.onMouseMove = function(event) {
+                    sphereid = r.pick(event.offsetX, event.offsetY);
+
+                    if (sphereid != 0)
+                    {
+                        SELECTED_SPHERE = r.get(sphereid);
+                        console.log(SELECTED_SPHERE);
+                    }
+                };
+
+                window.onkeydown = function(event) {
+                    switch (event.key) {
+                        case 'q':
+                            SELECTED_SPHERE.visible = false;
+                            break;
+                        
+                        case 'w':
+                            let red = Math.random();
+                            let green = Math.random();
+                            let blue = Math.random();
+                            SELECTED_SPHERE.color = [red, green, blue];
+                            break;
+                        
+                        case 'e':
+                            SELECTED_SPHERE.transform.rotateX(10);
+                            break;
+
+                        case 'b':
+                            CAMERA_AUTOROTATE = !CAMERA_AUTOROTATE;
+                            break;
+
+                        case 'c':
+                            var currentView = new Float32Array(r.camera.view);
+                            CAMERAS.push(currentView);
+                            break;
+
+                        case 'v':
+                            
+                            CYCLE_CAMERAS = !CYCLE_CAMERAS;
+                            break;
+
+                        case 'o':
+                            download();
+                            break;
+
+                        case 'l':
+                            upload('./scene.json');
+                            break;
+                    }
+
+                    function swapPositions() {
+                        r.camera.view = CAMERAS[i % CAMERAS.length];
+                        i++;
+                    };
+
+                    r.onRender = function() {
+                        if (CAMERA_AUTOROTATE) {
+                            r.camera.rotate([1,0]);
+                        }
+                    };
+
+                    if (CYCLE_CAMERAS) {
+                            intervalID = setInterval(swapPositions, 1000);
+                        } else if (!CYCLE_CAMERAS) {
+                            clearInterval(intervalID);
+                        }
+                };
+            };
+        </script>
+    </body>
+</html>
+
