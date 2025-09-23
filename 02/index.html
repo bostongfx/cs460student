@@ -1,2 +1,97 @@
 Ready for assignment 2.
 
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta http-equiv="X-UA-Compatible" content="ie=edge">
+        <title>Assignment 2</title>
+        <style>
+            body {
+                background-color: black;
+            }
+        </style>
+    </head>
+    <body>
+        <script src="loader.js"></script>
+        <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+
+        <script>
+
+
+            function generateRandomNumber(min, max) {
+                return (Math.floor(Math.random() * (max - min + 1)) + min) / 100;
+            }
+
+            var SIZE = 10;
+            var GAP = 20;
+            var SELECTED_CUBE;
+
+            var MIN = 0;
+            var MAX = 100;
+
+            let SPINNING = false;
+
+            let totalCubes = 0;
+
+            window.onload = function() {
+
+
+                r = new X.renderer3D();
+                r.init();
+
+                // Generates 1,331 cubes (11^3)
+                for (let z = -5; z < 6; z++) {
+                    for (let y = -5; y < 6; y++) {
+                        for (let x = -5; x < 6; x++) {
+                            new_cube = new X.cube();
+                            new_cube.transform.translateX((SIZE + GAP) * x);
+                            new_cube.transform.translateY((SIZE + GAP) * y);
+                            new_cube.transform.translateZ((SIZE + GAP) * z);
+
+                            r.add(new_cube);
+                            totalCubes++;
+                        }
+                    }
+                }
+
+                console.log(totalCubes);
+
+
+                r.interactor.onMouseMove = function(event) {
+                    var cubeid = r.pick(event.offsetX, event.offsetY);
+                    if (cubeid !== 0) {
+                        SELECTED_CUBE = r.get(cubeid);
+                    }
+                    console.log(SELECTED_CUBE);
+                }
+
+                window.onkeydown = function(event) {
+                    if (event.key === 'q') {
+                        SELECTED_CUBE.visible = false;
+                    } else if (event.key === 'w') {
+                        SELECTED_CUBE.color = [generateRandomNumber(MIN, MAX), generateRandomNumber(MIN, MAX), generateRandomNumber(MIN, MAX)]
+                    } else if (event.key === 'e') {
+                        SELECTED_CUBE.transform.rotateX(10);
+                    } else if (event.key === 'b') {
+                        SPINNING = !SPINNING;
+                        if (SPINNING) {
+                            r.onRender = function() {
+                                r.camera.rotate([1, 0]);
+                            }
+                        } else {
+                            r.onRender = function(){};
+                        }
+                    } else if (event.key === 'o') {
+                        download();
+                    } else if (event.key === 'l') {
+                        upload("scene.json");
+                    }
+                }
+
+                r.camera.position = [0, 0, 300];
+                r.render();
+            }
+        </script>
+    </body>
+</html>

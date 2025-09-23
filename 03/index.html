@@ -1,0 +1,90 @@
+<html>
+<head>
+    <style>
+        html, body {
+            background-color:#000;
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden !important;
+        }
+    </style>
+
+    <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+
+    <script type="importmap">
+        {
+          "imports": {
+            "three": "https://unpkg.com/three@latest/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@latest/examples/jsm/"
+          }
+        }
+    </script>
+
+    <script type="module">
+
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+
+        var scene, camera, renderer, controls;
+        window.onload = function() {
+
+            //
+            // THREE.js code goes here!
+            //
+
+            scene = new THREE.Scene();
+
+            // setup camera
+            let fov = 75;
+            let ratio = window.innerWidth / window.innerHeight;
+
+            let zNear = 1;
+            let zFar = 10000;
+
+            camera = new THREE.PerspectiveCamera(fov, ratio, zNear, zFar);
+            camera.position.set(0, 0, 100);
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+
+            renderer.setSize(window.innerWidth, window.innerHeight, false);
+            document.body.appendChild(renderer.domElement);
+
+            var ambientLight = new THREE.AmbientLight(0xffffff);
+
+            scene.add(ambientLight);
+
+            var directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+            directionalLight.position.set(10, 100, 10);
+
+            scene.add(directionalLight);
+
+            // configure cube
+            var geometry = new THREE.BoxGeometry(20, 20, 20);
+            var material = new THREE.MeshStandardMaterial({ color: 0xffffff });
+
+            var cube = new THREE.Mesh(geometry, material);
+
+            scene.add(cube);
+
+            // setup interactions
+            controls = new OrbitControls(camera, renderer.domElement);
+
+            // call animation/rendering loop
+            animate();
+
+        };
+
+        function animate() {
+
+            requestAnimationFrame( animate );
+
+            controls.update();
+            renderer.render(scene, camera);
+            // ... update renderer + controls
+
+        };
+    </script>
+</head>
+<body></body>
+</html>
