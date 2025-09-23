@@ -1,4 +1,4 @@
-function download() {
+function download(r) {
 
   // get all objects
   ALL_OBJECTS = [];
