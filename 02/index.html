@@ -35,10 +35,6 @@
             let ROTATING_TIME = false;
 
             window.onload = function() {
-                Float32Array.prototype.toJSON = function() {
-                    return Array.from(this);
-                };
-
 
                 // Creates the renderer
                 window.r = new X.renderer3D();
@@ -124,7 +120,6 @@
                     };
                     if (e.key == 'l') {
                         upload("scene.json");
-                        setTimeout(() => r.render(), 100);
                     };
                 };
             };    
