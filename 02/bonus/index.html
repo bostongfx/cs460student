@@ -1,0 +1,132 @@
+<html>
+  <head>
+    <style>
+      html,
+      body {
+        background-color: black;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+      }
+    </style>
+
+    <!-- Import XTK -->
+    <script
+      type="text/javascript"
+      src="https://get.goXTK.com/xtk_edge.js"
+    ></script>
+
+    <script type="text/javascript" src="loader.js"></script>
+
+    <script>
+      // XTK Setup occurs after everything else loaded on page.
+      window.onload = () => {
+        // Initialize renderer
+        let r = new X.renderer3D();
+        r.init();
+
+        const MAX_RADIUS = 10;
+        const GAP = 15;
+
+        let cameras = [];
+        let currentCamera = 0;
+        let cameraInterval = null;
+
+        // Global boolean for rotating the camera.
+        let rotateCamera = false;
+
+        // Global variable for storing the selected sphere. null when no sphere selected
+        let SELECTED_SPHERE = null;
+
+        // Each loop will run 11 times, creating 11^3 or 1,331 spheres.
+        for (let z = -5; z < 6; z++) {
+          for (let y = -5; y < 6; y++) {
+            for (let x = -5; x < 6; x++) {
+              // Create new sphere.
+              let new_sphere = new X.sphere();
+
+              // Set the radius of the spheres to be randomly between [0, 10).
+              new_sphere.radius = Math.random() * MAX_RADIUS;
+
+              // GAP now determines how much the spheres will be translated from the origin.
+              new_sphere.transform.translateX(GAP * x);
+              new_sphere.transform.translateY(GAP * y);
+              new_sphere.transform.translateZ(GAP * z);
+
+              r.add(new_sphere);
+            }
+          }
+        }
+
+        // Set the initial camera position.
+        r.camera.position = [0, 0, 300];
+
+        /*
+           onRender handles getting the current sphere the mouse is hovering over and spinning camera.
+           I chose to use onRender instead of onMouseMove so that way when the user hides a sphere, 
+           they don't need to move the mouse again to select the next one. 
+           I read through the XTK API to find the mousePosition variable which works outside of onMouseMove.
+           Then I used the onRender callback in order to trigger the code on every frame.
+        */
+        r.onRender = () => {
+          // Gets current mouse position
+          let mousePosition = r.interactor.mousePosition;
+
+          // Use pick to find the ID of the sphere.
+          let sphereid = r.pick(mousePosition[0], mousePosition[1]);
+
+          // If the id isn't 0, update SELECTED_SPHERE, otherwise set SELECTED_SPHERE to null.
+          if (sphereid != 0) {
+            SELECTED_SPHERE = r.get(sphereid);
+          } else {
+            SELECTED_SPHERE = null;
+          }
+
+          // Rotate the camera if rotation is enabled.
+          if (rotateCamera) r.camera.rotate([1, 0]);
+        };
+
+        // Advances camera to next position in cameras list.
+        const advanceCamera = () => {
+          r.camera.view = new Float32Array(cameras[currentCamera++]);
+          
+          // Reset current camera counter back to 0 when it reaches end of list.
+          if (currentCamera >= cameras.length) currentCamera = 0;
+        }
+
+        // Handles all keypress operations.
+        window.onkeypress = (e) => {
+          if (e.key == "q" && SELECTED_SPHERE) {
+            SELECTED_SPHERE.visible = false;   // Hides sphere on q press
+          } else if (e.key == "w" && SELECTED_SPHERE) {
+            SELECTED_SPHERE.color = [Math.random(), Math.random(), Math.random()];  // Randomizes color on w press.
+          } else if (e.key == "e" && SELECTED_SPHERE) {
+            SELECTED_SPHERE.transform.rotateX(10);  // Rotate the sphere on the x axis 10 degrees on e press.
+          } else if (e.key == "b") {
+            rotateCamera = !rotateCamera; // Toggle the rotation of the camera on b key press.
+          } else if (e.key == "o") {
+            download(r);  // Download the current scene on o key press.
+          } else if (e.key == "l") {
+            upload(r, "scene.json");  // Upload the current scene on l key press.
+          } else if (e.key == "c") {  // Add camera position to list on c press.
+            cameras.push(new Float32Array(r.camera.view));
+          } else if (e.key == "v") {  // Toggles camera looping on v press.
+            // If an interval is defined, disable it and reset associated variables.
+            if (cameraInterval) {
+              clearInterval(cameraInterval);
+              currentCamera = 0;
+              cameraInterval = null;
+            } else if (cameras.length > 0) {
+              // Begin interval using the advance camera function.
+              cameraInterval = setInterval(advanceCamera, 1000);
+            }
+          }
+        };
+
+        // Render the scene.
+        r.render();
+      };
+    </script>
+  </head>
+  <body></body>
+</html>
