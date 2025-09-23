@@ -1,7 +1,7 @@
 <!doctype html>
 <html>
     <head>
-        <title> Assignment 2</title>
+        <title> Assignment 2 bonus</title>
         <style>
             html, body {
                 height: 100%; 
@@ -30,9 +30,12 @@
         <script>
             "use strict";
 
-            var SELECTED_CUBE; 
+            var SELECTED_SPHERE; 
 
-            let ROTATING_TIME = false;
+            let ROTATING_TIME, CAMERA_TIME = false;
+
+            let CAMERAS = [];
+            let cameraIndex = -1;
 
             window.onload = function() {
                 // Creates the renderer
@@ -40,20 +43,18 @@
                 r.container = 'scene';
                 r.init();
                 
-                // Variables to control aspects of the cube of cubes
-                let numberOfCubes = 11; // on each axis
-                let size = 20; 
-                let spaceBetweenCubes = 10;
+                // Variables to control aspects of the cube of spheres
+                let numberOfSpheress = 11; // on each axis
                 let varOpacity = 70; // percent
 
                 // Calculating any other variables needed
-                let spacing = size + spaceBetweenCubes;
-                let gradientIncrement = 1 / (numberOfCubes - 1);
+                let spacing = 30;
+                let gradientIncrement = 1 / (numberOfSpheress - 1);
 
                 // Sets the camera starting position
-                r.camera.position = [numberOfCubes * spacing, numberOfCubes * spacing, numberOfCubes * spacing];
+                r.camera.position = [numberOfSpheress * spacing, numberOfSpheress * spacing, numberOfSpheress * spacing];
                 
-                // Builds the cube of cubes
+                // Builds the cube of spheres
                 let xPos = 0;
                 for (let i = 0; i <= 1; i += gradientIncrement) {
                     let yPos = 0;
@@ -61,19 +62,17 @@
                         let zPos = 0;
                         for (let k = 0; k <= 1; k += gradientIncrement) {
 
-                            // Creates the current cube
-                            let c = new X.cube()
+                            // Creates the current sphere
+                            let s = new X.sphere()
 
                             // Edits possition, size, color, and opacity
-                            c.center = [xPos, yPos, zPos];
-                            c.lengthX = size;
-                            c.lengthY = size;
-                            c.lengthZ = size;
-                            c.color = [k, j, i];
-                            c.opacity = varOpacity / 100;
+                            s.center = [xPos, yPos, zPos];
+                            s.radius = Math.floor(Math.random() * 20) + 5;
+                            s.color = [k, j, i];
+                            s.opacity = varOpacity / 100;
 
-                            // Adds the current cube to the renderer
-                            r.add(c);
+                            // Adds the current shpere to the renderer
+                            r.add(s);
                             
                             zPos += spacing;
                         }
@@ -83,17 +82,16 @@
                 }
                 
 
-                r.render(); 
                 
                 r.interactor.onMouseMove = function(event) { 
                                       
-                    let cubeid = r.pick(event.offsetX, event.offsetY);
+                    let sphereid = r.pick(event.offsetX, event.offsetY);
 
-                    if (cubeid != 0) {                        
-                        SELECTED_CUBE = r.get(cubeid);
+                    if (sphereid != 0) {                        
+                        SELECTED_SPHERE = r.get(sphereid);
                     };
                 };
-                
+
                 r.onRender = function() {
                     if (ROTATING_TIME) {
                         // spin the camera in X direction by 1 degree
@@ -101,15 +99,16 @@
                     };
                 };
 
+                let interval;
                 window.onkeypress = function(e) {
                     if (e.key == 'q') {
-                        SELECTED_CUBE.visible = false;
+                        SELECTED_SPHERE.visible = false;
                     };
                     if (e.key == 'w') {
-                        SELECTED_CUBE.color = [Math.random(), Math.random(), Math.random()];
+                        SELECTED_SPHERE.color = [Math.random(), Math.random(), Math.random()];
                     };
                     if (e.key == 'e') {
-                        SELECTED_CUBE.transform.rotateX(10);
+                        SELECTED_SPHERE.transform.rotateX(10);
                     };
                     if (e.key == 'b') {
                         ROTATING_TIME = !ROTATING_TIME;
@@ -120,8 +119,26 @@
                     if (e.key == 'l') {
                         upload("scene.json");
                     };
+                    if (e.key == 'c') {
+                        CAMERAS.push(new Float32Array(r.camera.view));
+                    };
+                    if (e.key == 'v') {
+                        CAMERA_TIME = !CAMERA_TIME;
+                        if (CAMERA_TIME) {
+                            cameraIndex = -1;
+                            interval = setInterval(cycle, 1000);
+                        } else {
+                            clearInterval(interval);
+                        };
+                    };
                 };
-            };    
+
+                function cycle() {
+                    r.camera.view = new Float32Array(CAMERAS[++cameraIndex % CAMERAS.length]);
+                };
+
+                r.render(); 
+            }; 
         </script>
     </body>
 </html>
