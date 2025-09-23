@@ -13,59 +13,74 @@
 
             const SIZE = 20;
             const GAP = 10;
-            var SELECTED_CUBE;
+            var SELECTED_SPHERE;
             var CAMERA_AUTOROTATE = false;
+            var CAMERAS = new Array();
+            var CYCLE_CAMERAS = false;
             var r;
+            var i = 0;
+            var intervalID;
 
             window.onload = function() {
                 r = new X.renderer3D();
                 r.init();
+                r.camera.position = [0,0,300];
 
                 for (var z=-5; z < 6; z++) {
                     for (var y=-5; y < 6; y++) {
                         for(var x=-5; x < 6; x++) {
-                            new_cube = new X.cube();
-                            new_cube.transform.translateX((SIZE + GAP) * x);
-                            new_cube.transform.translateY((SIZE + GAP) * y);
-                            new_cube.transform.translateZ((SIZE + GAP) * z);
-                            r.add(new_cube);
+                            new_sphere = new X.sphere();
+                            new_sphere.radius = SIZE * Math.random();
+                            new_sphere.transform.translateX((SIZE + GAP) * x);
+                            new_sphere.transform.translateY((SIZE + GAP) * y);
+                            new_sphere.transform.translateZ((SIZE + GAP) * z);
+                            r.add(new_sphere);
                         }
                     }
                 }
 
-                r.camera.position = [0,0,300];
                 r.render();
             
 
                 r.interactor.onMouseMove = function(event) {
-                    cubeid = r.pick(event.offsetX, event.offsetY);
+                    sphereid = r.pick(event.offsetX, event.offsetY);
 
-                    if (cubeid != 0)
+                    if (sphereid != 0)
                     {
-                        SELECTED_CUBE = r.get(cubeid);
-                        console.log(SELECTED_CUBE);
+                        SELECTED_SPHERE = r.get(sphereid);
+                        console.log(SELECTED_SPHERE);
                     }
                 };
 
                 window.onkeydown = function(event) {
                     switch (event.key) {
                         case 'q':
-                            SELECTED_CUBE.visible = false;
+                            SELECTED_SPHERE.visible = false;
                             break;
                         
                         case 'w':
                             let red = Math.random();
                             let green = Math.random();
                             let blue = Math.random();
-                            SELECTED_CUBE.color = [red, green, blue];
+                            SELECTED_SPHERE.color = [red, green, blue];
                             break;
                         
                         case 'e':
-                            SELECTED_CUBE.transform.rotateX(10);
+                            SELECTED_SPHERE.transform.rotateX(10);
                             break;
 
                         case 'b':
                             CAMERA_AUTOROTATE = !CAMERA_AUTOROTATE;
+                            break;
+
+                        case 'c':
+                            var currentView = new Float32Array(r.camera.view);
+                            CAMERAS.push(currentView);
+                            break;
+
+                        case 'v':
+                            
+                            CYCLE_CAMERAS = !CYCLE_CAMERAS;
                             break;
 
                         case 'o':
@@ -77,11 +92,22 @@
                             break;
                     }
 
+                    function swapPositions() {
+                        r.camera.view = CAMERAS[i % CAMERAS.length];
+                        i++;
+                    };
+
                     r.onRender = function() {
                         if (CAMERA_AUTOROTATE) {
                             r.camera.rotate([1,0]);
                         }
                     };
+
+                    if (CYCLE_CAMERAS) {
+                            intervalID = setInterval(swapPositions, 1000);
+                        } else if (!CYCLE_CAMERAS) {
+                            clearInterval(intervalID);
+                        }
                 };
             };
         </script>
