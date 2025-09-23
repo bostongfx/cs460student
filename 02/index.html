@@ -1,2 +1,126 @@
-Ready for assignment 2.
+<!doctype html>
+<html>
+    <head>
+        <title> Assignment 2</title>
+        <style>
+            html, body {
+                height: 100%; 
+                margin: 0; 
+                background: rgb(20, 20, 20);
+            } 
+            /* Makes the render fill up the whole screen */
+            #scene {
+                width: 100vw;
+                height: 100vh;
+                position: fixed;
+                inset: 0;
+            }
+        </style>
 
+        <!-- Gets the XTK library -->
+        <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+
+    </head>
+
+    <body>
+        <!-- Works with filling up the whole screen -->
+        <div id="scene"></div>
+
+        <script>
+            "use strict";
+
+            var SELECTED_CUBE; 
+
+            let ROTATING_TIME = false;
+
+            window.onload = function() {
+                // Creates the renderer
+                const r = new X.renderer3D();
+                r.container = 'scene';
+                r.init();
+                
+                // Variables to control aspects of the cube of cubes (I will make this interactive in browser eventually)
+                let numberOfCubes = 11; // on each axis
+                let size = 20; 
+                let spaceBetweenCubes = 10;
+                let varOpacity = 70; // percent
+
+                // Calculating any other variables needed
+                let spacing = size + spaceBetweenCubes;
+                let gradientIncrement = 1 / (numberOfCubes - 1);
+
+                // Sets the camera starting position
+                r.camera.position = [numberOfCubes * spacing, numberOfCubes * spacing, numberOfCubes * spacing];
+                
+                // Builds the cube of cubes
+                let xPos = 0;
+                for (let i = 0; i <= 1; i += gradientIncrement) {
+                    let yPos = 0;
+                    for (let j = 0; j <= 1; j += gradientIncrement) {
+                        let zPos = 0;
+                        for (let k = 0; k <= 1; k += gradientIncrement) {
+
+                            // Creates the current cube
+                            let c = new X.cube()
+
+                            // Edits possition, size, color, and opacity
+                            c.center = [xPos, yPos, zPos];
+                            c.lengthX = size;
+                            c.lengthY = size;
+                            c.lengthZ = size;
+                            c.color = [k, j, i];
+                            c.opacity = varOpacity / 100;
+
+                            // Adds the current cube to the renderer
+                            r.add(c);
+                            
+                            zPos += spacing;
+                        }
+                        yPos += spacing;
+                    }
+                    xPos += spacing;
+                }
+                
+
+                r.render(); 
+                
+                r.interactor.onMouseMove = function(event) { 
+                                      
+                    let cubeid = r.pick(event.offsetX, event.offsetY);
+
+                    if (cubeid != 0) {                        
+                        SELECTED_CUBE = r.get(cubeid);
+                    };
+                };
+                
+                r.onRender = function() {
+                    if (ROTATING_TIME) {
+                        // spin the camera in X direction by 1 degree
+                        r.camera.rotate([1, 0]);
+                    };
+                };
+
+                window.onkeypress = function(e) {
+                    if (e.key == 'q') {
+                        SELECTED_CUBE.visible = false;
+                    };
+                    if (e.key == 'w') {
+                        SELECTED_CUBE.color = [Math.random(0, 1), Math.random(0, 1), Math.random(0, 1)];
+                    };
+                    if (e.key == 'e') {
+                        SELECTED_CUBE.transform.rotateX(10);
+                    };
+                    if (e.key == 'b') {
+                        ROTATING_TIME = !ROTATING_TIME;
+                    };
+                    if (e.key == 'o') {
+                        loader.download();
+                    };
+                    if (e.key == 'l') {
+                        loader.upload(scene.json);
+                    };
+                };
+            };    
+        </script>
+    </body>
+</html>
