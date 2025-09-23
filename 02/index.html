@@ -30,11 +30,16 @@
         <script>
             "use strict";
 
-            var SELECTED_CUBE; 
+            var SELECTED_CUBE, CAMERAS; 
 
             let ROTATING_TIME = false;
 
             window.onload = function() {
+                Float32Array.prototype.toJSON = function() {
+                    return Array.from(this);
+                };
+
+
                 // Creates the renderer
                 window.r = new X.renderer3D();
                 r.container = 'scene';
@@ -119,6 +124,7 @@
                     };
                     if (e.key == 'l') {
                         upload("scene.json");
+                        setTimeout(() => r.render(), 100);
                     };
                 };
             };    
