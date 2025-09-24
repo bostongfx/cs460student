@@ -1,2 +1,152 @@
-Ready for assignment 2.
+<html>
 
+<head>
+
+    <style>
+        body {
+            background-color: black;
+        }
+    </style>
+
+    <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+    <script type="text/javascript" src="loader.js"></script>
+
+    <script>
+        SIZE = 50;
+        GAP = -25;
+        let SELECTED_CUBE;
+        let IS_ROTATING = false;
+        let stack_height = 0;
+        let stack_width = 0;
+        let cubes_in_stack = [];
+        let r;
+        window.onload = function () {
+
+            // once everything is done loading
+
+            r = new X.renderer3D();
+            r.init();
+            // this makes 1331 cubes ( 11 x 11 x 11)
+            for (var z = -5; z < 6; z++) {
+                for (var y = -5; y < 6; y++) {
+                    for (var x = -5; x < 6; x++) {
+                        new_cube = new X.cube();
+                        new_cube.color = [Math.random(), Math.random(), Math.random()]
+                        new_cube.transform.translateX((SIZE + GAP) * x);
+                        new_cube.transform.translateY((SIZE + GAP) * y);
+                        new_cube.transform.translateZ((SIZE + GAP) * z);
+                        r.add(new_cube);
+                    }
+                }
+            }
+
+
+            r.camera.position = [0, 0, 300];
+            r.render();
+
+
+
+            r.interactor.onMouseMove = function (event) {
+
+                cubeid = r.pick(event.offsetX, event.offsetY);
+
+                if (cubeid != 0)
+                    SELECTED_CUBE = r.get(cubeid);
+
+            };
+
+            refreshStack = function () {
+
+                setTimeout(function () {
+
+                    cubes_in_stack = [];
+
+                    for (var i = 0; i < r.Ha.length; i++) {
+                        var cube = r.Ha[i];
+
+                     
+                        var position = cube.transform.matrix;
+
+                        if (cube.lengthX === 21) {
+
+                            cubes_in_stack.push(cube.id);
+                        }
+                    }
+
+                    r.render(); 
+
+                }, 200);
+            }
+
+
+
+            window.onkeypress = function (e) {
+
+                if (e.key == 'q') {
+                    SELECTED_CUBE.visible = false;
+                }
+                if (e.key == 'w') {
+                    SELECTED_CUBE.color = [Math.random(), Math.random(), Math.random()];
+                }
+                if (e.key == 'e') {
+                    SELECTED_CUBE.transform.rotateX(10);
+                }
+                if (e.key == 'b') {
+                    if (!IS_ROTATING) {
+                        IS_ROTATING = true;
+                    } else { IS_ROTATING = false; }
+                }
+                if (e.key == 'o') {
+                    download(r);
+                }
+                if (e.key == 'l') {
+                    upload("scene-9.json");
+                    refreshStack();
+                }
+
+                if (e.key == 'p' && !cubes_in_stack.includes(SELECTED_CUBE.id)) {
+                    stack_height += 1;
+                    new_stack_cube = new X.cube();
+                    new_stack_cube.color = SELECTED_CUBE.color;
+                    new_stack_cube.transform.translateX(200 + (stack_width * (SIZE + GAP)));
+                    new_stack_cube.transform.translateY(-200 + (stack_height * (SIZE + GAP)));
+                    new_stack_cube.lengthX = SELECTED_CUBE.lengthX + 1;
+
+                    new_stack_cube.transform.translateZ(0);
+                    console.log(new_stack_cube.lengthX)
+                    r.add(new_stack_cube);
+
+                    cubes_in_stack.push(new_stack_cube.id);
+                    SELECTED_CUBE.visible = false;
+                    SELECTED_CUBE = null;
+                }
+                if (stack_height % 15 == 0) {
+                    stack_height = 0;
+                    stack_width += 1;
+                }
+            }
+
+
+
+
+            r.onRender = function () {
+                // spin the camera in X direction by 1 degree
+                if (IS_ROTATING) {
+                    r.camera.rotate([1, 0]);
+                }
+                for (const cube_info of cubes_in_stack) {
+                    r.get(cube_info).transform.rotateY(5);
+                }
+
+
+            }
+
+        }
+    </script>
+
+</head>
+
+<body>
+</body>
+
+</html>

@@ -81,6 +81,7 @@ function upload(scene) {
         loaded_cube.lengthY = lengthY;
         loaded_cube.lengthZ = lengthZ;
 
+
         r.add(loaded_cube);
 
       } else if (type == 'sphere') {
