@@ -96,6 +96,7 @@
 
         // Handles all keypress operations.
         window.onkeypress = (e) => {
+          // Cube related key presses also verify that SELECTED_CUBE is not null.
           if (e.key == "q" && SELECTED_SPHERE) {
             SELECTED_SPHERE.visible = false;   // Hides sphere on q press
           } else if (e.key == "w" && SELECTED_SPHERE) {
@@ -107,7 +108,7 @@
           } else if (e.key == "o") {
             download(r);  // Download the current scene on o key press.
           } else if (e.key == "l") {
-            upload(r, "scene.json");  // Upload the current scene on l key press.
+            upload(r, "scene.json");  // Load the scene.json file on l key press.
           } else if (e.key == "c") {  // Add camera position to list on c press.
             cameras.push(new Float32Array(r.camera.view));
           } else if (e.key == "v") {  // Toggles camera looping on v press.

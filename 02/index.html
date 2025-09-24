@@ -31,7 +31,7 @@
         // Global boolean for rotating the camera.
         let rotateCamera = false;
 
-        // Global variable for storing the selected cube. null when no cube selected
+        // Global variable for storing the selected cube. Variable will be null when no cube is selected
         let SELECTED_CUBE = null;
 
         // The inner most loop will run a total of 11^3 times, creating 11^3 or 1,331 cubes.
@@ -85,6 +85,7 @@
 
         // Handles all keypress operations.
         window.onkeypress = (e) => {
+          // Cube related key presses also verify that SELECTED_CUBE is not null.
           if (e.key == "q" && SELECTED_CUBE) {
             SELECTED_CUBE.visible = false;   // Hides cube on q press
           } else if (e.key == "w" && SELECTED_CUBE) {
@@ -96,7 +97,7 @@
           } else if (e.key == "o") {
             download(r);  // Download the current scene on o key press.
           } else if (e.key == "l") {
-            upload(r, "scene.json");  // Upload the current scene on l key press.
+            upload(r, "scene.json");  // Load the scene.json file on l key press.
           }
         };
 
@@ -137,13 +138,13 @@
               new_cube.lengthZ = SIZE;
             
               // Selects the index that decides what color should be used from the gradient.
-              // This works by adding 5 to x, y, z brings the range of these variables from [-5, 5] to [0, 10].
+              // This works by adding 5 to x, y, and z, which brings the range of these variables from [-5, 5] to [0, 10].
               // Then each variable is divided by 3, which essentially adds a "weight" to each axis to determine how far along the gradient it is.
               // A Math.min is taken to prevent the sum of these variables from going past the array of the gradient.
               // Lastly, the number is rounded so it can map the selected index to the array.
               let i = Math.round(Math.min(GRADIENT.length, ((y+5)/3) + ((x+5)/3) + ((z+5)/3)))
             
-              // The colors above are stored in RGB [0,255], so each value is divided by 255 to bring it between [0, 1]
+              // The colors above are stored in RGB [0,255], so each value is divided by 255 to normalize it.
               new_cube.color = [GRADIENT[i][0]/255, GRADIENT[i][1]/255, GRADIENT[i][2]/255];
 
               // GAP now determines how much the cubes will be translated from the origin.
