@@ -47,8 +47,13 @@
                         return;
                     }
                     SELECTED_CUBE = r.get(cubeid);
-                    console.log(SELECTED_CUBE);
-            }
+                    // console.log(SELECTED_CUBE);
+                }
+                window.onkeypress = function(e){
+                    if (e.key == 'q'){
+                        SELECTED_CUBE.visible = false;
+                    }
+                }
 
 
 
