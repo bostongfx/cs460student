@@ -60,6 +60,14 @@
                     activeRo = !activeRo;
                   }
 
+                   if (e.key === 'o'){
+                    download();
+                  }
+
+                  if (e.key === 'l'){
+                    upload("scene.json");
+                  }
+
                 }
 
                     r.onRender = function(){
