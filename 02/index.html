@@ -1,2 +1,101 @@
 Ready for assignment 2.
 
+<html>
+    <head>
+        <style>
+            body {
+                background-color: black;
+            }
+        </style>    
+
+        <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+
+        <script type="text/javascript" src="loader.js"></script>
+        
+        <script>
+            var SIZE = 30;
+            var GAP = 1;
+            var SELECTED_CUBE;
+            var ROTATING = 0;
+            
+            window.onload = function() {
+
+                // once everything is done loading
+
+                r = new X.renderer3D();
+                r.init();
+
+                // c = new X.cube();
+                // c.color = [0, 1, 0];
+
+                // r.add(c);
+
+                for (var z=-5; z < 6; z++) {
+                    for (var y=-5; y < 6; y++) {
+                        for(var x=-5; x < 6; x++) {
+                            new_cube = new X.cube();
+                            new_cube.transform.translateX((SIZE + GAP) * x);
+                            new_cube.transform.translateY((SIZE + GAP) * y);
+                            new_cube.transform.translateZ((SIZE + GAP) * z);
+                            r.add(new_cube);
+                        }
+                    }
+                }
+
+                r.camera.position = [0,0,300];
+
+                r.render();
+
+                r.interactor.onMouseMove = function(event) {
+                    cubeid = r.pick(event.offsetX, event.offsetY) ;
+                    
+                    if (cubeid != 0) {
+                        SELECTED_CUBE = r.get(cubeid);
+                        console.log(SELECTED_CUBE);
+                    }
+                }
+            }
+
+            window.onkeypress = function(e) {
+                if (e.key == 'q') {
+                    SELECTED_CUBE.visible = false;
+                }
+                if (e.key == 'w') {
+                    SELECTED_CUBE.color  = [Math.random(),Math.random(),Math.random()];
+                }
+                if (e.key == 'e') {
+                    SELECTED_CUBE.transform.rotateX(10);
+                }
+                if (e.key == 'b') {
+                    if (ROTATING == 0) {
+                        ROTATING++;
+                    } else if (ROTATING == 1) {
+                        ROTATING--;
+                    }
+                    
+                    r.onRender = function() {
+                        if (ROTATING == 0) {
+                            r.camera.rotate([1,0]);
+                        } else if (ROTATING == 1) {
+                            r.camera.rotate([0,0]);
+                        }
+                    }   
+                }
+                if (e.key == 'o') {
+                    download();
+                }
+                if (e.key == 'l') {
+                    upload("scene.json");
+                }
+            }
+
+            
+
+
+        </script>
+
+    </head>
+    <body>
+        
+    </body>
+</html>
