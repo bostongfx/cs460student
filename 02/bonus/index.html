@@ -1,0 +1,126 @@
+<html>
+    <head>
+        <title>CS460 - HW2 Bonus</title>
+
+        <style>
+            body {
+                background-color: black;
+            }
+        </style>
+
+        <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+        <script type="text/javascript" src="loader.js"></script>
+
+        <script>
+            const SIZE = 5;
+            const GAP = 20;
+            var SELECTED_SPHERE;
+            var CAMERAS = [];
+            let bToggle = false, vToggle = false;
+
+            window.onload = function() {
+                r = new X.renderer3D();
+                r.init();
+
+                /**
+                 * Step 2: Create many spheres instead
+                 * 
+                **/
+                for (var z=-5; z < 6; z++) {
+                    for (var y=-5; y < 6; y++) {
+                        for (var x =-5; x < 6; x++) {
+                            new_sphere = new X.sphere();
+                            // randomize size
+                            new_sphere.radius = Math.random() * 10 + 3;
+
+                            new_sphere.transform.translateX((SIZE + GAP) * x);
+                            new_sphere.transform.translateY((SIZE + GAP) * y);
+                            new_sphere.transform.translateZ((SIZE + GAP) * z);
+
+                            r.add(new_sphere);
+                        }
+                    }
+                }
+                
+                r.camera.position = [0, 0, 300];
+                r.render();
+
+                r.interactor.onMouseMove = function(event) {
+                    sphereid = r.pick(event.offsetX, event.offsetY);
+
+                    if(sphereid != 0)
+                        SELECTED_SPHERE = r.get(sphereid);
+
+                }
+
+                /**
+                 * Step 3: Support storage for many camera positions
+                 * 
+                **/
+                window.onkeypress = function(e) {
+                    if (e.key == 'q') {
+
+                        SELECTED_SPHERE.visible = false;
+
+                    } else if (e.key == 'w') {
+
+                        let r = Math.random();
+                        let g = Math.random();
+                        let b = Math.random();
+
+                        console.log('RGB: ', r, g, b);
+
+                        SELECTED_SPHERE.color = [r, g, b];
+
+                    } else if (e.key == 'e') {
+
+                        SELECTED_SPHERE.transform.rotateX(10);
+
+                    } else if (e.key == 'b') {
+
+                        bToggle = !bToggle;
+
+                    } else if (e.key == 'o') {
+
+                        download();
+
+                    } else if (e.key == 'l') {
+
+                        upload("scene.json");
+
+                    } else if (e.key == 'c') { // Step 3: Store camera position
+                        CAMERAS.push(new Float32Array(r.camera.view));
+
+                    } else if (e.key == 'v') { // Step 3: Cycle CAMERAS list
+                        vToggle = !vToggle;
+
+                        // Step 5: Begin and stop cycle apporpriately
+                        if(vToggle && CAMERAS.length > 0) {
+                            console.log("attempting to cycle on ", CAMERAS.length);
+                            let index = 0;
+                            timerID = setInterval(function() {
+                                console.log(index);
+                                r.camera.view = CAMERAS[index];
+                                index += 1;
+
+                                if (index >= CAMERAS.length) index = 0;
+                            }, 1000);
+                        } else {
+                            vToggle = false;
+                            console.log("stop camera cycle: ", CAMERAS.length);
+                            if (CAMERAS.length > 0)
+                                clearInterval(timerID);
+                        }
+
+                    }
+                }
+
+                r.onRender = function() {
+                    if (bToggle)
+                        r.camera.rotate([1,0]);
+                }
+
+            }
+        </script>
+    </head>
+</html>
