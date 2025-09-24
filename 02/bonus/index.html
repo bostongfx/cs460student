@@ -1,0 +1,113 @@
+<html>
+  <head>
+    <style>
+        body {
+          background-color: black;
+        }
+    </style>
+
+    <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+    
+    <!--from https://stackoverflow.com/questions/436411-->
+    <script src="loader.js"></script>
+
+    <script>
+      SELECTED_SPHERE = null
+      CAMERA_ROTATION = true
+      CAMERAS = []
+      ADD_CAMERA = false
+      CYCLE_VIEW = false
+      INDEX = 0
+      CLEAR_CAMS = false
+      
+
+      window.onload = function() {
+        var SIZE = 10
+        var GAP = 0.5
+
+        window.r = new X.renderer3D();
+        window.r.init()
+
+        for (var z = -5; z < 6; z++) {
+          for (var y = -5; y < 6; y++) {
+            for (var x = -5; x < 6; x++) {
+              newSphere = new X.sphere
+              newSphere.radius = 3 + 5 * Math.random()
+              newSphere.transform.translateX((SIZE + GAP) * x)
+              newSphere.transform.translateY((SIZE + GAP) * y)
+              newSphere.transform.translateZ((SIZE + GAP) * z)
+
+              r.add(newSphere)
+            }
+          }
+        }
+        r.interactor.onMouseMove = function(event) {
+          cubeid = r.pick(event.offsetX, event.offsetY)
+          SELECTED_SPHERE = r.get(cubeid)
+        }
+
+        window.onkeypress = function(e) {
+          if (e.key == "q") {
+            SELECTED_SPHERE.visible = false
+          }
+          if (e.key == "w") {
+            var r = Math.random()
+            var g = Math.random()
+            var b = Math.random()
+            SELECTED_SPHERE.color = [r, g, b]
+          }
+          if (e.key == "e") {
+            SELECTED_SPHERE.transform.rotateX(10)
+          }
+          if (e.key == "b") {
+            if (CAMERA_ROTATION) {CAMERA_ROTATION = false}
+            else {CAMERA_ROTATION = true}
+          }
+          if (e.key == "o") {
+            download()
+          }
+          if (e.key == "l") {
+            upload("scene.json")
+            CLEAR_CAMS = true
+          }
+          if (e.key == "c") {
+            CLEAR_CAMS = false
+            var view = new Float32Array(window.r.camera.view)
+            CAMERAS.push(view)
+          }
+          if (e.key == "v") {
+            if (CYCLE_VIEW) {
+              CYCLE_VIEW = false
+            }
+            else {CYCLE_VIEW = true}
+            if (CYCLE_VIEW) {
+              var x = setInterval(function() {
+                if (INDEX == CAMERAS.length) {
+                  INDEX = 0
+                }
+                window.r.camera.view = new Float32Array(CAMERAS[INDEX++])
+                if (!CYCLE_VIEW) {
+                  clearInterval(x)
+                }
+              }, 1000)
+            }
+          }
+        }
+
+        r.camera.position = [0, 0, 250]
+
+        
+
+        r.onRender = function() {
+          if (CAMERA_ROTATION) {
+            r.camera.rotate([1, 0])
+          }
+          if (CLEAR_CAMS) {CAMERAS = []}
+        }
+        r.render()
+      }
+
+
+    </script>
+  </head>
+</html>
