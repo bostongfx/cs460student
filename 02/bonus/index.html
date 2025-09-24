@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"> 
+    <title>Assignment 2 (Cs 460 with Daniel)</title>
+    <script type="text/javascript" src="http://get.goxtk.com/xtk_edge.js"></script>
+    <script src="loader.js"></script>
+</head>
+<style>
+    body{
+        margin: 0;
+        overflow: hidden;
+        background-color: black;
+        color: white;
+    }
+    canvas{
+        width: 100%;
+        height: 100%;
+        display: block;
+    }
+</style>
+<body>
+    <h1>Assignment 2 (BONUS) - CS 460</h1>
+
+    <script>
+        const SIZE = 30;
+        const GAP = 15;
+        let B_ROTATE = false;
+        let CAMERAS = [];
+        let cameraNum = 0;
+        let Time_CAMERA = null; 
+        const DELAY = 1000;
+
+        window.onload = function(){
+            r = new X.renderer3D();
+            r.init();
+                for (var z=-5; z < 6; z++) {
+                    for (var y=-5; y < 6; y++) {
+                        for(var x=-5; x < 6; x++) {
+                            new_sphere = new X.sphere();
+                            new_sphere.transform.translateX((SIZE + GAP) * x);
+                            new_sphere.transform.translateY((SIZE + GAP) * y);
+                            new_sphere.transform.translateZ((SIZE + GAP) * z);
+                            new_sphere.radius = new_sphere.radius + 20 * Math.random();
+                            r.add(new_sphere);
+                        }
+                    }
+                }
+                r.camera.position = [0, 0, 500];
+                r.interactor.onMouseMove = function(event){
+                    cubeid = r.pick(event.offsetX, event.offsetY);
+                    if (cubeid == 0){
+                        SELECTED_CUBE = null;
+                        return;
+                    }
+                    SELECTED_CUBE = r.get(cubeid);
+                    // console.log(SELECTED_CUBE);
+                }
+                window.onkeypress = function(e){
+                    if (e.key == 'q'){
+                        SELECTED_CUBE.visible = false;
+                    }
+                    if (e.key == 'w'){
+                        // console.log(SELECTED_CUBE.color);
+                        SELECTED_CUBE.color = [Math.random(), Math.random(), Math.random()];
+                    }
+                    if (e.key == 'e'){
+                        SELECTED_CUBE.transform.rotateX(10);
+                    }
+                    if (e.key =='b'){
+                        if (B_ROTATE == false){
+                            B_ROTATE = true;
+                        }
+                        else if (B_ROTATE == true){
+                            B_ROTATE = false};
+                    }
+                    if (e.key == 'o'){
+                        download();
+                    }
+                    if (e.key == 'l'){
+                        upload("scene.json");
+                        console.log("It works!!");
+                    }
+                    if (e.key == "c"){
+                        CAMERAS.push(new Float32Array (r.camera.view));
+                    }
+                    if (e.key == "v"){
+                        if (Time_CAMERA){
+                            clearInterval(Time_CAMERA);
+                            Time_CAMERA = null;
+                        }
+                        Time_CAMERA = setInterval(function(){
+                            r.camera.view = CAMERAS[cameraNum];
+                            cameraNum = (cameraNum + 1);
+                           },   DELAY);
+                        
+                    }
+                }
+                r.onRender = function(){
+                    if (B_ROTATE == true){
+                    r.camera.rotate([1, 0]);
+                   }
+                }
+
+            r.render();
+            
+        };
+    </script>
+
+
+</body>
+</html>
