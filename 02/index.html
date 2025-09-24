@@ -1,2 +1,68 @@
-Ready for assignment 2.
+<html>
+  <head>
 
+      <style>
+        body {
+            background-color: black;
+        }
+      </style>
+
+      <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+      <script src='loader.js'></script>
+
+      <script>
+
+          window.onload = function() {
+
+            var SIZE = 20;
+            var GAP = 5;
+
+              // once everything is done loading
+
+              r = new X.renderer3D();
+              r.init();
+
+              c = new X.cube();
+              c.color = [1, 1, 1];
+
+              r.add(c);
+
+              c2 = new X.cube();
+              c2.center = [0, 30, 0];
+              r.add(c2);
+
+              for (var z=-5; z <6; z++) {
+                for (var y=-5; y < 6; y++) {
+                    for(var x=-5; x < 6; x++) {
+
+                        new_cube = new X.cube();
+                            new_cube.transform.translateX((SIZE + GAP) * x);
+                            new_cube.transform.translateY((SIZE + GAP) * y);
+                            new_cube.transform.translateZ((SIZE + GAP) * z);
+
+                            r.add(new_cube);
+
+                    }
+                }
+            }
+
+            r.camera.position = [0, 0, 300];
+
+
+            r.interactor.onMouseMove = function(event) {
+
+                cubeid = r.pick(event.offsetX, event.offsetY) ;
+            }
+                
+            r.render();
+
+              // console.log('Hello CS460!')
+
+            }
+
+      </script>
+
+  </head>
+  <body>
+  </body>
+</html>
