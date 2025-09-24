@@ -24,6 +24,7 @@
     <script>
         const SIZE = 25;
         const GAP = 5;
+        let B_ROTATE = false;
 
         window.onload = function(){
             r = new X.renderer3D();
@@ -53,9 +54,26 @@
                     if (e.key == 'q'){
                         SELECTED_CUBE.visible = false;
                     }
+                    if (e.key == 'w'){
+                        // console.log(SELECTED_CUBE.color);
+                        SELECTED_CUBE.color = [Math.random(), Math.random(), Math.random()];
+                    }
+                    if (e.key == 'e'){
+                        SELECTED_CUBE.transform.rotateX(10);
+                    }
+                    if (e.key =='b'){
+                        if (B_ROTATE == false){
+                            B_ROTATE = true;
+                        }
+                        else if (B_ROTATE == true){
+                            B_ROTATE = false};
+                    }
                 }
-
-
+                r.onRender = function(){
+                    if (B_ROTATE == true){
+                    r.camera.rotate([1, 0]);
+                   }
+                }
 
 
 
