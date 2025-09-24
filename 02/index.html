@@ -72,7 +72,10 @@
                             cubes_in_stack.push(cube.id);
                         }
                     }
+                    stack_width = Math.floor(cubes_in_stack.length / 15)
+                    stack_height = cubes_in_stack.length % 15
 
+                    // console.log('width: ', stack_width)
                     r.render(); 
 
                 }, 200);
