@@ -1,4 +1,3 @@
-Started Assignment 2, under progress...
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,16 +5,59 @@ Started Assignment 2, under progress...
     <title>Assignment 2 (Cs 460 with Daniel)</title>
     <script type="text/javascript" src="http://get.goxtk.com/xtk_edge.js"></script>
 </head>
+<style>
+    body{
+        margin: 0;
+        overflow: hidden;
+        background-color: black;
+        color: white;
+    }
+    canvas{
+        width: 100%;
+        height: 100%;
+        display: block;
+    }
+</style>
 <body>
+    <h1>Assignment 2 - CS 460</h1>
+
     <script>
+        const SIZE = 25;
+        const GAP = 5;
+
         window.onload = function(){
+            r = new X.renderer3D();
+            r.init();
+                for (var z=-5; z < 6; z++) {
+                    for (var y=-5; y < 6; y++) {
+                        for(var x=-5; x < 6; x++) {
+                            new_cube = new X.cube();
+                            new_cube.transform.translateX((SIZE + GAP) * x);
+                            new_cube.transform.translateY((SIZE + GAP) * y);
+                            new_cube.transform.translateZ((SIZE + GAP) * z);
+                            r.add(new_cube);
+                        }
+                    }
+                }
+                r.camera.position = [0, 0, 300];
+                r.interactor.onMouseMove = function(event){
+                    cubeid = r.pick(event.offsetX, event.offsetY);
+                    if (cubeid == 0){
+                        SELECTED_CUBE = null;
+                        return;
+                    }
+                    SELECTED_CUBE = r.get(cubeid);
+                    console.log(SELECTED_CUBE);
+            }
+
+
+
+
+
+            r.render();
             
-        }
+        };
     </script>
-
-
-
-
 
 
 </body>
