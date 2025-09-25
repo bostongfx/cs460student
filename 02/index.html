@@ -1,0 +1,119 @@
+<html>
+<head>
+    <style>
+      body {
+        background-color: black;
+        margin: 0;
+        overflow: hidden;
+      }
+    </style>
+    <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+    <script type="text/javascript" src="loader.js"></script>
+</head>
+<body>
+    <script>
+        // Global variables
+        var SIZE = 12;           
+        var GAP  = 5;            
+        var SELECTED_CUBE = null;
+        var PREVIOUS_CUBE = null; 
+        var r;                   
+        var SPIN = false;              
+        
+      window.onload = function() {
+        r = new X.renderer3D();
+        r.init();
+
+        // Part 2
+        for (var z = -5; z < 6; z++) {
+            for (var y = -5; y < 6; y++) {
+            for (var x = -5; x < 6; x++) {
+                var new_cube = new X.cube();
+                new_cube.lengthX = new_cube.lengthY = new_cube.lengthZ = SIZE;
+
+                new_cube.transform.translateX((SIZE + GAP) * x);
+                new_cube.transform.translateY((SIZE + GAP) * y);
+                new_cube.transform.translateZ((SIZE + GAP) * z);
+
+                r.add(new_cube);
+                }
+            }
+        }
+        // Part 3
+        r.camera.position = [0, 0, 300];
+
+
+        // Part 4
+
+        r.interactor.onMouseMove = function(event) {
+            var mx = (event.offsetX !== undefined) ? event.offsetX : event.layerX;
+            var my = (event.offsetY !== undefined) ? event.offsetY : event.layerY;
+            var cubeid = r.pick(mx, my);
+            if (PREVIOUS_CUBE) {
+                PREVIOUS_CUBE.color = PREVIOUS_CUBE.permanentColor || [1, 1, 1];
+            }
+            
+            if (cubeid !== 0) {
+                SELECTED_CUBE = r.get(cubeid);
+                if (SELECTED_CUBE) {
+                    if (!SELECTED_CUBE.permanentColor) {
+                        SELECTED_CUBE.permanentColor = SELECTED_CUBE.color ? SELECTED_CUBE.color.slice() : [1, 1, 1];
+                    }
+                    SELECTED_CUBE.color = [1, 0, 1]; 
+                    PREVIOUS_CUBE = SELECTED_CUBE;
+                }
+            } else {
+                SELECTED_CUBE = null;
+                PREVIOUS_CUBE = null;
+            }        
+        };
+            
+        // Part 6
+        r.onRender = function () {
+            if (SPIN) {
+                r.camera.rotate([1, 0]); 
+            }
+        };
+            
+            // Parts 5 + 6 + 7
+            window.onkeypress = function (e) {
+            var key = (e.key || '').toLowerCase();
+            
+            // Part 6
+            if (key === 'b') { 
+                SPIN = !SPIN; 
+                return; 
+            }
+            
+            // Part 7
+            if (key === 'o') { 
+                download(); 
+                return; 
+            }
+            if (key === 'l') { 
+                upload('scene.json'); 
+                return; 
+            }
+            
+            // Part 5
+            if ((key === 'q' || key === 'w' || key === 'e') && !SELECTED_CUBE) return;
+            
+            if (key === 'q') {
+                SELECTED_CUBE.visible = false;
+            } else if (key === 'w') {
+                var randomColor = [Math.random(), Math.random(), Math.random()];
+                SELECTED_CUBE.color = randomColor;
+                SELECTED_CUBE.permanentColor = randomColor; 
+            } else if (key === 'e') {
+                SELECTED_CUBE.transform.rotateX(10);
+            }
+            };
+            
+            r.render();
+            window.focus(); 
+        };
+        
+    </script> 
+</body>
+</html>
+
