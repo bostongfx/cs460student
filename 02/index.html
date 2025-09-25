@@ -1,2 +1,111 @@
-Ready for assignment 2.
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>CS460.org Assignment 2</title>
+        <style>
+        body {
+            background-color: black;
+            margin: 0;
+        }
+        #render-container {
+	        width: 100vw;
+	        height: 100vh;
+	    }
+        </style>
+        <script
+        type="text/javascript"
+        src="https://get.goXTK.com/xtk_edge.js">
+        </script>
+        <script
+        type="text/javascript"
+        src="loader.js">
+        </script>
+        <script>
+            var SIZE = 30;
+            var GAP = 10;
+            var SELECTED_CUBE = null;
+            var keyB_toggled = false;
 
+            // Part 1
+            window.onload = function() {
+                r = new X.renderer3D();
+                r.container = 'render-container';
+                r.init();
+                
+
+                // Part 2
+                for (var z=-5; z < 6; z++) {
+                    for (var y=-5; y < 6; y++) {
+                        for(var x=-5; x < 6; x++) {
+                            new_cube = new X.cube();
+                            new_cube.lengthX = SIZE;
+                            new_cube.lengthY = SIZE;
+                            new_cube.lengthZ = SIZE;
+                            new_cube.transform.translateX((SIZE + GAP) * x);
+                            new_cube.transform.translateY((SIZE + GAP) * y);
+                            new_cube.transform.translateZ((SIZE + GAP) * z);
+                            r.add(new_cube);
+                        }
+                    }
+                }
+
+                // Part 4
+                r.interactor.onMouseMove = function() {
+                    cubeId = r.pick(event.offsetX, event.offsetY);
+                    if (cubeId) {
+                        cube = r.get(cubeId);
+                        SELECTED_CUBE = cube;
+                    }
+                }
+
+                // Part 3
+                r.camera.position = [0,0,300];
+
+                // Part 6
+                r.onRender = function() {
+                    if (keyB_toggled) {
+                        r.camera.rotate([1, 0]);
+                    }
+                }
+                r.render();
+            }
+
+            // Part 5
+            window.onkeypress = function(e) {
+                if (SELECTED_CUBE) {
+                    switch(e.key) {
+                        // hide cube
+                        case 'q':
+                            SELECTED_CUBE.visible = false;
+                            break;
+                        // change color to a random color
+                        case 'w':
+                            SELECTED_CUBE.color = [Math.random(), Math.random(), Math.random()];
+                            break;
+                        // rotate 10 degrees in x-axis
+                        case 'e':
+                            SELECTED_CUBE.transform.rotateX(10);
+                            break;
+                        // spin the camera
+                        case 'b':
+                            keyB_toggled = !keyB_toggled;
+                            break;
+                        // save into json file
+                        case 'o':
+                            download();
+                            break;
+                        // load from json file
+                        case 'l':
+                            upload("scene.json");
+                            break;
+                    }
+                }
+            }
+
+            // Part 6
+        </script>
+    </head>
+    <body>
+        <div id="render-container"></div>
+    </body>
+</html>

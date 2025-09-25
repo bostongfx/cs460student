@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>CS460.org Assignment 2</title>
+        <style>
+        body {
+            background-color: black;
+            margin: 0;
+        }
+        #render-container {
+	        width: 100vw;
+	        height: 100vh;
+	    }
+        </style>
+        <script
+        type="text/javascript"
+        src="https://get.goXTK.com/xtk_edge.js">
+        </script>
+        <script
+        type="text/javascript"
+        src="loader.js">
+        </script>
+        <script>
+            var SIZE = 10;
+            var GAP = 14;
+            var SELECTED_CUBE = null;
+            var keyB_toggled = false;
+            var cameraCycleInterval = null;
+            var currentCameraIndex = 0;
+            var CAMERAS = [];
+
+            // Part 1
+            window.onload = function() {
+                r = new X.renderer3D();
+                r.container = 'render-container';
+                r.init();
+                
+
+                // Part 2
+                for (var z=-5; z < 6; z++) {
+                    for (var y=-5; y < 6; y++) {
+                        for(var x=-5; x < 6; x++) {
+                            new_sphere = new X.sphere();
+                            new_sphere.radius = SIZE + (Math.random() - 0.5) * SIZE;
+                            new_sphere.transform.translateX((SIZE + GAP) * x);
+                            new_sphere.transform.translateY((SIZE + GAP) * y);
+                            new_sphere.transform.translateZ((SIZE + GAP) * z);
+                            r.add(new_sphere);
+                        }
+                    }
+                }
+
+                // Part 4
+                r.interactor.onMouseMove = function() {
+                    cubeId = r.pick(event.offsetX, event.offsetY);
+                    if (cubeId) {
+                        cube = r.get(cubeId);
+                        SELECTED_CUBE = cube;
+                    }
+                }
+
+                // Part 3
+                r.camera.position = [0,0,300];
+
+                // Part 6
+                r.onRender = function() {
+                    if (keyB_toggled) {
+                        r.camera.rotate([1, 0]);
+                    }
+                }
+                
+                r.render();
+            }
+
+            // Part 5
+            window.onkeypress = function(e) {
+                if (SELECTED_CUBE) {
+                    switch(e.key) {
+                        // hide cube
+                        case 'q':
+                            SELECTED_CUBE.visible = false;
+                            break;
+                        // change color to a random color
+                        case 'w':
+                            SELECTED_CUBE.color = [Math.random(), Math.random(), Math.random()];
+                            break;
+                        // rotate 10 degrees in x-axis
+                        case 'e':
+                            SELECTED_CUBE.transform.rotateX(10);
+                            break;
+                        // spin the camera
+                        case 'b':
+                            keyB_toggled = !keyB_toggled;
+                            break;
+                        // save into json file
+                        case 'o':
+                            download();
+                            break;
+                        // load from json file
+                        case 'l':
+                            upload("scene.json");
+                            break;
+                        // add a new camera view
+                        case 'c':
+                            CAMERAS.push(new Float32Array(r.camera.view));
+                            console.log('Saved camera view', CAMERAS.length);
+                            break;
+                        // toggle camera rotation
+                        case 'v':
+                            if (cameraCycleInterval) {
+                                clearInterval(cameraCycleInterval);
+                                cameraCycleInterval = null;
+                                break;
+                            }
+
+                            if (CAMERAS.length === 0) {
+                                console.log('No saved camera views to cycle.');
+                                break;
+                            }
+
+                            currentCameraIndex = 0;
+                            cameraCycleInterval = setInterval(function() {
+                                r.camera.view = new Float32Array(CAMERAS[currentCameraIndex]);
+                                currentCameraIndex = (currentCameraIndex + 1) % CAMERAS.length;
+                            }, 1000);
+                            break;
+                        default:
+                            break;
+                    }
+                }
+            }
+
+            // Part 6
+        </script>
+    </head>
+    <body>
+        <div id="render-container"></div>
+    </body>
+</html>
