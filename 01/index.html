@@ -39,7 +39,12 @@
       #bonus {
         width: 100%;
       }
-
+      .viewer {
+				border: 0px;
+				width: 200px;
+				height: 200px;
+				padding: 10px;
+			}
     </style>
   </head>
   <body>
@@ -51,23 +56,53 @@
     <div class='demo'>
 
       <!-- TODO: REPLACE WITH A SCREENSHOT OF RO.ME -->
-      <img id='screenshot' src='https://placehold.co/300x300'>
+      <img id='screenshot' src='rome.png'>
       <p id='description'>
       <!-- TODO: FILL IN YOUR DESCRIPTION -->
-      RO.ME is a very cool webgl demo!
+      RO.ME is a very cool webgl demo!  It incorpates video, 2d animation and 3d visual graphics with the 
+      song/dreams to create an immersive and interactive world/narrative.  It had very smooth transitions 
+      between the different forms of media.  In 2d you could start moving the camera slightly, while in 3d 
+      there was free control including having flora and animals being rendered where the mouse pointed at.  The
+      visual designs encapsulted the mood and story of the song very well such as having the scene where the mouse
+      turned everything black.  Considering this video was created around 14 years ago it had showcased the
+      possibilities of visual graphics in web browsers especially for music/songs.
       </p>
       <p id='technology'>
-      Technology: TODO! <!-- TODO: FILL IN THE TECHNOLOGIES USED -->
+      Technology: <!-- TODO: FILL IN THE TECHNOLOGIES USED -->
+      RO.ME used HTML, JavaScript, WebGL, audio, 3D visuals created with code, 
+      uses video card to render graphics, three.js.
       </p>
       <p id='comparison'>
-      Comparison: TODO! <!-- TODO: FILL IN THE COMPARISON -->
+      Comparison: <!-- TODO: FILL IN THE COMPARISON -->
+      https://le-voyage-azarien.art/
+      Compared to the RO.ME, the concept of this webgl is simpler.  A person narrates about the forest
+      and trees while we are given blob-like visualaztions of the tree. The visualization and sound makes 
+      a deep and profound atmosphere for the narration of the story.  It shows how the person is giving
+      appreciation for the tree and how it relates to themselves.  Unlike the RO.ME it gives a more direct
+      story telling with simpler visuals.  There wasn't free camera movement compared to the RO.ME and no visuals
+      being created with the mouse.  I think it focuses a lot more on the person's words with the visuals
+      as the support while the RO.ME sometimes feels like the song is supporting the visuals more.
+
+
       </p>
       <p id='ai'>
-      Significance (AI): TODO! <!-- TODO: SUMMARIZE THE AI OUTPUT -->
+      Significance (AI):<!-- TODO: SUMMARIZE THE AI OUTPUT -->
       </p>
+      RO.ME: “3 Dreams of Black” was a milestone for the web because it proved that cinematic, 
+      interactive 3D experiences could run directly in the browser without plugins, using only open web 
+      technologies like WebGL, HTML5, and JavaScript. Unlike earlier tech demos, it combined art and 
+      storytelling with cutting-edge graphics, letting users explore dreamlike worlds and even contribute 
+      their own creations. This project showed the creative potential of WebGL at scale and helped 
+      establish the web as a serious platform for high-end interactive media.
 
+      Credit: Chatgbt
       <div id='bonus'>
         <!-- TODO: BONUS TASK GOES HERE -->
+         <iframe class="viewer" src="viewer.html?models/birdsA_parrot.gltf"></iframe>
+         <iframe class="viewer" src="viewer.html?models/quadruped_horse.gltf"></iframe>
+         <iframe class="viewer" src="viewer.html?models/alligator.gltf"></iframe>
+         <!-- Credit:https://mrdoob.github.io/rome-gltf/
+         https://github.com/mrdoob/rome-gltf/. -->
       </div>
 
     </div>

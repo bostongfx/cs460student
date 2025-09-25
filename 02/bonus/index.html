@@ -12,8 +12,11 @@
 
       <script>
 
-        var SELECTED_CUBE = null;
+        var SELECTED_SPHERE = null;
         var camSpin = false;
+        var camCycl = null;
+        var camPos = 0;
+        var cameras = []
           window.onload = function() {
 
 
@@ -26,11 +29,12 @@
              for (var z=-5; z < 6; z++) {
                  for (var y=-5; y < 6; y++) {
                      for(var x=-5; x < 6; x++) {
-                        c = new X.cube();
-                        c.transform.translateX((SIZE + GAP) * x);
-                        c.transform.translateY((SIZE + GAP) * y);
-                        c.transform.translateZ((SIZE + GAP) * z);
-                        r.add(c);
+                        s = new X.sphere();
+                        s.radius = Math.random() * 10;
+                        s.transform.translateX((SIZE + GAP) * x);
+                        s.transform.translateY((SIZE + GAP) * y);
+                        s.transform.translateZ((SIZE + GAP) * z);
+                        r.add(s);
                      }
                  }
              }
@@ -39,9 +43,9 @@
             r.render();
              // console.log('Hello CS460!')
             r.interactor.onMouseMove = function(event) {
-                cubeid = r.pick(event.offsetX, event.offsetY) ;
-                if (cubeid != 0) {
-                    SELECTED_CUBE = r.get(cubeid);
+                sphereid = r.pick(event.offsetX, event.offsetY) ;
+                if (sphereid != 0) {
+                    SELECTED_SPHERE = r.get(sphereid);
                 }
 
             }
@@ -49,13 +53,13 @@
 
         window.onkeypress = function(e) {
             if (e.key == 'q') {
-                SELECTED_CUBE.visible = false;
+                SELECTED_SPHERE.visible = false;
             }
             if (e.key == 'w') {
-                SELECTED_CUBE.color = [Math.random(), Math.random(), Math.random()];
+                SELECTED_SPHERE.color = [Math.random(), Math.random(), Math.random()];
             }
             if (e.key == 'e') {
-                SELECTED_CUBE.transform.rotateX(10);
+                SELECTED_SPHERE.transform.rotateX(10);
             }
 
             if (e.key == 'b') {
@@ -72,6 +76,25 @@
             }
             if (e.key == 'l') {
                 upload("scene.json")
+            }
+            if (e.key == 'c') {
+                cameras.push(new Float32Array(r.camera.view));
+            }
+            function moveCamera () {
+                r.camera.view = cameras[camPos];
+                camPos++
+                if (camPos >= cameras.length) {
+                    camPos = 0;
+                }
+            }
+            if (e.key == 'v') {
+
+                if(camCycl == null){
+                    camCycl = setInterval(moveCamera, 1000)
+                } else {
+                    clearInterval(camCycl);
+                    camCycl = null;
+                }
             }
         }
 
