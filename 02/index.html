@@ -6,8 +6,9 @@
     <style>
       body { margin:0; background:#000; overflow:hidden; }
       #r { width:100vw; height:100vh; }
-      #msg{
-        position:fixed; top:8px; left:8px; font:14px monospace; color:#0f0;
+      #msg {
+        position:fixed; top:8px; left:8px;
+        font:14px monospace; color:#0f0;
         background:rgba(0,0,0,.45); padding:4px 6px; border-radius:4px;
       }
     </style>
@@ -19,80 +20,74 @@
     <div id="msg">loading…</div>
 
     <script>
-      let r=null, CAMERAS=[], SELECTED_CUBE=null, OLD_COLOR=null;
-      let SPIN=false; // B toggles
+      let r = null;
+      let CAMERAS = [];
+      let SELECTED_CUBE = null, OLD_COLOR = null;
+      let SPIN = false;
 
-      const toast=(t,ms=1200)=>{
-        const el=document.getElementById('msg');
-        el.textContent=t;
-        if(ms>0) setTimeout(()=>{ if(el.textContent===t) el.textContent=''; }, ms);
-      };
-
-      // L-safe loader (tries two common paths)
-      function loadSceneSafe(){
-        const tryPath=(p,next)=>{
-          const x=new XMLHttpRequest();
-          x.open('GET', p, true);
-          x.onload = ()=> (x.status===200 && x.responseText) ? upload(p) : next && next();
-          x.onerror = ()=> next && next();
-          x.send(null);
-        };
-        tryPath('scene.json', ()=>tryPath('02/scene.json', ()=>toast('scene.json not found', 1800)));
+      function toast(text, ms=1200) {
+        const el = document.getElementById('msg');
+        el.textContent = text;
+        if (ms > 0) setTimeout(() => { if (el.textContent === text) el.textContent = ''; }, ms);
       }
 
       window.onload = function () {
         r = new X.renderer3D();
         r.container = 'r';
         r.init();
+        r.camera.position = [0, 0, 600]; // move back
 
-        // center view
-        r.camera.position = [0, 0, 600];
-
-        // 11×11×11 grid
-        const SIZE=6, GAP=2;
+        // grid 11x11x11
+        const SIZE = 6, GAP = 2;
         for (let z=-5; z<=5; z++)
           for (let y=-5; y<=5; y++)
             for (let x=-5; x<=5; x++) {
-              const c=new X.cube();
-              c.lengthX=c.lengthY=c.lengthZ=SIZE;
-              c.transform.translateX((SIZE+GAP)*x);
-              c.transform.translateY((SIZE+GAP)*y);
-              c.transform.translateZ((SIZE+GAP)*z);
+              const c = new X.cube();
+              c.lengthX = c.lengthY = c.lengthZ = SIZE;
+              c.transform.translateX((SIZE+GAP) * x);
+              c.transform.translateY((SIZE+GAP) * y);
+              c.transform.translateZ((SIZE+GAP) * z);
               r.add(c);
             }
 
         // hover select
         r.interactor.onMouseMove = function(e){
           const id = r.pick(e.offsetX, e.offsetY);
-          if (id===0){
+          if (id === 0) {
             if (SELECTED_CUBE && OLD_COLOR) SELECTED_CUBE.color = OLD_COLOR;
-            SELECTED_CUBE=null; OLD_COLOR=null; return;
+            SELECTED_CUBE = null; OLD_COLOR = null;
+            return;
           }
-          const obj=r.get(id);
-          if (obj===SELECTED_CUBE) return;
+          const obj = r.get(id);
+          if (obj === SELECTED_CUBE) return;
           if (SELECTED_CUBE && OLD_COLOR) SELECTED_CUBE.color = OLD_COLOR;
-          SELECTED_CUBE=obj; OLD_COLOR=obj.color;
-          obj.color=[1,0.9,0.2];
+          SELECTED_CUBE = obj; OLD_COLOR = obj.color;
+          obj.color = [1, 0.9, 0.2];
         };
 
-        // spin camera when enabled
-        r.onRender = function () { if (SPIN) r.camera.rotate([1,0]); };
+        // spin toggle
+        r.onRender = function () {
+          if (SPIN) r.camera.rotate([1, 0]);
+        };
 
-        // keys: O save, L load, B spin, Q hide, W color, E rotX
+        // key actions
         window.onkeypress = function(e){
-          const k=(e.key||'').toLowerCase();
-          if (k==='o'){ if (typeof download==='function') download(); return; }
-          if (k==='l'){ loadSceneSafe(); return; }
-          if (k==='b'){ SPIN=!SPIN; toast(SPIN?'spin: on':'spin: off'); return; }
+          const k = (e.key || '').toLowerCase();
+
+          if (k === 'o') { if (typeof download === 'function') download(); return; }
+          if (k === 'l') { if (typeof upload === 'function') upload("scene.json"); return; }
+          if (k === 'b') { SPIN = !SPIN; toast(SPIN ? 'spin: on' : 'spin: off'); return; }
+
           if (!SELECTED_CUBE) return;
-          if (k==='q'){ SELECTED_CUBE.visible=false; SELECTED_CUBE=null; OLD_COLOR=null; }
-          else if (k==='w'){ SELECTED_CUBE.color=[Math.random(),Math.random(),Math.random()]; OLD_COLOR=SELECTED_CUBE.color; }
-          else if (k==='e'){ SELECTED_CUBE.transform.rotateX(10); }
+
+          if (k === 'q') { SELECTED_CUBE.visible = false; SELECTED_CUBE = null; OLD_COLOR = null; }
+          else if (k === 'w') { SELECTED_CUBE.color = [Math.random(),Math.random(),Math.random()]; OLD_COLOR = SELECTED_CUBE.color; }
+          else if (k === 'e') { SELECTED_CUBE.transform.rotateX(10); }
         };
 
         r.render();
         toast('Scene ready ✓');
       };
     </script>
-  </body>
+  </body>
 </html>
