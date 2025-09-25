@@ -1,68 +1,88 @@
 <html>
   <head>
-
-      <style>
-        body {
+  <style>
+    body {
             background-color: black;
-        }
-      </style>
+    }
+  </style>
 
-      <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
-      <script src='loader.js'></script>
+  <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+  <script src='loader.js'></script>
 
-      <script>
+  <script>
+      
+      var SIZE = 20;
+      var GAP = 5;
+      let B_ROTATE = false;
 
-          window.onload = function() {
+    window.onload = function() {
+      r = new X.renderer3D();
+      r.init();
 
-            var SIZE = 20;
-            var GAP = 5;
-
-              // once everything is done loading
-
-              r = new X.renderer3D();
-              r.init();
-
-              c = new X.cube();
-              c.color = [1, 1, 1];
-
-              r.add(c);
-
-              c2 = new X.cube();
-              c2.center = [0, 30, 0];
-              r.add(c2);
-
-              for (var z=-5; z <6; z++) {
-                for (var y=-5; y < 6; y++) {
-                    for(var x=-5; x < 6; x++) {
-
-                        new_cube = new X.cube();
-                            new_cube.transform.translateX((SIZE + GAP) * x);
-                            new_cube.transform.translateY((SIZE + GAP) * y);
-                            new_cube.transform.translateZ((SIZE + GAP) * z);
-
-                            r.add(new_cube);
-
-                    }
+      c = new X.cube();
+      c.color = [1, 1, 1];
+        r.add(c);
+          for (var z=-5; z <6; z++) {
+            for (var y=-5; y < 6; y++) {
+                for(var x=-5; x < 6; x++) {
+                  new_cube = new X.cube();
+                  new_cube.transform.translateX((SIZE + GAP) * x);
+                  new_cube.transform.translateY((SIZE + GAP) * y);
+                  new_cube.transform.translateZ((SIZE + GAP) * z);
+                  r.add(new_cube);
                 }
             }
-
-            r.camera.position = [0, 0, 300];
-
-
-            r.interactor.onMouseMove = function(event) {
-
-                cubeid = r.pick(event.offsetX, event.offsetY) ;
+        }
+        r.camera.position = [0, 0, 300];
+        r.interactor.onMouseMove = function(event) {
+          cubeid = r.pick(event.offsetX, event.offsetY) ;
+            if (cubeid == 0){
+              SELECTED_CUBE = null;
+                return;
             }
-                
-            r.render();
-
-              // console.log('Hello CS460!')
-
+              SELECTED_CUBE = r.get(cubeid);
             }
+
+        window.onkeypress = function(e){
+          if (e.key == 'q'){
+            SELECTED_CUBE.visible = false;
+          }
+          
+          if (e.key == 'w'){
+            SELECTED_CUBE.color = [Math.random(), Math.random(), Math.random()];
+          }
+          
+          if (e.key == 'e'){
+            SELECTED_CUBE.transform.rotateX(10);
+          }
+          
+          if (e.key =='b'){
+            if (B_ROTATE == false){
+              B_ROTATE = true;
+            }
+            else if (B_ROTATE == true){
+              B_ROTATE = false};
+          }
+          
+          if (e.key == 'o'){
+            download();
+          }
+          
+          if (e.key == 'l'){
+            upload("scene.json");
+            console.log("It works!!");
+          }
+        }
+        
+        r.onRender = function(){
+          if (B_ROTATE == true){
+            r.camera.rotate([1, 0]);
+          }
+        }    
+      
+      r.render();
+    }
 
       </script>
-
   </head>
-  <body>
-  </body>
 </html>
