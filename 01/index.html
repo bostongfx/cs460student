@@ -1,76 +1,125 @@
 <html>
-  <head>
-    <title>CS460.org Assignment 1</title>
-    <style>
-      body {
-        background: black;
-        color: white;
-        font-family: sans-serif;
-        text-align: center;
-        font-size: 20pt;
-      }
 
-      .demo {
-        margin: auto;
-        width:50%;
-      }
+<head>
+  <title>CS460.org Assignment 1</title>
+  <style>
+    body {
+      background: black;
+      color: white;
+      font-family: sans-serif;
+      text-align: center;
+      font-size: 20pt;
+    }
 
-      #screenshot {
-        float:left;
-        margin-right: 20px;
-        margin-bottom: 20px;
-        max-width: 300px;
-        border: thin solid white;
-      }
+    .demo {
+      margin: auto;
+      width: 50%;
+    }
 
-      #description {
-        text-align: justify;
-      }
-      #technology {
-        text-align: justify;
-      }
-      #comparison {
-        text-align: justify;
-      }
-      #ai {
-        text-align: justify;
-      }
+    #screenshot {
+      float: left;
+      margin-right: 20px;
+      margin-bottom: 20px;
+      max-width: 300px;
+      border: thin solid white;
+    }
 
-      #bonus {
-        width: 100%;
-      }
+    #description {
+      text-align: justify;
+    }
 
-    </style>
-  </head>
-  <body>
+    #technology {
+      text-align: justify;
+    }
 
-    <img id='cube' src='https://cs460.org/gfx/cube.png'>
+    #comparison {
+      text-align: justify;
+    }
 
-    <h1>RO.ME "3 DREAMS OF BLACK"</h1>
+    #link {
+      color: rgb(18, 255, 69);
+    }
 
-    <div class='demo'>
+    #link:hover {
+      opacity: 80%;
+    }
 
-      <!-- TODO: REPLACE WITH A SCREENSHOT OF RO.ME -->
-      <img id='screenshot' src='https://placehold.co/300x300'>
-      <p id='description'>
-      <!-- TODO: FILL IN YOUR DESCRIPTION -->
-      RO.ME is a very cool webgl demo!
+    #ai {
+      text-align: justify;
+    }
+
+    #bonus {
+      width: 100%;
+    }
+  </style>
+  <script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+
+<body>
+  <script type="module" src="./viewer.js"></script>
+  <img id='cube' src='https://cs460.org/gfx/cube.png'>
+
+  <h1>RO.ME "3 DREAMS OF BLACK"</h1>
+
+  <div class='demo'>
+
+    <!-- TODO: REPLACE WITH A SCREENSHOT OF RO.ME -->
+    <img id='screenshot' src='images/ROME_SS.png'>
+    <p id='description'>
+      Considering RO.ME was created by Chris Milk and some folks at Google in 2011, it clearly demonstrated the
+      potential of WebGL for building complex and interactive 3D experiences in websites!
+      Once HTML5 implemented the canvas element, this demo shows the capabilities of graphics without needing extra
+      plugins. The interactive film takes you through vast landscapes and procedurally generated 3D animations.
+      While not a game I think it's amazing that it shows you it's possible to create game like features and
+      interactiveness in the browser with just WebGL. This is the key impact of this film, which is to showcase what
+      WebGL can do, and inspire others to begin creating with it!
+    </p>
+    <p id='technology'>
+      TECH:
+      <br />
+      This interactive film uses Javascript, HTML, CSS, and most importantly WebGL.
+    </p>
+    <p id='comparison'>
+      COMPARISON:
+      <br />
+      <a id='link' target="_blank"
+        href="https://www.awwwards.com/inspiration/interactive-device-menu-contra-project-calculator">Interactive Device
+        Menu WebGL Example</a>
+      <br />
+      <br />
+      Compared to the ROME experience, this WebGL example is a very different perspective on how the tech can be used.
+      This site has an interactive 3D device that makes an otherwise mototonous task (checking boxes in a form) fun!
+      This example shows that using 3D in your website even when it can be accomplished without can make it unique, and
+      improve the UX design for viewers.
+    </p>
+    <p id='ai'>
+      SIGNIFICANCE (AI):
+      <br />
+      RO.ME 3 Dreams of Black was important because it demonstrated that rich, interactive 3D experiences could run
+      directly in the browser using WebGL, without requiring plugins. It combined game-like interactivity with cinematic
+      storytelling, showing the potential of web technologies for immersive experiences. The demo leveraged HTML5,
+      JavaScript, CSS, and procedural generation to create complex, real-time graphics. Overall, it inspired developers
+      to explore creative, interactive applications on the web.
+      <br />
+      - CHATGPT 5-MINI
+    </p>
+
+    <div id='bonus'>
+      <p>
+        BONUS: 3D MODEL VIEWER
+        <br />
       </p>
-      <p id='technology'>
-      Technology: TODO! <!-- TODO: FILL IN THE TECHNOLOGIES USED -->
-      </p>
-      <p id='comparison'>
-      Comparison: TODO! <!-- TODO: FILL IN THE COMPARISON -->
-      </p>
-      <p id='ai'>
-      Significance (AI): TODO! <!-- TODO: SUMMARIZE THE AI OUTPUT -->
-      </p>
-
-      <div id='bonus'>
-        <!-- TODO: BONUS TASK GOES HERE -->
-      </div>
-
     </div>
 
-  </body>
+  </div>
+
+</body>
+
 </html>
