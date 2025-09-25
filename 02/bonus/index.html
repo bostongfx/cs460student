@@ -39,7 +39,7 @@
 
             window.onload = function() {
                 // Creates the renderer
-                const r = new X.renderer3D();
+                window.r = new X.renderer3D();
                 r.container = 'scene';
                 r.init();
                 
@@ -63,16 +63,18 @@
                         for (let k = 0; k <= 1; k += gradientIncrement) {
 
                             // Creates the current sphere
-                            let s = new X.sphere()
+                            let new_sphere = new X.sphere()
 
                             // Edits possition, size, color, and opacity
-                            s.center = [xPos, yPos, zPos];
-                            s.radius = Math.floor(Math.random() * 20) + 5;
-                            s.color = [k, j, i];
-                            s.opacity = varOpacity / 100;
+                            new_sphere.transform.translateX(xPos);
+                            new_sphere.transform.translateY(yPos);
+                            new_sphere.transform.translateZ(zPos);
+                            new_sphere.radius = Math.floor(Math.random() * 20) + 5;
+                            new_sphere.color = [k, j, i];
+                            new_sphere.opacity = varOpacity / 100;
 
                             // Adds the current shpere to the renderer
-                            r.add(s);
+                            r.add(new_sphere);
                             
                             zPos += spacing;
                         }
