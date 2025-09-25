@@ -1,0 +1,133 @@
+<html>
+    <head>
+        
+    <style>
+        body {
+            background-color: black;
+        }
+    </style>
+
+    <!-- Access to whole xtk library -->
+    <script type='text/javascript' src='loader.js'></script> 
+    <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+    
+    <script>
+        // Set global variables
+        var CAMERAS = [];
+        var curentIndex = 0;
+        var cameraLoop = false;
+        var loopInterval = 0;
+        var delayFrames = 60;
+
+         
+
+        var SIZE = 1;
+        var GAP = 0.2;
+        var SELECTED_SPHERE;
+        
+        window.onload = function() {
+          
+            r = new X.renderer3D();
+            r.init();
+
+        
+
+            // Sets up cascade of spheres
+            for (var z=-5; z < 6; z++) {
+                for (var y=-5; y < 6; y++) {
+                    for(var x=-5; x < 6; x++) {
+                        new_sphere = new X.sphere(); // Create new sphere
+                        new_sphere.radius = Math.random() + 0.5; // Set Sphere radius to random
+
+                        // Translations to set up block of spheres
+                        new_sphere.transform.translateX((SIZE + GAP) * x);
+                        new_sphere.transform.translateY((SIZE + GAP) * y);
+                        new_sphere.transform.translateZ((SIZE + GAP) * z);
+                        r.add(new_sphere);
+}
+}
+}
+            
+            r.camera.position = [0, 0 ,300]; // Changes camera position
+            r.render(); //fires up renderer loop and shows sphere
+
+            r.interactor.onMouseMove = function(event){
+                
+                // console.log('test',event.offsetX,event.offsetY);
+                sphereid = r.pick(event.offsetX,event.offsetY) ;
+                if (sphereid != 0 )
+                    SELECTED_SPHERE = r.get(sphereid); // 
+                //console.log(cubeid);
+            };
+
+            // Switch boolean for key 'b' to start and stop camera rotation
+            var myswitch = false;
+                // console.log(myswitch);
+            window.onkeypress = function(e){
+                
+                //handling all the key actions
+                if (e.key == 'q'){
+                    // console.log(e);
+                    SELECTED_SPHERE.visible = false; // hides selected sphere
+                }
+                 else if(e.key == 'w')
+                    
+                        SELECTED_SPHERE.color = [Math.random(), Math.random(), Math.random()]; //random colors
+                    
+                else if(e.key == 'e')
+                    SELECTED_SPHERE.transform.rotateX(10); //Rotate sphere 10 degrees along X
+                else if(e.key == 'b')
+                {
+                    myswitch = !myswitch; // Toggle the myswitch variable
+                    //console.log(myswitch);
+                    if (myswitch){
+                        r.onRender = function(){
+                        r.camera.rotate([1,0]);
+                    };}
+                    else{
+                        r.onRender = function(){};
+                    }
+                }
+                else if(e.key == 'l')
+                    upload("scene.json");
+                else if(e.key == 'o')
+                    download();
+                else if(e.key == 'c')
+                   {
+
+                    CAMERAS.push(new Float32Array(r.camera.view));    
+                }
+                else if(e.key == 'v')
+                {
+                    cameraLoop = !cameraLoop;
+
+                    if(cameraLoop && CAMERAS.length > 0)
+                {
+                    curentIndex = 0;
+                    r.onRender = function(){
+                        loopInterval++;
+                        if(loopInterval >= delayFrames){
+                            loopInterval = 0;
+                            r.camera.view = CAMERAS[curentIndex];
+                            curentIndex = (curentIndex + 1) % CAMERAS.length;
+                        }
+                    };
+                }
+                else{
+                    r.onRender = function(){};
+                }
+                }
+                    //console.log(myswitch)
+                
+            }
+         }
+        
+    </script>
+    </head>
+
+    <body>
+        
+    </body>
+
+</html>
+
