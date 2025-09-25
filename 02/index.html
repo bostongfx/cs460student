@@ -1,2 +1,168 @@
-Ready for assignment 2.
+<html>
+  <head>
+    <style>
+      html,
+      body {
+        background-color: black;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+      }
+    </style>
 
+    <!-- Import XTK -->
+    <script
+      type="text/javascript"
+      src="https://get.goXTK.com/xtk_edge.js"
+    ></script>
+
+    <script type="text/javascript" src="loader.js"></script>
+
+    <script>
+      // XTK Setup occurs after everything else loaded on page.
+      window.onload = () => {
+        // Initialize renderer
+        let r = new X.renderer3D();
+        r.init();
+
+        const SIZE = 12;
+        const GAP = 15;
+
+        // Global boolean for rotating the camera.
+        let rotateCamera = false;
+
+        // Global variable for storing the selected cube. Variable will be null when no cube is selected
+        let SELECTED_CUBE = null;
+
+        // The inner most loop will run a total of 11^3 times, creating 11^3 or 1,331 cubes.
+        for (let z = -5; z < 6; z++) {
+          for (let y = -5; y < 6; y++) {
+            for (let x = -5; x < 6; x++) {
+              let new_cube = new X.cube();
+
+              // Modified the for loop so SIZE actually determines the size of the cube.
+              new_cube.lengthX = SIZE;
+              new_cube.lengthY = SIZE;
+              new_cube.lengthZ = SIZE;
+
+              // GAP now determines how much the cubes will be translated from the origin.
+              new_cube.transform.translateX(GAP * x);
+              new_cube.transform.translateY(GAP * y);
+              new_cube.transform.translateZ(GAP * z);
+
+              r.add(new_cube);
+            }
+          }
+        }
+
+        // Move the camera so all cubes are in view by default.
+        r.camera.position = [0, 0, 300];
+
+        /*
+           onRender handles getting the current cube the mouse is hovering over and spinning camera.
+           I chose to use onRender instead of onMouseMove so that way when the user hides a cube, 
+           they don't need to move the mouse again to select the next one. 
+           I read through the XTK API to find the mousePosition variable which works outside of onMouseMove.
+           Then I used the onRender callback in order to trigger the code on every frame.
+        */
+        r.onRender = () => {
+          // Gets current mouse position as an array of 2 items: [x, y].
+          let mousePosition = r.interactor.mousePosition;
+
+          // Use pick to find the ID of the cube.
+          let cubeid = r.pick(mousePosition[0], mousePosition[1]);
+
+          // If the id isn't 0, update SELECTED_CUBE, otherwise set SELECTED_CUBE to null.
+          if (cubeid != 0) {
+            SELECTED_CUBE = r.get(cubeid);
+          } else {
+            SELECTED_CUBE = null;
+          }
+
+          // Rotate the camera if rotation is enabled.
+          if (rotateCamera) r.camera.rotate([1, 0]);
+        };
+
+        // Handles all keypress operations.
+        window.onkeypress = (e) => {
+          // Cube related key presses also verify that SELECTED_CUBE is not null.
+          if (e.key == "q" && SELECTED_CUBE) {
+            SELECTED_CUBE.visible = false;   // Hides cube on q press
+          } else if (e.key == "w" && SELECTED_CUBE) {
+            SELECTED_CUBE.color = [Math.random(), Math.random(), Math.random()];  // Randomizes color on w press.
+          } else if (e.key == "e" && SELECTED_CUBE) {
+            SELECTED_CUBE.transform.rotateX(10);  // Rotate the cube on the x axis 10 degrees on e press.
+          } else if (e.key == "b") {
+            rotateCamera = !rotateCamera; // Toggle the rotation of the camera on b key press.
+          } else if (e.key == "o") {
+            download(r);  // Download the current scene on o key press.
+          } else if (e.key == "l") {
+            upload(r, "scene.json");  // Load the scene.json file on l key press.
+          }
+        };
+
+        // Render the scene.
+        r.render();
+      };
+
+      // Below is my modified code of the above triple nested for-loops to create the gradient and rotation effect for my solution to Part 8 of the assignment.
+      // It involved creating a gradient, determining what part of the gradient should be selected based on the x, y, and z variables, and rotating the cubes randomly.
+
+      /*
+      ----------------------------PART 8 SOLUTION CREATION------------------------------
+      // Gradient chosen for my submission to part 8
+        const GRADIENT = [
+            [50, 0, 255],   // More blue
+            [70, 0, 255],
+            [90, 0, 255],
+            [114, 0, 255],
+            [120, 0, 255],
+            [141, 0, 255],
+            [168, 0, 255],
+            [183, 0, 255],
+            [206, 0, 255],
+            [237, 0, 255],
+            [255, 0, 255]  // More purple
+        ];
+
+        // Each loop will run 11 times, creating 11^3 or 1,331 cubes.
+        for (let z = -5; z < 6; z++) {
+          for (let y = -5; y < 6; y++) {
+            for (let x = -5; x < 6; x++) {
+              // Create new cube.
+              let new_cube = new X.cube();
+
+              // Modified the for loop so SIZE actually determines the size of the cube.
+              new_cube.lengthX = SIZE;
+              new_cube.lengthY = SIZE;
+              new_cube.lengthZ = SIZE;
+            
+              // Selects the index that decides what color should be used from the gradient.
+              // This works by adding 5 to x, y, and z, which brings the range of these variables from [-5, 5] to [0, 10].
+              // Then each variable is divided by 3, which essentially adds a "weight" to each axis to determine how far along the gradient it is.
+              // A Math.min is taken to prevent the sum of these variables from going past the array of the gradient.
+              // Lastly, the number is rounded so it can map the selected index to the array.
+              let i = Math.round(Math.min(GRADIENT.length, ((y+5)/3) + ((x+5)/3) + ((z+5)/3)))
+            
+              // The colors above are stored in RGB [0,255], so each value is divided by 255 to normalize it.
+              new_cube.color = [GRADIENT[i][0]/255, GRADIENT[i][1]/255, GRADIENT[i][2]/255];
+
+              // GAP now determines how much the cubes will be translated from the origin.
+              new_cube.transform.translateX(GAP * x);
+              new_cube.transform.translateY(GAP * y);
+              new_cube.transform.translateZ(GAP * z);
+
+              // Randomly rotate the cubes.
+              new_cube.transform.rotateX(Math.random() * 50);
+              new_cube.transform.rotateY(Math.random() * 50);
+              new_cube.transform.rotateZ(Math.random() * 50);
+
+              r.add(new_cube);
+            }
+          }
+        }
+      */
+    </script>
+  </head>
+  <body></body>
+</html>
