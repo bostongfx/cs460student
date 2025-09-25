@@ -14,21 +14,29 @@
 
           window.onload = function() {
 
-            // creating all of the cubes
-            SIZE = 1;
-            GAP = 20;
+            // creating all of the spheres
+            GAP = 25;
+            min = 1;
+            max = 15;
               r = new X.renderer3D();
               r.init();
-
                 for (var z=-5; z < 6; z++) {
                     for (var y=-5; y < 6; y++) {
                         for(var x=-5; x < 6; x++) {
-                            new_cube = new X.cube();
-                            new_cube.transform.translateX((SIZE + GAP) * x);
-                            new_cube.transform.translateY((SIZE + GAP) * y);
-                            new_cube.transform.translateZ((SIZE + GAP) * z);
+                            SIZE = min + Math.random() * (max - min); // random size for the spheres
 
-                            r.add(new_cube);
+                            new_sphere = new X.sphere();
+
+                            new_sphere.radius = SIZE; // set random size
+
+                            new_sphere.transform.translateX(GAP * x);
+                            new_sphere.transform.translateY(GAP * y);
+                            new_sphere.transform.translateZ(GAP * z);
+                            
+                            
+                            new_sphere.color = [Math.random(), Math.random(), Math.random()]; // random color for each sphere
+
+                            r.add(new_sphere);
                         }
                     }
                 }
@@ -37,18 +45,22 @@
                 r.camera.position = [0, 0, 300]; 
 
                 // picking a cube when the mouse moves over it
-                var SELECTED_CUBE = (0,0);
+                var SELECTED_SPHERE = (0,0);
                 r.interactor.onMouseMove = function(event) {
                 cubeid = r.pick(event.offsetX, event.offsetY) ;
                 if (cubeid != 0){
                     SELECTED_CUBE = r.get(cubeid);
                 }
             }
-                var spinning = false; // boolean variable to control spinning state (switched on/off with 'b' key) made it a global variable because i had issues having it inside the if statement
+                var spinning = false; // boolean variable to control spinning state (switched on/off with 'b' key) made it a 
+                // global variable because i had issues having it inside the if statement
 
-            // hiding a cube when 'q' is pressed
+                CAMERAS = []; // list of the different camera positions
+                camPos = -1; // variable to keep track of the current camera position index
+                camView = null; // timer variable for cycling through camera positions
+
                 window.onkeypress = function(e) {
-                    if (e.key == 'q') {
+                    if (e.key == 'q') { // hiding a cube when 'q' is pressed
                         SELECTED_CUBE.visible = false;
                     } 
                     
@@ -72,7 +84,26 @@
                     else if (e.key == 'l'){
                         upload('scene.json'); // uploads the scene when 'l' is pressed
                     }
-                    r.onRender = function() {
+                    else if (e.key == 'c'){ // saves the current camera position when 'c' is pressed
+                        CAMERAS.push(r.camera.view.slice()); // clones the current camera position and adds it to the CAMERAS array
+                        if (camPos == -1)
+                            camPos = 0;
+                    }
+                    else if (e.key == 'v') {
+                        if (camView) { // if timer is running, stop it
+                            clearInterval(camView);
+                            camView = null;
+                        } 
+                    else if (CAMERAS.length > 0) {
+                        // if there are any saved views, start cycling through them every second
+                        camView = setInterval(function() {
+                            camPos = (camPos + 1) % CAMERAS.length;
+                            r.camera.view = CAMERAS[camPos].slice(0);
+                            }, 1000); // 1000 for 1 second intervals
+                        }
+                    }
+
+                    r.onRender = function() {   
                         if (spinning) {
                             r.camera.rotate([1, 0]);
                         }
@@ -81,7 +112,7 @@
                 }
 
               r.render();
-
+            
   }
 
       </script>
