@@ -1,0 +1,93 @@
+<html>
+<head>
+  <style> body { background-color: black; } </style>
+  <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+  <script src="loader.js"></script>
+
+  <script>
+    var SIZE = 5;
+    var GAP  = 3;
+    var SPIN = false;
+
+    var SELECTED_CUBE = null;
+
+    window.onload = function () {
+      r = new X.renderer3D();
+      r.init();
+
+      for (var z = -5; z < 6; z++) {
+        for (var y = -5; y < 6; y++) {
+          for (var x = -5; x < 6; x++) {
+            var new_cube = new X.cube();
+            new_cube.lengthX = new_cube.lengthY = new_cube.lengthZ = SIZE;
+            new_cube.transform.translateX((SIZE + GAP) * x);
+            new_cube.transform.translateY((SIZE + GAP) * y);
+            new_cube.transform.translateZ((SIZE + GAP) * z);
+            r.add(new_cube);
+          }
+        }
+      }
+
+      r.camera.position = [0, 0, 300];
+
+      r.interactor.onMouseMove = function (event) {
+        var cubeid = r.pick(event.offsetX, event.offsetY);
+        if (cubeid && cubeid !== 0) {
+          SELECTED_CUBE = r.get(cubeid);
+        } else {
+          SELECTED_CUBE = null;
+        }
+      };
+
+       window.onkeypress = function(e) {
+
+        // Q
+        if (e.key == 'q') {
+          if (SELECTED_CUBE != null) {
+            SELECTED_CUBE.visible = false;
+          }
+        }
+
+        // W
+        if (e.key == 'w') {
+          if (SELECTED_CUBE != null) {
+            SELECTED_CUBE.color = [Math.random(), Math.random(), Math.random()];
+          }
+        }
+
+        // E
+        if (e.key == 'e') {
+          if (SELECTED_CUBE != null) {
+            SELECTED_CUBE.transform.rotateX(10);
+          }
+        }
+
+        // B
+       if (e.key == 'b') {
+          SPIN = !SPIN; 
+        }
+        
+        // O
+        if (e.key == 'o') {
+        download();
+        }
+
+        // L 
+        if (e.key == 'l') {
+        upload('scene.json');
+        }
+      };
+
+        
+      r.onRender = function () {
+        if (SPIN) {
+          r.camera.rotate([1, 0]);
+        }
+      };
+
+      r.render();
+    };
+  </script>
+</head>
+<body></body>
+</html>
