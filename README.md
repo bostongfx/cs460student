@@ -1,28 +1,76 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <title>CS461 – A2 Hello Cube</title>
-  <style>html,body{margin:0;height:100%;background:#000;color:#ddd}</style>
-  <!-- XTK from CDN -->
-  <script src="https://get.goXTK.com/xtk_edge.js"></script>
-</head>
-<body>
-  <div id="ok" style="position:fixed;left:10px;top:10px">loaded…</div>
-<script>
-  window.onload = function () {
-    var r = new X.renderer3D();
-    r.init();
+<html>
+  <head>
+    <title>CS460.org Assignment 1</title>
+    <style>
+      body {
+        background: black;
+        color: white;
+        font-family: sans-serif;
+        text-align: center;
+        font-size: 20pt;
+      }
 
-    var c = new X.cube();
-    c.lengthX = c.lengthY = c.lengthZ = 20;
+      .demo {
+        margin: auto;
+        width:50%;
+      }
 
-    r.camera.position = [0, 0, 150];
-    r.add(c);
-    r.render();
-  };
-</script>
-<!-- Keep this if you already added it -->
-<script src="loader.js"></script>
-</body>
+      #screenshot {
+        float:left;
+        margin-right: 20px;
+        margin-bottom: 20px;
+        max-width: 300px;
+        border: thin solid white;
+      }
+
+      #description {
+        text-align: justify;
+      }
+      #technology {
+        text-align: justify;
+      }
+      #comparison {
+        text-align: justify;
+      }
+      #ai {
+        text-align: justify;
+      }
+
+      #bonus {
+        width: 100%;
+      }
+
+    </style>
+  </head>
+  <body>
+
+    <img id='cube' src='https://cs460.org/gfx/cube.png'>
+
+    <h1>RO.ME "3 DREAMS OF BLACK"</h1>
+
+    <div class='demo'>
+
+      <!-- TODO: REPLACE WITH A SCREENSHOT OF RO.ME -->
+      <img id='screenshot' src='https://placehold.co/300x300'>
+      <p id='description'>
+      <!-- TODO: FILL IN YOUR DESCRIPTION -->
+      RO.ME is a very cool webgl demo!
+      </p>
+      <p id='technology'>
+      Technology: TODO! <!-- TODO: FILL IN THE TECHNOLOGIES USED -->
+      </p>
+      <p id='comparison'>
+      Comparison: TODO! <!-- TODO: FILL IN THE COMPARISON -->
+      </p>
+      <p id='ai'>
+      Significance (AI): TODO! <!-- TODO: SUMMARIZE THE AI OUTPUT -->
+      </p>
+
+      <div id='bonus'>
+        <!-- TODO: BONUS TASK GOES HERE -->
+      </div>
+
+    </div>
+
+  </body>
 </html>
