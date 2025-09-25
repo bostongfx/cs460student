@@ -1,0 +1,153 @@
+<html>
+<head>
+    <style>
+      body {
+        background-color: black;
+        margin: 0;
+        overflow: hidden;
+      }
+    </style>
+    <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+    <script type="text/javascript" src="loader.js"></script>
+</head>
+<body>
+    <script>
+        // Global variables
+        var SIZE = 12;           
+        var GAP  = 5;            
+        var SELECTED_SPHERE = null;
+        var PREVIOUS_SPHERE = null; 
+        var r;                         
+        var CAMERAS = [];              
+        var SPIN = false;              
+        var cameraInterval = null; // BONUS: For camera cycling
+        var currentCameraIndex = 0; // BONUS: Track current camera
+        
+      window.onload = function() {
+        // Part 1.
+        r = new X.renderer3D();
+        r.init();
+
+        // Part 2
+        for (var z = -5; z < 6; z++) {
+            for (var y = -5; y < 6; y++) {
+            for (var x = -5; x < 6; x++) {
+                var new_sphere = new X.sphere();
+
+                // BONUS: Random radius between 3 and 8
+                var randomRadius = 1 + Math.random() * 10;
+                new_sphere.radius = randomRadius;
+
+                
+                new_sphere.transform.translateX((SIZE + GAP) * x);
+                new_sphere.transform.translateY((SIZE + GAP) * y);
+                new_sphere.transform.translateZ((SIZE + GAP) * z);
+
+                r.add(new_sphere);
+                }
+            }
+        }
+        // Part 3.
+        r.camera.position = [0, 0, 300];
+
+
+        // Part 4.
+
+        r.interactor.onMouseMove = function(event) {
+            var mx = (event.offsetX !== undefined) ? event.offsetX : event.layerX;
+            var my = (event.offsetY !== undefined) ? event.offsetY : event.layerY;
+            var sphereid = r.pick(mx, my);
+            if (PREVIOUS_SPHERE) {
+                PREVIOUS_SPHERE.color = PREVIOUS_SPHERE.permanentColor || [1, 1, 1];
+            }
+            
+            if (sphereid !== 0) {
+                SELECTED_SPHERE = r.get(sphereid);
+                if (SELECTED_SPHERE) {
+                    if (!SELECTED_SPHERE.permanentColor) {
+                        SELECTED_SPHERE.permanentColor = SELECTED_SPHERE.color ? SELECTED_SPHERE.color.slice() : [1, 1, 1];
+                    }
+                    SELECTED_SPHERE.color = [1, 0, 1]; 
+                    PREVIOUS_SPHERE = SELECTED_SPHERE;
+                }
+            } else {
+                SELECTED_SPHERE = null;
+                PREVIOUS_SPHERE = null;
+            }        
+        };
+            
+        // Part 6.
+        r.onRender = function () {
+            if (SPIN) {
+                r.camera.rotate([1, 0]); 
+            }
+        };
+            
+            window.onkeypress = function (e) {
+            var key = (e.key || '').toLowerCase();
+            
+            // Part 6.
+            if (key === 'b') { 
+                SPIN = !SPIN; 
+                return; 
+            }
+            
+            // Part 7.
+            if (key === 'o') { 
+                download(); 
+                return; 
+            }
+            if (key === 'l') { 
+                upload('scene.json'); 
+                return; 
+            }
+            
+            // BONUS: Camera controls
+            if (key === 'c') {
+                var currentView = r.camera.view.slice(); 
+                CAMERAS.push(currentView);
+                console.log('Camera position stored! Total cameras: ' + CAMERAS.length);
+                return;
+            }
+            
+            if (key === 'v') {
+                if (cameraInterval) {
+                    clearInterval(cameraInterval);
+                    cameraInterval = null;
+                    console.log('Camera cycling stopped');
+                } else if (CAMERAS.length > 0) {
+                    currentCameraIndex = 0;
+                    cameraInterval = setInterval(function() {
+                        if (CAMERAS.length > 0) {
+                            r.camera.view = CAMERAS[currentCameraIndex];
+                            currentCameraIndex = (currentCameraIndex + 1) % CAMERAS.length;
+                            console.log('Switched to camera ' + (currentCameraIndex === 0 ? CAMERAS.length : currentCameraIndex));
+                        }
+                    }, 1000); 
+                    console.log('Camera cycling started with ' + CAMERAS.length + ' positions');
+                }
+                return;
+            }
+
+
+            // Part 5
+            if ((key === 'q' || key === 'w' || key === 'e') && !SELECTED_SPHERE) return;
+            
+            if (key === 'q') {
+                SELECTED_SPHERE.visible = false;
+            } else if (key === 'w') {
+                var randomColor = [Math.random(), Math.random(), Math.random()];
+                SELECTED_SPHERE.color = randomColor;
+                SELECTED_SPHERE.permanentColor = randomColor; 
+            } else if (key === 'e') {
+                SELECTED_SPHERE.transform.rotateX(10);
+            }
+            };
+            r.render();
+            window.focus(); 
+
+        };  
+    </script>
+</body>
+</html>
+
