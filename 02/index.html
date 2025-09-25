@@ -10,17 +10,48 @@
 <body>
   <div id="ok" style="position:fixed;left:10px;top:10px">loaded…</div>
 <script>
-  window.onload = function () {
-    var r = new X.renderer3D();
-    r.init();
+  var r = new X.renderer3D();
+  r.init();
+  r.camera.position = [0, 0, 300];
 
-    var c = new X.cube();
-    c.lengthX = c.lengthY = c.lengthZ = 20;
+  // 11×11×11 = 1331 cubes
+  const SIZE=6, GAP=2; function pos(n){ return (SIZE+GAP)*n; }
+  for (let z=-5; z<=5; z++){
+    for (let y=-5; y<=5; y++){
+      for (let x=-5; x<=5; x++){
+        const c = new X.cube();
+        c.lengthX=c.lengthY=c.lengthZ=SIZE;
+        c.transform.translateX(pos(x));
+        c.transform.translateY(pos(y));
+        c.transform.translateZ(pos(z));
+        c.color=[0.3+0.7*Math.random(),0.3+0.7*Math.random(),0.3+0.7*Math.random()];
+        r.add(c);
+      }
+    }
+  }
 
-    r.camera.position = [0, 0, 150];
-    r.add(c);
-    r.render();
+  // picking (hover)
+  var SELECTED = null;
+  r.interactor.onMouseMove = function(e){
+    const id = r.pick(e.offsetX, e.offsetY);
+    SELECTED = (id && id !== 0) ? r.get(id) : null;
   };
+
+  // keys
+  let SPIN=false;
+  window.onkeypress = function(ev){
+    const k = ev.key.toLowerCase();
+    if (k==='b'){ SPIN=!SPIN; return; }
+    if (k==='o'){ if (typeof download==='function') download(); return; }
+    if (k==='l'){ if (typeof upload==='function') upload('scene.json'); return; }
+    if (!SELECTED) return;
+    if (k==='q') SELECTED.visible=false;
+    if (k==='w') SELECTED.color=[Math.random(),Math.random(),Math.random()];
+    if (k==='e') SELECTED.transform.rotateX(10);
+  };
+
+  r.onRender = function(){ if (SPIN) r.camera.rotate([1,0]); };
+  r.render();
 </script>
 <!-- Keep this if you already added it -->
 <script src="loader.js"></script>
