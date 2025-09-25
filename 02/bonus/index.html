@@ -1,0 +1,89 @@
+<html>
+    <head>
+        <title>CS460.org Assignment 2 BONUS</title>
+        <style>
+        body {
+            background-color: black;
+        }
+        </style>
+        <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+        <script src="loader.js"></script>
+        <script>
+            window.onload = function() {
+                var SIZE = 8;
+                var GAP = 4;
+                var SELECTED_SPHERE;
+                var camera_rotate = false;
+                var CAMERAS = [];
+                var camera_cycle = false;
+
+                r = new X.renderer3D();
+                r.init();
+
+                for (var z=-5; z < 6; z++) {
+                    for (var y=-5; y < 6; y++) {
+                        for (var x=-5; x < 6; x++) {
+                            new_sphere = new X.sphere();
+                            new_sphere.radius = Math.floor(Math.random() * 8) + 1;
+                            new_sphere.transform.translateX((SIZE + GAP) * x);
+                            new_sphere.transform.translateY((SIZE + GAP) * y);
+                            new_sphere.transform.translateZ((SIZE + GAP) * z);
+
+                            r.add(new_sphere);
+                        }
+                    }
+                }
+
+                r.camera.position = [0, 0, 300];
+
+                r.interactor.onMouseMove = function(event) {
+                    sphereid = r.pick(event.offsetX, event.offsetY);
+                    if (sphereid != 0) {
+                        SELECTED_SPHERE = r.get(sphereid);
+                    }
+                }
+
+                window.onkeypress = function(e) {
+                    if (e.key == 'q') {
+                        SELECTED_SPHERE.visible = false;
+                    } else if (e.key == 'w') {
+                        SELECTED_SPHERE.color = [Math.random(), Math.random(), Math.random()];
+                    } else if (e.key == 'e') {
+                        SELECTED_SPHERE.transform.rotateX(10);
+                    } else if (e.key == 'b') {
+                        camera_rotate = !camera_rotate;
+                        r.onRender = function() {
+                            // spin the camera in X direction by 1 degree
+                            if (camera_rotate) {
+                                r.camera.rotate([1, 0]);
+                            }
+                        }
+                    } else if (e.key == 'o') {
+                        download();
+                    } else if (e.key == 'l') {
+                        upload('scene.json');
+                    } else if (e.key == 'c') {
+                        CAMERAS.push(new Float32Array(r.camera.view));
+                        // console.log(r.camera.view);
+                        // console.log("camera list size", CAMERAS.length);
+                    } else if (e.key == 'v') {
+                        camera_cycle = !camera_cycle;
+                        if (camera_cycle) {
+                            i = 0;
+                            myInterval = setInterval(function() {
+                                r.camera.view = CAMERAS[i];
+                                i = (i + 1) % CAMERAS.length;
+                                // console.log(i);
+                            }, 1000)
+                        } else {
+                            clearInterval(myInterval);
+                        }
+                    }
+                }
+                r.render();
+            }
+        </script>
+    </head>
+    <body>
+    </body>
+</html>
