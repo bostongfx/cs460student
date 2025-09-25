@@ -1,2 +1,76 @@
-Ready for assignment 2.
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>CS461 – A2 3D ART</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
 
+  <!-- Google Font: Baloo 2 -->
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600&display=swap" rel="stylesheet">
+
+  <!-- XTK from CDN -->
+  <script src="https://get.goXTK.com/xtk_edge.js"></script>
+
+  <style>
+    html,body{
+      margin:0;height:100%;
+      background:#000;color:#fff;
+      font:16px "Baloo 2", system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+    }
+    #hud{
+      position:fixed;left:50%;top:12px;transform:translateX(-50%);
+      background:rgba(0,0,0,.5);padding:8px 12px;border-radius:10px;
+      font-family:"Baloo 2", system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+      font-weight:600;letter-spacing:.5px;
+    }
+  </style>
+</head>
+<body>
+  <div id="hud">CS461 – A2 3D ART</div>
+
+<script>
+  var r = new X.renderer3D();
+  r.init();
+  r.camera.position = [0, 0, 300];
+
+  const SIZE=6, GAP=2; const pos=n=>(SIZE+GAP)*n;
+  for (let z=-5; z<=5; z++){
+    for (let y=-5; y<=5; y++){
+      for (let x=-5; x<=5; x++){
+        const c = new X.cube();
+        c.lengthX=c.lengthY=c.lengthZ=SIZE;
+        c.transform.translateX(pos(x));
+        c.transform.translateY(pos(y));
+        c.transform.translateZ(pos(z));
+        c.color=[0.3+0.7*Math.random(),0.3+0.7*Math.random(),0.3+0.7*Math.random()];
+        r.add(c);
+      }
+    }
+  }
+
+  // Picking (hover)
+  var SELECTED = null;
+  r.interactor.onMouseMove = function(e){
+    const id = r.pick(e.offsetX, e.offsetY);
+    SELECTED = (id && id !== 0) ? r.get(id) : null;
+  };
+
+  // Keys
+  let SPIN=false;
+  window.onkeypress = function(ev){
+    const k = ev.key.toLowerCase();
+    if (k==='b'){ SPIN=!SPIN; return; }
+    if (k==='o'){ if (typeof download==='function') download(); return; }
+    if (k==='l'){ if (typeof upload==='function') upload('scene.json'); return; }
+    if (!SELECTED) return;
+    if (k==='q') SELECTED.visible=false;
+    if (k==='w') SELECTED.color=[Math.random(),Math.random(),Math.random()];
+    if (k==='e') SELECTED.transform.rotateX(10);
+  };
+
+  r.onRender = function(){ if (SPIN) r.camera.rotate([1,0]); };
+  r.render();
+</script>
+
+<script src="loader.js"></script>
+</body>
+</html>
