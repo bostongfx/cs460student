@@ -1,0 +1,138 @@
+<html>
+
+<head>
+
+    <style>
+        body {
+            background-color: black;
+        }
+    </style>
+
+    <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+    <script type="text/javascript" src="loader.js"></script>
+
+    <script>
+        SIZE = 50;
+        GAP = -25;
+        let SELECTED_sphere;
+        let IS_ROTATING = false;
+        let spheres_in_stack = [];
+        let r;
+        let CAMERAS = [];
+        let CAMERA_LOOP = false;
+        let camera_index = 0
+        let myInterval;
+        window.onload = function () {
+
+            // once everything is done loading
+
+            r = new X.renderer3D();
+            r.init();
+            // this makes 1331 spheres ( 11 x 11 x 11)
+            for (var z = -5; z < 6; z++) {
+                for (var y = -5; y < 6; y++) {
+                    for (var x = -5; x < 6; x++) {
+                        new_sphere = new X.sphere();
+                        new_sphere.radius = (Math.random() * 20);
+                        new_sphere.color = [Math.random(), Math.random(), Math.random()];
+                        new_sphere.transform.translateX((SIZE + GAP) * x);
+                        new_sphere.transform.translateY((SIZE + GAP) * y);
+                        new_sphere.transform.translateZ((SIZE + GAP) * z);
+                        r.add(new_sphere);
+                    }
+                }
+            }
+
+
+            r.camera.position = [0, 0, 300];
+            r.render();
+
+
+
+            r.interactor.onMouseMove = function (event) {
+
+                sphereid = r.pick(event.offsetX, event.offsetY);
+
+                if (sphereid != 0)
+                    SELECTED_sphere = r.get(sphereid);
+
+            };
+
+            function incrementCounter() {
+                camera_index++;
+                console.log(CAMERAS[(camera_index % CAMERAS.length)])
+
+                const cameraData = CAMERAS[camera_index % CAMERAS.length];
+                console.log(cameraData)
+                // Force the camera to update by modifying its internal state
+                r.camera.view = cameraData;
+                
+                r.render();
+            }
+
+
+
+            window.onkeypress = function (e) {
+
+                if (e.key == 'q') {
+                    SELECTED_sphere.visible = false;
+                }
+                if (e.key == 'w') {
+                    SELECTED_sphere.color = [Math.random(), Math.random(), Math.random()];
+                }
+                if (e.key == 'e') {
+                    SELECTED_sphere.transform.rotateX(10);
+                }
+                if (e.key == 'b') {
+                    if (!IS_ROTATING) {
+                        IS_ROTATING = true;
+                    } else { IS_ROTATING = false; }
+                }
+                if (e.key == 'o') {
+                    download(r);
+                }
+                if (e.key == 'l') {
+                    upload("scene-9.json");
+                    refreshStack();
+                }
+                if (e.key == 'c') {
+
+                    CAMERAS.push(new Float32Array(r.camera.view));
+                    console.log(CAMERAS)
+                }
+                if (e.key == 'v') {
+                    if (CAMERA_LOOP) {
+                        console.log('ending camera loop...')
+                        CAMERA_LOOP = false;
+                        clearInterval(myInterval);
+                    } else {
+                        console.log('starting camera loop...')
+                        CAMERA_LOOP = true;
+                        myInterval = setInterval(incrementCounter, 1000);
+                    }
+                }
+
+
+            }
+
+
+
+
+            r.onRender = function () {
+                // spin the camera in X direction by 1 degree
+                if (IS_ROTATING) {
+                    r.camera.rotate([1, 0]);
+                }
+
+
+            }
+
+        }
+    </script>
+
+</head>
+
+<body>
+</body>
+
+</html>
