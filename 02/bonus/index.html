@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>CS460 – A2 Bonus</title>
+
+    <script src="https://get.goXTK.com/xtk_edge.js"></script>
+
+    <script src="../loader.js"></script>
+
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        background: #000;
+      }
+      #r {
+        width: 100%;
+        height: 100%;
+        background: #000;
+      }
+      .hud {
+        position: absolute;
+        left: 12px;
+        bottom: 12px;
+        color: #9ee7ff;
+        font: 12px/1.4 system-ui, Arial, sans-serif;
+        opacity: 0.9;
+        background: rgba(0, 0, 0, 0.35);
+        padding: 8px 10px;
+        border-radius: 8px;
+        user-select: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="r"></div>
+    <div class="hud">
+      Keys: <b>Q</b> hide · <b>W</b> color · <b>E</b> rotate · <b>O</b>/<b>L</b>
+      save/load · <b>C</b> capture view · <b>N</b>/<b>P</b> step ·
+      <b>V</b> start/stop cycle · <b>B</b> spin
+    </div>
+
+    <script>
+      window.onload = function () {
+        var r = new X.renderer3D();
+        r.container = "r";
+        r.init();
+        r.bgColor = [0, 0, 0];
+        window.r = r;
+
+        const RAD_MIN = 4,
+          RAD_MAX = 7;
+        const STEP = 2 * RAD_MAX + 5;
+        const rand = (a, b) => a + Math.random() * (b - a);
+
+        for (let iz = -5; iz <= 5; iz++) {
+          for (let iy = -5; iy <= 5; iy++) {
+            for (let ix = -5; ix <= 5; ix++) {
+              const s = new X.sphere();
+              s.radius = rand(RAD_MIN, RAD_MAX);
+              s.color = [1, 1, 1];
+              s.opacity = 1;
+              s.transform.translateX(STEP * ix);
+              s.transform.translateY(STEP * iy);
+              s.transform.translateZ(STEP * iz);
+              r.add(s);
+            }
+          }
+        }
+
+        r.camera.position = [0, 0, 650];
+
+        let SELECTED = null;
+        r.interactor.onMouseMove = function (ev) {
+          const mx = typeof ev.offsetX === "number" ? ev.offsetX : ev.clientX;
+          const my = typeof ev.offsetY === "number" ? ev.offsetY : ev.clientY;
+          const id = r.pick(mx, my);
+          if (id != 0) SELECTED = r.get(id);
+        };
+
+        const views = [];
+        let vIndex = -1;
+        let cycleTimer = null;
+
+        function captureView() {
+          views.push({
+            pos: r.camera.position.slice(0),
+            focus: r.camera.focus.slice(0),
+            up: r.camera.up.slice(0),
+          });
+          vIndex = views.length - 1;
+          console.log("Captured view", vIndex);
+        }
+
+        function applyView(i) {
+          if (!views.length) return;
+          const v = views[(i + views.length) % views.length];
+          r.camera.position = v.pos.slice(0);
+          r.camera.focus = v.focus.slice(0);
+          r.camera.up = v.up.slice(0);
+          r.camera.modified = true;
+          vIndex = (i + views.length) % views.length;
+        }
+
+        function startCycle(ms = 1500) {
+          if (cycleTimer || views.length < 2) return;
+          cycleTimer = setInterval(() => applyView(vIndex + 1), ms);
+          console.log("Cycling started");
+        }
+        function stopCycle() {
+          if (!cycleTimer) return;
+          clearInterval(cycleTimer);
+          cycleTimer = null;
+          console.log("Cycling stopped");
+        }
+
+        let spinning = false;
+        r.onRender = function () {
+          if (spinning) r.camera.rotate([1, 0]);
+        };
+
+        window.addEventListener("keydown", function (e) {
+          if (e.repeat) return;
+          const k = e.key.toLowerCase();
+
+          if (k === "q" && SELECTED) SELECTED.visible = false;
+          if (k === "w" && SELECTED)
+            SELECTED.color = [Math.random(), Math.random(), Math.random()];
+          if (k === "e" && SELECTED) SELECTED.transform.rotateX(10);
+
+          if (k === "o" && typeof download === "function") download();
+          if (k === "l" && typeof upload === "function") upload("scene.json");
+
+          if (k === "c") captureView();
+          if (k === "n") applyView(vIndex + 1);
+          if (k === "p") applyView(vIndex - 1);
+          if (k === "v") {
+            if (cycleTimer) stopCycle();
+            else startCycle();
+          }
+
+          if (k === "b") spinning = !spinning;
+        });
+
+        r.render();
+      };
+    </script>
+  </body>
+</html>

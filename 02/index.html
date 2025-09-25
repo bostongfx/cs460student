@@ -4,13 +4,10 @@
     <meta charset="utf-8" />
     <title>CS460 – A2 Cube Art</title>
 
-    <!-- XTK (edge build for modern browsers) -->
     <script src="https://get.goXTK.com/xtk_edge.js"></script>
-    <!-- Scene save/load helpers provided in 02/ -->
     <script src="./loader.js"></script>
 
     <style>
-      /* Black background like the reference */
       html,
       body {
         margin: 0;
@@ -30,19 +27,16 @@
 
     <script>
       window.onload = function () {
-        // ===== Part 1: renderer =====
         var r = new X.renderer3D();
         r.container = "r";
         r.init();
         window.r = r;
 
-        // Clear color to black
         r.bgColor = [0, 0, 0];
         r.backgroundColor = [0, 0, 0];
 
-        // ===== Part 2: many cubes (11 x 11 x 11 = 1331, no overlap) =====
-        const CUBE = 8; // edge length of each cube
-        const GAP = 2; // space between cubes
+        const CUBE = 8;
+        const GAP = 2;
         const STEP = CUBE + GAP;
 
         for (let iz = -5; iz < 6; iz++) {
@@ -50,16 +44,13 @@
             for (let ix = -5; ix < 6; ix++) {
               const c = new X.cube();
 
-              // Explicit cube size (default is ~20)
               c.lengthX = CUBE;
               c.lengthY = CUBE;
               c.lengthZ = CUBE;
 
-              // Default color white
               c.color = [1, 1, 1];
               c.opacity = 1;
 
-              // Place cubes evenly spaced
               c.transform.translateX(STEP * ix);
               c.transform.translateY(STEP * iy);
               c.transform.translateZ(STEP * iz);
@@ -69,60 +60,48 @@
           }
         }
 
-        // ===== Part 3: move camera back =====
         r.camera.position = [0, 0, 500];
 
-        // ===== Part 4: mouse hover picking =====
         let SELECTED_CUBE = null;
         r.interactor.onMouseMove = function (event) {
           const cubeid = r.pick(event.offsetX, event.offsetY);
           if (cubeid != 0) SELECTED_CUBE = r.get(cubeid);
         };
 
-        // ===== Part 6: camera spin toggle =====
         let spinning = false;
 
-        // ===== Parts 5,6,7: keyboard =====
         window.addEventListener("keypress", function (e) {
           const k = e.key.toLowerCase();
 
-          // Q: hide selected cube
           if (k === "q" && SELECTED_CUBE) {
             SELECTED_CUBE.visible = false;
           }
 
-          // W: random color for selected cube
           if (k === "w" && SELECTED_CUBE) {
             SELECTED_CUBE.color = [Math.random(), Math.random(), Math.random()];
           }
 
-          // E: rotate +10° around X
           if (k === "e" && SELECTED_CUBE) {
             SELECTED_CUBE.transform.rotateX(10);
           }
 
-          // B: toggle camera spinning
           if (k === "b") {
             spinning = !spinning;
           }
 
-          // O: download scene.json (requires http/https, not file://)
           if (k === "o" && typeof download === "function") {
             download();
           }
 
-          // L: load scene.json from this folder
           if (k === "l" && typeof upload === "function") {
             upload("scene.json");
           }
         });
 
-        // spin the camera when enabled
         r.onRender = function () {
-          if (spinning) r.camera.rotate([1, 0]); // 1° around X each frame
+          if (spinning) r.camera.rotate([1, 0]);
         };
 
-        // go!
         r.render();
       };
     </script>
