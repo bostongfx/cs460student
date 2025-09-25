@@ -1,0 +1,88 @@
+<html>
+  <head>
+      <script src="https://ivandoliveira0.github.io/cs460student/02/loader.js"></script>
+      <style>
+        body {
+            background-color: black;
+        }
+      </style>
+
+      <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+
+      <script>
+
+            const SIZE = 20;
+            const GAP = 5;
+            var SELECTED_CUBE = null;
+            var activeRo = false;
+
+          window.onload = function() {
+                  
+               r = new X.renderer3D();
+              r.init();
+
+              for (var z = -5; z < 6; z++) {
+                for (var y = -5; y < 6; y++) {
+                  for (var x = -5; x < 6; x++) {
+
+                    new_cube = new X.cube();
+                    new_cube.transform.translateX((SIZE + GAP) * x);
+                    new_cube.transform.translateY((SIZE + GAP) * y);
+                    new_cube.transform.translateZ((SIZE + GAP) * z);
+
+                      r.add(new_cube);
+
+                    }
+                  }
+                }
+
+                r.interactor.onMouseMove = function(event){
+                  cubeid = r.pick(event.offsetX, event.offsetY);
+                    if (cubeid != 0)
+                      SELECTED_CUBE = r.get(cubeid);
+                };
+
+                window.onkeypress = function(e){
+
+                  if (e.key == 'q'){
+                    SELECTED_CUBE.visible = false;
+                  }
+
+                   if (e.key == 'w'){
+                    SELECTED_CUBE.color = [Math.random(),Math.random(),Math.random()];
+                  }
+
+                   if (e.key == 'e'){
+                    SELECTED_CUBE.transform.rotateX(10);
+                  }
+
+                   if (e.key === 'b'){
+                    activeRo = !activeRo;
+                  }
+
+                   if (e.key === 'o'){
+                    download();
+                  }
+
+                  if (e.key === 'l'){
+                    upload("scene.json");
+                  }
+
+                }
+
+                    r.onRender = function(){
+                    if (activeRo){
+                    r.camera.rotate([1,0]);
+                      }
+                    }
+                  r.camera.position = [0, 0, 300];
+              r.render();
+
+             }   
+
+      </script>
+
+  </head>
+  <body>
+  </body>
+</html>
