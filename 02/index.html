@@ -8,6 +8,7 @@
       </style>
 
       <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+      <script src = "loader.js"> </script>
 
       <script>
       let isActive = false;
@@ -45,8 +46,8 @@
                   SELECTED_CUBE.visible = false;
                 }
                 if (e.key == 'e') {
-                  SELECTED_CUBE.rotationX += 10;
-                }
+                   SELECTED_CUBE.transform.rotateX(10);
+                }              
                 if (e.key == 'w') {
                   SELECTED_CUBE.color = [Math.random(), Math.random(), Math.random()];
                 }
@@ -54,6 +55,12 @@
                 if (e.key == 'b'){
                 isActive = !isActive; 
                 }
+                if (e.key == 'o') {
+                  download();
+                }
+                if (e.key == 'l') {
+                  upload("scene.json");
+               }
             };
               
                 r.onRender = function() {
@@ -71,23 +78,6 @@
 
 
           
-
-      </script>
-
-      <script src = "loader.js"> </script>
-      <script>
-         window.onkeypress = function(e) {
-        if (e.key == 'o') {
-          download();
-        }
-        if (e.key == 'l') {
-          upload(scene.json);
-        }
-      };
-        
-      </script>
-     
-      </script>
 
       </script>
 
