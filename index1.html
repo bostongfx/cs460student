@@ -1,0 +1,93 @@
+<html>
+  <head>
+
+      <style>
+        body {
+            background-color: black;
+        }
+      </style>
+
+      <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+
+      <script>
+
+          window.onload = function() {
+
+              // once everything is done loading
+
+              r = new X.renderer3D();
+              r.init();
+
+              c = new X.cube();
+              // c.color = [1, 0, 0];
+                      // R  G  B
+
+              r.add(c);
+
+
+              c2 = new X.cube();
+              c2.color = [0, 0, 1];
+                        // R  G  B
+              c2.center = [10, 0, 0];
+
+              c2.lengthX = 20.1;
+              c2.lengthY = 20.1;
+              c2.lengthZ = 20.1;
+
+              r.add(c2);
+
+
+              // c3 = new X.cube();
+              // c3.center = [0, 30, 0];
+              // r.add(c3);
+
+              // for(var i=0; i < 10; i++) {
+
+              //     c4 = new X.cube();
+              //     c4.center = [0, 30 + 30*i, 0];
+
+              //     r.add(c4);
+
+
+              // }
+
+
+
+              r.render();
+
+              // console.log('Hello CS460!')
+
+              // r.onRender = function() {
+
+              //     // this gets executed every single frame
+
+              //     // rotating the camera by 1 degree
+              //     r.camera.rotate([20, 0]);
+
+              //     // rotating the cube by 10 degrees
+              //     c.transform.rotateX(10);
+
+
+              // }
+
+r.interactor.onMouseMove = 
+function(event) { 
+
+
+    console.log('test', event.offsetX, event.offsetY);
+                                      
+    cubeid =  r.pick(event.offsetX, event.offsetY) ;
+
+    if (cubeid != 0)
+        r.get( cubeid ).transform.rotateX(10);
+
+          };
+
+  }
+
+      </script>
+
+  </head>
+  <body>
+  </body>
+</html>

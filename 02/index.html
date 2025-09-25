@@ -1,2 +1,136 @@
-Ready for assignment 2.
+Full assignment :
 
+<html>
+<head>
+  <title>Assignment 2 - 3D Art</title>
+  <style>
+    body { background-color: black; margin: 0; overflow: hidden; }
+  </style>
+  <script src="https://get.goXTK.com/xtk_edge.js"></script>
+  <script src="loader.js"></script>
+</head>
+<body>
+<script>
+  var r;
+  var SIZE = 12, GAP = 3;
+  var SELECTED_CUBE = null;
+  var CAMERAS = [];
+  var SPIN = false;
+  var CUBES = [];
+
+  window.onload = function () {
+    r = new X.renderer3D();
+    r.init();
+
+    for (var z = -5; z < 6; z++) {
+      for (var y = -5; y < 6; y++) {
+        for (var x = -5; x < 6; x++) {
+          var c = new X.cube();
+          c.lengthX = c.lengthY = c.lengthZ = SIZE;
+          c.transform.translateX((SIZE + GAP) * x);
+          c.transform.translateY((SIZE + GAP) * y);
+          c.transform.translateZ((SIZE + GAP) * z);
+          c.gx = x; c.gy = y; c.gz = z;
+          r.add(c);
+          CUBES.push(c);
+        }
+      }
+    }
+
+    r.camera.position = [0, 0, 300];
+
+    r.interactor.onMouseMove = function (event) {
+      var mx = (event.offsetX !== undefined) ? event.offsetX : event.layerX;
+      var my = (event.offsetY !== undefined) ? event.offsetY : event.layerY;
+      var id = r.pick(mx, my);
+      SELECTED_CUBE = (id !== 0) ? r.get(id) : null;
+    };
+
+    r.onRender = function () {
+      if (SPIN) r.camera.rotate([1, 0]);
+    };
+
+    function resetCubes() {
+      for (var i = 0; i < CUBES.length; i++) {
+        var c = CUBES[i];
+        c.visible = true;
+        c.lengthX = c.lengthY = c.lengthZ = SIZE;
+        c.color = [0.9, 0.9, 0.9];
+      }
+    }
+
+    function artSphereShell() {
+      resetCubes();
+      for (var i = 0; i < CUBES.length; i++) {
+        var c = CUBES[i], x = c.gx, y = c.gy, z = c.gz;
+        var d = Math.sqrt(x*x + y*y + z*z);
+        if (d < 4.3 || d > 5.6) { c.visible = false; continue; }
+        c.color = [ (x+5)/10, (y+5)/10, (z+5)/10 ];
+        c.lengthY = SIZE * (1 + 0.35 * Math.sin((x + y + z) * 0.7));
+      }
+    }
+
+    function artChecker() {
+      resetCubes();
+      for (var i = 0; i < CUBES.length; i++) {
+        var c = CUBES[i], x = c.gx, y = c.gy, z = c.gz;
+        if (((x + y + z) & 1) === 1) c.visible = false;
+        else c.color = [ (x+5)/10, (z+5)/10, (y+5)/10 ];
+      }
+    }
+
+    function artWave() {
+      resetCubes();
+      for (var i = 0; i < CUBES.length; i++) {
+        var c = CUBES[i], x = c.gx, y = c.gy, z = c.gz;
+        var h = 1 + 0.6 * Math.sin(0.7*x) * Math.cos(0.7*z);
+        c.lengthY = SIZE * h;
+        c.color = [ (h-0.4), (y+5)/10, 0.8 - (h-1)*0.5 ];
+      }
+    }
+
+    function artStripes() {
+      resetCubes();
+      for (var i = 0; i < CUBES.length; i++) {
+        var c = CUBES[i], z = c.gz;
+        var t = (z + 5) / 10;
+        c.color = [ t, 1 - t, (Math.sin(z) + 1)/2 ];
+        c.lengthZ = SIZE * (0.8 + 0.4 * Math.cos(z * 0.7));
+      }
+    }
+
+    function artRandom() {
+      resetCubes();
+      for (var i = 0; i < CUBES.length; i++) {
+        var c = CUBES[i];
+        if (Math.random() < 0.70) { c.visible = false; continue; }
+        c.color = [ Math.random(), Math.random(), Math.random() ];
+        c.lengthX = SIZE * (0.7 + Math.random()*0.8);
+        c.lengthY = SIZE * (0.7 + Math.random()*0.8);
+        c.lengthZ = SIZE * (0.7 + Math.random()*0.8);
+      }
+    }
+
+
+
+    window.onkeypress = function (e) {
+      var k = (e.key || '').toLowerCase();
+      if (k === 'b') { SPIN = !SPIN; return; }
+      if (k === 'o') { download(); return; }
+      if (k === 'l') { upload('scene.json'); return; }
+      if (k === '1') { artChecker(); return; }
+      if (k === '2') { artWave(); return; }
+      if (k === '3') { artRandom(); return; }
+      if (k === 'r') { resetCubes(); return; }
+      if ((k === 'q' || k === 'w' || k === 'e') && !SELECTED_CUBE) return;
+      if (k === 'q') { SELECTED_CUBE.visible = false; }
+      else if (k === 'w') { SELECTED_CUBE.color = [Math.random(), Math.random(), Math.random()]; }
+      else if (k === 'e') { SELECTED_CUBE.transform.rotateX(10); }
+    };
+
+    r.render();
+    window.focus();
+  };
+</script>
+</body>
+</html>

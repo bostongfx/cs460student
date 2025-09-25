@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Assignment 2 - 3D Art</title>
+  <style>
+    body {
+      background-color: black;
+      margin: 0;
+      overflow: hidden;
+    }
+  </style>
+  <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+  <script type="text/javascript" src="loader.js"></script>
+</head>
+<body>
+  <script>
+    var SIZE = 12;
+    var GAP = 5;
+    var SELECTED_SPHERE = null;
+    var PREVIOUS_SPHERE = null;
+    var r;
+    var CAMERAS = [];
+    var SPIN = false;
+    var cameraInterval = null;
+    var currentCameraIndex = 0;
+
+    window.onload = function() {
+      r = new X.renderer3D();
+      r.init();
+
+      for (var z = -5; z < 6; z++) {
+        for (var y = -5; y < 6; y++) {
+          for (var x = -5; x < 6; x++) {
+            var new_sphere = new X.sphere();
+            var randomRadius = 1 + Math.random() * 10;
+            new_sphere.radius = randomRadius;
+            new_sphere.transform.translateX((SIZE + GAP) * x);
+            new_sphere.transform.translateY((SIZE + GAP) * y);
+            new_sphere.transform.translateZ((SIZE + GAP) * z);
+            r.add(new_sphere);
+          }
+        }
+      }
+
+      r.camera.position = [0, 0, 300];
+
+      r.interactor.onMouseMove = function(event) {
+        var mx = (event.offsetX !== undefined) ? event.offsetX : event.layerX;
+        var my = (event.offsetY !== undefined) ? event.offsetY : event.layerY;
+        var sphereid = r.pick(mx, my);
+        if (PREVIOUS_SPHERE) {
+          PREVIOUS_SPHERE.color = PREVIOUS_SPHERE.permanentColor || [1, 1, 1];
+        }
+        if (sphereid !== 0) {
+          SELECTED_SPHERE = r.get(sphereid);
+          if (SELECTED_SPHERE) {
+            if (!SELECTED_SPHERE.permanentColor) {
+              SELECTED_SPHERE.permanentColor = SELECTED_SPHERE.color ? SELECTED_SPHERE.color.slice() : [1, 1, 1];
+            }
+            SELECTED_SPHERE.color = [1, 0, 1];
+            PREVIOUS_SPHERE = SELECTED_SPHERE;
+          }
+        } else {
+          SELECTED_SPHERE = null;
+          PREVIOUS_SPHERE = null;
+        }
+      };
+
+      r.onRender = function() {
+        if (SPIN) {
+          r.camera.rotate([1, 0]);
+        }
+      };
+
+      window.onkeypress = function(e) {
+        var key = (e.key || '').toLowerCase();
+
+        if (key === 'b') {
+          SPIN = !SPIN;
+          return;
+        }
+        if (key === 'o') {
+          download();
+          return;
+        }
+        if (key === 'l') {
+          upload('scene.json');
+          return;
+        }
+        if (key === 'c') {
+          var currentView = r.camera.view.slice();
+          CAMERAS.push(currentView);
+          console.log('Camera position stored! Total cameras: ' + CAMERAS.length);
+          return;
+        }
+        if (key === 'v') {
+          if (cameraInterval) {
+            clearInterval(cameraInterval);
+            cameraInterval = null;
+            console.log('Camera cycling stopped');
+          } else if (CAMERAS.length > 0) {
+            currentCameraIndex = 0;
+            cameraInterval = setInterval(function() {
+              if (CAMERAS.length > 0) {
+                r.camera.view = CAMERAS[currentCameraIndex];
+                currentCameraIndex = (currentCameraIndex + 1) % CAMERAS.length;
+                console.log('Switched to camera ' + (currentCameraIndex === 0 ? CAMERAS.length : currentCameraIndex));
+              }
+            }, 1000);
+            console.log('Camera cycling started with ' + CAMERAS.length + ' positions');
+          }
+          return;
+        }
+
+        if ((key === 'q' || key === 'w' || key === 'e') && !SELECTED_SPHERE) return;
+
+        if (key === 'q') {
+          SELECTED_SPHERE.visible = false;
+        } else if (key === 'w') {
+          var randomColor = [Math.random(), Math.random(), Math.random()];
+          SELECTED_SPHERE.color = randomColor;
+          SELECTED_SPHERE.permanentColor = randomColor;
+        } else if (key === 'e') {
+          SELECTED_SPHERE.transform.rotateX(10);
+        }
+      };
+
+      r.render();
+      window.focus();
+    };
+  </script>
+
+  <div style="position: absolute; top: 10px; left: 10px; color: white; font-family: Arial, sans-serif; font-size: 12px;">
+    <h3>BONUS Controls:</h3>
+    <ul>
+      <li><strong>Mouse:</strong> Hover over spheres to select them (magenta highlight)</li>
+      <li><strong>Q:</strong> Hide the selected sphere</li>
+      <li><strong>W:</strong> Change selected sphere to random color</li>
+      <li><strong>E:</strong> Rotate selected sphere 10 degrees in X-direction</li>
+      <li><strong>B:</strong> Toggle camera spinning</li>
+      <li><strong>C:</strong> Store current camera position</li>
+      <li><strong>V:</strong> Start/Stop cycling through stored cameras</li>
+      <li><strong>O:</strong> Download scene as scene.json</li>
+      <li><strong>L:</strong> Load scene from scene.json</li>
+    </ul>
+    <p><strong>Features:</strong> Random sphere sizes, Camera position storage</p>
+  </div>
+</body>
+</html>
