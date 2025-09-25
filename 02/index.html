@@ -1,2 +1,31 @@
-Ready for assignment 2.
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>CS461 – A2 Part 1 (Hello Cube)</title>
+  <style>html,body{margin:0;height:100%;background:#000}</style>
+  <!-- Load XTK from CDN (no xtk.js file needed) -->
+  <script src="https://get.goXTK.com/xtk_edge.js"></script>
+</head>
+<body>
+<script>
+  window.onload = function () {
+    var r = new X.renderer3D();
+    r.init();
 
+    // Make one cube
+    var c = new X.cube();
+    c.lengthX = c.lengthY = c.lengthZ = 20;
+
+    // Move camera back so we can see it
+    r.camera.position = [0, 0, 150];
+
+    r.add(c);
+    r.render();
+  };
+</script>
+
+<!-- Your professor's save/load helper -->
+<script src="loader.js"></script>
+</body>
+</html>
