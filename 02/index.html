@@ -1,2 +1,92 @@
-Ready for assignment 2.
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <script src="https://get.goXTK.com/xtk_edge.js"></script>
+    <script src="loader.js"></script>
+    <style>
+      html,body { margin:0; background:#fff; }
+    </style>
+  </head>
+  <body>
+    <script>
+      var r;
+      var SIZE = 4;
+      var GAP  = 2;
+      var STEP = SIZE + GAP;
+      var SELECTED_CUBE = null;
+      var SPIN_CAMERA   = false;
+
+      window.onload = function () {
+        r = new X.renderer3D();
+        r.init();
+        window.r = r;
+
+        for (var z = -5; z < 6; z++) {
+          for (var y = -5; y < 6; y++) {
+            for (var x = -5; x < 6; x++) {
+              var c = new X.cube();
+              c.lengthX = SIZE;
+              c.lengthY = SIZE;
+              c.lengthZ = SIZE;
+
+              var px = STEP * x;
+              var py = STEP * y;
+              var pz = STEP * z;
+              c.transform.translateX(px);
+              c.transform.translateY(py);
+              c.transform.translateZ(pz);
+
+              var maxIdx = 5;
+              var nx = (x + maxIdx) / (2 * maxIdx);
+              var ny = (y + maxIdx) / (2 * maxIdx);
+              var nz = (z + maxIdx) / (2 * maxIdx);
+              c.color = [nx, ny, nz];
+
+              var R = STEP * 5;
+              var dist = Math.sqrt(px*px + py*py + pz*pz);
+              if (dist > R) {
+                c.visible = false;
+              }
+
+              if (((x + y + z) & 1) === 0) {
+                c.transform.rotateY(20);
+              }
+
+              r.add(c);
+            }
+          }
+        }
+
+        r.camera.position = [0, 0, 300];
+
+        r.interactor.onMouseMove = function (event) {
+          var cubeid = r.pick(event.offsetX, event.offsetY);
+          SELECTED_CUBE = (cubeid != 0) ? r.get(cubeid) : null;
+        };
+
+        window.onkeydown = function (e) {
+          const k = e.key.toLowerCase();
+          if (k === 'o') { if (typeof download === 'function') download(); return; }
+          if (k === 'l') { if (typeof upload   === 'function') upload("scene.json"); return; }
+          if (k === 'b') { SPIN_CAMERA = !SPIN_CAMERA; return; }
+          if (!SELECTED_CUBE) return;
+          if (k === 'q') SELECTED_CUBE.visible = false;
+          else if (k === 'w') SELECTED_CUBE.color = [Math.random(), Math.random(), Math.random()];
+          else if (k === 'e') SELECTED_CUBE.transform.rotateX(10);
+        };
+
+        r.onRender = function () {
+          if (SPIN_CAMERA) {
+            r.camera.rotate([1, 0]);
+          }
+        };
+
+        r.render();
+      };
+    </script>
+  </body>
+</html>
+
+
 
