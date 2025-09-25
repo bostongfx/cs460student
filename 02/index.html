@@ -2,19 +2,25 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>CS461 – A2 Hello Cube</title>
-  <style>html,body{margin:0;height:100%;background:#000;color:#ddd}</style>
-  <!-- XTK from CDN -->
+  <title>CS461 – A2 3D ART</title>
+  <style>
+    html,body{margin:0;height:100%;background:#000;color:#ddd}
+    #hud{
+      position:fixed; left:50%; top:12px; transform:translateX(-50%);
+      background:rgba(0,0,0,.5); padding:8px 12px; border-radius:10px;
+      font-family:system-ui, sans-serif; font-weight:600; letter-spacing:.5px;
+    }
+  </style>
   <script src="https://get.goXTK.com/xtk_edge.js"></script>
 </head>
 <body>
-  <div id="ok" style="position:fixed;left:10px;top:10px">loaded…</div>
+  <div id="hud">CS461 – A2 3D ART</div>
+
 <script>
   var r = new X.renderer3D();
   r.init();
   r.camera.position = [0, 0, 300];
 
-  // 11×11×11 = 1331 cubes
   const SIZE=6, GAP=2; function pos(n){ return (SIZE+GAP)*n; }
   for (let z=-5; z<=5; z++){
     for (let y=-5; y<=5; y++){
@@ -30,14 +36,12 @@
     }
   }
 
-  // picking (hover)
   var SELECTED = null;
   r.interactor.onMouseMove = function(e){
     const id = r.pick(e.offsetX, e.offsetY);
     SELECTED = (id && id !== 0) ? r.get(id) : null;
   };
 
-  // keys
   let SPIN=false;
   window.onkeypress = function(ev){
     const k = ev.key.toLowerCase();
@@ -53,11 +57,9 @@
   r.onRender = function(){ if (SPIN) r.camera.rotate([1,0]); };
   r.render();
 </script>
-<!-- Keep this if you already added it -->
+
 <script src="loader.js"></script>
 </body>
-<<<<<<< HEAD
 </html>
-=======
-</html>
->>>>>>> 812608f (WIP: update 02/index.html)
+
+
