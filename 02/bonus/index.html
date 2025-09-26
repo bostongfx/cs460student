@@ -20,6 +20,11 @@
           var SELECTED_CUBE;
           var camera_move = false;
 
+          var CAMERAS = [];
+          var cam_index = 0;
+          var camCycle = null;
+          var cycleRunning = false;
+
 
           window.onload = function() {
 
@@ -32,12 +37,18 @@
               for (var z=-5; z < 6; z++) {
                   for (var y=-5; y < 6; y++) {
                     for(var x=-5; x < 6; x++) {
-                      new_cube = new X.cube();
-                      new_cube.transform.translateX((SIZE + GAP) * x);
-                      new_cube.transform.translateY((SIZE + GAP) * y);
-                      new_cube.transform.translateZ((SIZE + GAP) * z);
-                      r.add(new_cube);
-                      console.log(new_cube.center);
+                      hex = new X.sphere();
+
+                      hex.radius = SIZE ;
+                      hex.radius = SIZE + Math.random() * SIZE * 2;
+
+                      
+
+                      hex.transform.translateX((SIZE + GAP) * x);
+                      hex.transform.translateY((SIZE + GAP) * y);
+                      hex.transform.translateZ((SIZE + GAP) * z);
+                      r.add(hex);
+                      
                     }
                   }
                 }
@@ -86,6 +97,30 @@
             if (e.key == 'o' ) {download("scene.json");}
             if (e.key == 'l' ) {upload("scene.json");}
 
+            if (e.key == 'c') {
+              var view = new Float32Array(r.camera.view);
+              CAMERAS.push (view);
+            }
+
+            if (e.key == 'v') {
+              
+              if (cycleRunning) {
+                cycleRunning = false;
+                clearInterval(camCycle);
+              }
+              else {
+                cycleRunning = true;
+                camCycle = setInterval(() => {
+                
+                r.camera.view = CAMERAS[cam_index];
+                r.render();
+
+                cam_index = (cam_index + 1) % CAMERAS.length
+                },1000);
+              }
+                
+              
+            }
 
             if (!SELECTED_CUBE) {}
             else {
