@@ -32,12 +32,26 @@
             let renderer, controls, scene, camera;
             let flickering = false;
             let toruses = [];
+            let wireFrameOn = false;
             const colors = {
                 hotpink:    0xFF69B4,
                 purple:     0x3333FF,
                 grassgreen: 0x7CFC00,
+
+                sunshine:   0xFFD700,
+                coral:      0xFF7F50,
+                peach:      0xFFE5B4,
             };
             Object.freeze(colors);
+
+            const colorArray = [
+                colors.hotpink,
+                colors.purple,
+                colors.grassgreen,
+                colors.sunshine,
+                colors.coral,
+                colors.peach,
+            ]
 
             const setupCamera = () => {
                 const fov = 75;
@@ -53,7 +67,7 @@
                 const torusGeometry = new THREE.TorusKnotGeometry(10, 3, 100, 16);
                 const torusMaterial = new THREE.MeshStandardMaterial({
                     color: color,
-                    wireframe: false,
+                    wireframe: wireFrameOn,
                 });
                 const torus = new THREE.Mesh(torusGeometry, torusMaterial);
                 torus.position.set(x, y, z);
@@ -118,6 +132,10 @@
 
                 let lastObject = null;
                 let mouseIsDown = false;
+                // Get two random colors
+                let color1 = colorArray[Math.floor(Math.random() * colorArray.length)];
+                let color2 = colorArray[Math.floor(Math.random() * colorArray.length)];
+
                 renderer.domElement.onmousedown = (e) => {
                     mouseIsDown = true;
                     if (e.shiftKey) {
@@ -126,7 +144,10 @@
                         if (point == null) {
                             return;
                         }
-                        lastObject = drawTorus(scene, colors.hotpink, point.x, point.y, point.z)
+                        // Get two random colors for every new torus
+                        color1 = colorArray[Math.floor(Math.random() * colorArray.length)];
+                        color2 = colorArray[Math.floor(Math.random() * colorArray.length)];
+                        lastObject = drawTorus(scene, color2, point.x, point.y, point.z)
                     }
                 }
 
@@ -137,10 +158,11 @@
                         lastObject.scale.y + e.movementY / 20,
                         lastObject.scale.z + e.movementY / 20,
                     )
+                    
                     if (lastObject.scale.x < 0) {
-                        lastObject.material.color.set(colors.grassgreen);
+                        lastObject.material.color.set(color1);
                     } else {
-                        lastObject.material.color.set(colors.hotpink);
+                        lastObject.material.color.set(color2);
                     }
                 }
 
@@ -153,11 +175,15 @@
                     if (e.key == 'f') {
                         flickering = !flickering;
                     } 
+                    if (e.key == 'w') {
+                        wireFrameOn = !wireFrameOn
+                        for (let torus of toruses) {
+                            torus.material.wireframe = wireFrameOn;
+                        }
+                    }
                 }
 
                 setupLights(scene);
-
-                // call animation/rendering loop
                 animate();
             };
 
