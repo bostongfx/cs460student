@@ -1,80 +1,181 @@
 <html>
-  <head>
-    <style>
-      html, body { 
-        background-color:#000;
-        margin: 0;
-        padding: 0;
-        height: 100%;
-        overflow: hidden !important;  
-      }
-    </style>
-    
-    <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+    <head>
+        <style>
+            html,
+            body {
+                background-color: #000;
+                margin: 0;
+                padding: 0;
+                height: 100%;
+                overflow: hidden !important;
+            }
+        </style>
 
-    <script type="importmap">
-    {
-      "imports": {
-        "three": "https://unpkg.com/three@latest/build/three.module.js",
-        "three/addons/": "https://unpkg.com/three@latest/examples/jsm/"
-      }
-    }
-    </script>
+        <script
+            async
+            src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"
+        ></script>
 
-    <script type="module">
+        <script type="importmap">
+            {
+                "imports": {
+                    "three": "https://unpkg.com/three@latest/build/three.module.js",
+                    "three/addons/": "https://unpkg.com/three@latest/examples/jsm/"
+                }
+            }
+        </script>
 
-      import * as THREE from 'three';
-      import { OrbitControls } from 'three/addons/controls/OrbitControls.js';      
+        <script type="module">
+            import * as THREE from "three";
+            import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
-      let scene, camera, renderer, controls;
-      window.onload = function() {
+            let renderer, controls, scene, camera;
+            let flickering = false;
+            let toruses = [];
+            const colors = {
+                hotpink:    0xFF69B4,
+                purple:     0x3333FF,
+                grassgreen: 0x7CFC00,
+            };
+            Object.freeze(colors);
 
-        //
-        // THREE.js code goes here!
-        //
-        scene = new THREE.Scene();
+            const setupCamera = () => {
+                const fov = 75;
+                const ratio = window.innerWidth / window.innerHeight;
+                const zNear = 1;
+                const zFar = 10000;
+                camera = new THREE.PerspectiveCamera(fov, ratio, zNear, zFar);
+                camera.position.set(0, 0, 100);
+                return camera;
+            }
 
-        // Setup camera
-        let fov = 75;
-        let ratio = window.innerWidth / window.innerHeight;
-        let zNear = 1;
-        let zFar = 10000;
-        camera = new THREE.PerspectiveCamera(fov, ratio, zNear, zFar)
-        camera.position.set(0, 0, 100);
+            const drawTorus = (scene, color, x, y, z) => {
+                const torusGeometry = new THREE.TorusKnotGeometry(10, 3, 100, 16);
+                const torusMaterial = new THREE.MeshStandardMaterial({
+                    color: color,
+                    wireframe: false,
+                });
+                const torus = new THREE.Mesh(torusGeometry, torusMaterial);
+                torus.position.set(x, y, z);
+                scene.add(torus);
+                toruses.push(torus);
+                return torus;
+            }
 
-        // Create renderer and add canvas
-        renderer = new THREE.WebGLRenderer({antialias: true});
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        document.body.appendChild(renderer.domElement);
+            const drawInvisiblePlane = (scene) => {
+                const planeGeometry = new THREE.PlaneGeometry(10000, 10000);
+                const planeMaterial = new THREE.MeshBasicMaterial({
+                    visible: false,
+                });
+                var invisible_plane = new THREE.Mesh(planeGeometry, planeMaterial);
+                scene.add(invisible_plane);
+                return invisible_plane;
+            }
 
-        // Setup lights
-        let ambientLight = new THREE.AmbientLight();
-        scene.add(ambientLight);
+            const setupLights = (scene) => {
+                const ambientLight = new THREE.AmbientLight();
+                scene.add(ambientLight);
 
-        let light = new THREE.DirectionalLight(0xFFFFFF, 5);
-        light.position.set(10, 100, 10);
-        scene.add(light);
+                const directionalLight = new THREE.DirectionalLight(0xffffff, 5.0);
+                directionalLight.position.set(10, 100, 10);
+                scene.add(directionalLight);
+            }
 
-        // Configure cube
-        let geometry = new THREE.BoxGeometry(20, 20, 20);
-        let material = new THREE.MeshStandardMaterial({color: 0xFFFFFF, wireframe: true})
-        let cube = new THREE.Mesh(geometry, material);
-        scene.add(cube);
+            const getMouseClickCoordinates = (e, camera, invisible_plane) => {
+                var pixel_coords = new THREE.Vector2(e.clientX, e.clientY);
+                var vp_coords = new THREE.Vector2(
+                    (pixel_coords.x / window.innerWidth) * 2 - 1,   //X
+                    -(pixel_coords.y / window.innerHeight) * 2 + 1, //Y
+                );
+                var vp_coords_near = new THREE.Vector3(
+                    vp_coords.x,
+                    vp_coords.y,
+                    0,
+                );
+                var raycaster = new THREE.Raycaster();
+                raycaster.setFromCamera(vp_coords_near, camera);
+                var intersects = raycaster.intersectObject(invisible_plane);
+                if (intersects.length == 0) {
+                    return null;
+                }
+                return intersects[0].point;
+            }
 
-        // Setup interaction
-        controls = new OrbitControls(camera, renderer.domElement);
+            window.onload = function () {
+                scene = new THREE.Scene();
+
+                camera = setupCamera();
+
+                const torus = drawTorus(scene, colors.purple, 0, 0, 0);
+                const invisible_plane = drawInvisiblePlane(scene);
+
+                // create renderer and setup the canvas
+                renderer = new THREE.WebGLRenderer({ antialias: true });
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                document.body.appendChild(renderer.domElement)
+
+                controls = new OrbitControls(camera, renderer.domElement);
+
+                let lastObject = null;
+                let mouseIsDown = false;
+                renderer.domElement.onmousedown = (e) => {
+                    mouseIsDown = true;
+                    if (e.shiftKey) {
+                        controls.enabled = false;
+                        const point = getMouseClickCoordinates(e, camera, invisible_plane);
+                        if (point == null) {
+                            return;
+                        }
+                        lastObject = drawTorus(scene, colors.hotpink, point.x, point.y, point.z)
+                    }
+                }
+
+                renderer.domElement.onmousemove = (e) => {
+                    if (!mouseIsDown) return;
+                    lastObject.scale.set(
+                        lastObject.scale.x + e.movementY / 20,
+                        lastObject.scale.y + e.movementY / 20,
+                        lastObject.scale.z + e.movementY / 20,
+                    )
+                    if (lastObject.scale.x < 0) {
+                        lastObject.material.color.set(colors.grassgreen);
+                    } else {
+                        lastObject.material.color.set(colors.hotpink);
+                    }
+                }
+
+                renderer.domElement.onmouseup = () => {
+                    mouseIsDown = false;
+                    controls.enabled = true;
+                }
+
+                window.onkeypress = (e) => {
+                    if (e.key == 'f') {
+                        flickering = !flickering;
+                    } 
+                }
+
+                setupLights(scene);
+
+                // call animation/rendering loop
+                animate();
+            };
+
+            function animate() {
+                requestAnimationFrame(animate);
+
+                if (flickering) {
+                    for (let torus of toruses) {
+                    torus.material.opacity = Math.random();
+                    torus.material.transparent = true;
+                    torus.material.needsUpdate = true;
+                }
+                }
  
-        // call animation/rendering loop
-        animate();
-        
-      };
-
-      function animate() {
-        requestAnimationFrame(animate);
-        controls.update();
-        renderer.render(scene, camera);
-      };
-    </script>
-  </head>
-  <body></body>
+                controls.update();
+                renderer.render(scene, camera);
+            }
+        </script>
+    </head>
+    <body></body>
 </html>
