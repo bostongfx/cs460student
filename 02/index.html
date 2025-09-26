@@ -23,16 +23,16 @@
     <h1>Assignment 2 - CS 460</h1>
 
     <script>
-        const SIZE = 25;
-        const GAP = 5;
+        const SIZE = 55;
+        const GAP = 15;
         let B_ROTATE = false;
 
         window.onload = function(){
             r = new X.renderer3D();
             r.init();
-                for (var z=-5; z < 6; z++) {
-                    for (var y=-5; y < 6; y++) {
-                        for(var x=-5; x < 6; x++) {
+                for (var z=-5; z < 11; z++) {
+                    for (var y=-5; y < 11; y++) {
+                        for(var x=-5; x < 11; x++) {
                             new_cube = new X.cube();
                             new_cube.transform.translateX((SIZE + GAP) * x);
                             new_cube.transform.translateY((SIZE + GAP) * y);
