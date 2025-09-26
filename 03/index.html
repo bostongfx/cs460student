@@ -1,0 +1,165 @@
+<html>
+  <head>
+    <style>
+      html,
+      body {
+        background-color: #000;
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden !important;
+      }
+    </style>
+
+    <script
+      async
+      src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"
+    ></script>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@latest/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@latest/examples/jsm/"
+        }
+      }
+    </script>
+
+    <script type="module">
+      import * as THREE from "three";
+      import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+      const hotPink = 0xff69b4;
+      const grassGreen = 0x7CFC00;
+
+      let renderer, controls, scene, camera, lastObject;
+
+      let readyToScale = false;
+
+      window.onload = () => {
+        scene = new THREE.Scene();
+
+        // setup the camera
+        let fov = 75;
+        let ratio = window.innerWidth / window.innerHeight;
+        let zNear = 1;
+        let zFar = 10000;
+        camera = new THREE.PerspectiveCamera(fov, ratio, zNear, zFar);
+        camera.position.set(0, 0, 100);
+
+        // create renderer and setup the canvas
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Setup Camera Controls
+        controls = new OrbitControls(camera, renderer.domElement);
+
+        // setup ambient light
+        let ambientLight = new THREE.AmbientLight();
+        scene.add(ambientLight);
+
+        // setup direct light
+        let light = new THREE.DirectionalLight(0xffffff, 5.0);
+        light.position.set(10, 100, 10);
+        scene.add(light);
+
+        /* configure torus - Arguments are: 
+          - torus radius (Overall width, height, depth)
+          - tube radius ( )
+          - tubular segments (smoothness of arc) 
+          - radial segments (smoothness of tubes)
+          - p (Rotations around axis of symmetry)
+          - q (Rotations around center of geometry)
+        */
+        let torusGeometry = new THREE.TorusKnotGeometry(20, 6);
+        let blueMaterial = new THREE.MeshStandardMaterial({
+          color: 0x42a4f5,
+        });
+        let torus = new THREE.Mesh(torusGeometry, blueMaterial);
+        scene.add(torus);
+
+        // The invisible plane
+        let planeGeometry = new THREE.PlaneGeometry(10000, 10000);
+        let planeMaterial = new THREE.MeshBasicMaterial({
+          visible: false,
+        });
+        let invisible_plane = new THREE.Mesh(planeGeometry, planeMaterial );
+        scene.add(invisible_plane);
+
+        // Click to create new torus
+        renderer.domElement.onmousedown = (event) => {
+          if (!event.shiftKey) return;  // Ignore interaction if shift key isn't pressed.
+
+          controls.enabled = false;
+
+          let pixel_coords = new THREE.Vector2(event.clientX, event.clientY); // Get the 2D coords of click from event
+
+          // Normalize coords between [-1, 1]
+          let vp_coords = new THREE.Vector2(
+            (pixel_coords.x / window.innerWidth) * 2 - 1, // X
+            -(pixel_coords.y / window.innerHeight) * 2 + 1  // Y
+          );
+
+          // Create 3D coords on zNear plane.
+          let vp_coords_near = new THREE.Vector3(vp_coords.x, vp_coords.y, 0);
+
+          // Create raycaster and find the list of objects that it intersects.
+          let raycaster = new THREE.Raycaster();
+          raycaster.setFromCamera(vp_coords_near, camera);
+          let intersects = raycaster.intersectObject(invisible_plane);
+          
+          if (intersects.length == 0) return; // If raycaster didn't hit anything exit.
+          
+          let pinkMaterial = new THREE.MeshStandardMaterial({
+            color: hotPink,
+          });
+          // Create a new torus to add to the scene.
+          lastObject = new THREE.Mesh(torusGeometry, pinkMaterial);
+
+          // Update torus position.
+          lastObject.position.set(
+            intersects[0].point.x,
+            intersects[0].point.y,
+            intersects[0].point.z
+          );
+
+          readyToScale = true;
+
+          scene.add(lastObject);
+        };
+
+        renderer.domElement.onmouseup = (event) => {
+          controls.enabled = true;
+          readyToScale = false;
+        }
+
+        renderer.domElement.onmousemove = (event) => {
+          if (!readyToScale) return;  // Ready to scale will only be true right after a torus was placed.
+
+          lastObject.scale.set(
+            lastObject.scale.x + (event.movementY / 20),
+            lastObject.scale.y + (event.movementY / 20),
+            lastObject.scale.z + (event.movementY / 20));
+
+          if (lastObject.scale.x < 0) {
+            lastObject.material.color.set(grassGreen)
+          } else {
+            lastObject.material.color.set(hotPink)
+          }
+        }
+
+        // Call animation/rendering loop
+        animate();
+      };
+
+      const animate = () => {
+        requestAnimationFrame(animate);
+
+        controls.update();
+        renderer.render(scene, camera);
+      }
+    </script>
+  </head>
+  <body></body>
+</html>
