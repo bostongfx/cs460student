@@ -51,24 +51,86 @@
     <div class='demo'>
 
       <!-- TODO: REPLACE WITH A SCREENSHOT OF RO.ME -->
-      <img id='screenshot' src='https://placehold.co/300x300'>
+      <img id='screenshot' src='rome-screenshot.png'
+           alt='My screenshot from the RO.ME interactive WebGL music film'
+           loading='lazy'>
       <p id='description'>
-      <!-- TODO: FILL IN YOUR DESCRIPTION -->
-      RO.ME is a very cool webgl demo!
-      </p>
-      <p id='technology'>
-      Technology: TODO! <!-- TODO: FILL IN THE TECHNOLOGIES USED -->
-      </p>
-      <p id='comparison'>
-      Comparison: TODO! <!-- TODO: FILL IN THE COMPARISON -->
-      </p>
-      <p id='ai'>
-      Significance (AI): TODO! <!-- TODO: SUMMARIZE THE AI OUTPUT -->
+        <strong>RO.ME: 3 Dreams of Black</strong> is an early landmark WebGL interactive music film that ran fully in the browser—no plugins. It blended real-time 3D graphics, music, and light interaction to tell a short story. Because it appeared when WebGL was still new (early 2010s), it changed how people saw the web: not just static pages, but a place for GPU-powered, cinematic experiences. It inspired toolchains (e.g., early three-js workflows) and encouraged artists/developers to create ambitious, interactive 3D on the open web.
       </p>
 
-      <div id='bonus'>
-        <!-- TODO: BONUS TASK GOES HERE -->
-      </div>
+      <p id="technology"><strong>Technologies:</strong></p>
+      <ul style="margin-top:.5rem; text-align:left; display:inline-block;">
+        <li>WebGL for real-time GPU rendering in the browser</li>
+        <li>JavaScript (early three-js–style utilities and loaders)</li>
+        <li>GLSL shaders for materials, lighting, and post-effects</li>
+        <li>Audio synchronization so visuals follow the soundtrack</li>
+        <li>3D asset pipeline: meshes, textures, skeletal animation</li>
+      </ul>
+
+
+      <p id='comparison'>
+        I compared RO.ME with 
+        <a href="https://www.awwwards.com/sites/house-of-dreamers" target="_blank" rel="noopener"><strong>House of Dreamers</strong></a>.
+        While <strong>RO.ME</strong> feels like a guided, music-driven short film where the story and camera follow the soundtrack,
+        <strong>House of Dreamers</strong> emphasizes an exploratory, interactive journey through dream-like environments.
+        RO.ME is cinematic and paced like a movie, whereas House of Dreamers is more immersive and lets me actively explore
+        surreal scenes at my own pace. Both rely on WebGL for real-time 3D and shaders, but they highlight different strengths:
+        RO.ME shows the web’s ability for narrative storytelling, while House of Dreamers showcases playful immersion and user-driven discovery.
+      </p>
+
+
+      <p id='ai'>
+        <strong>Significance (AI):</strong>
+        <em>“RO.ME proved the open web could deliver cinematic, real-time 3D without plugins. It moved WebGL from tech demo
+        to storytelling medium and inspired modern GPU-accelerated web experiences.”</em> — Summary from <strong>ChatGPT</strong>
+      </p>
+
+
+
+    <div id="bonus">
+      <h2>Bonus: Animated Models</h2>
+      <p>
+        Viewer and models adapted from
+        <a href="https://github.com/mrdoob/rome-gltf" target="_blank" rel="noopener">mrdoob/rome-gltf</a>.
+      </p>
+
+      <!-- Inline viewers (correct query format: NO 'model=') -->
+      <table width="100%" cellpadding="6" cellspacing="0">
+        <tr>
+          <td align="center" valign="top">
+            <iframe
+              src="viewer.html?models/birds_vulture.gltf"
+              title="Sky Watcher" width="100%" height="320"
+              frameborder="0" loading="lazy" allowfullscreen>
+            </iframe>
+            <div><strong>Sky Watcher</strong></div>
+          </td>
+        </tr>
+        <tr>
+          <td align="center" valign="top">
+            <iframe
+              src="viewer.html?models/birdsA_parrot.gltf"
+              title="Color Echo" width="100%" height="320"
+              frameborder="0" loading="lazy" allowfullscreen>
+            </iframe>
+            <div><strong>Color Echo</strong></div>
+          </td>
+        </tr>
+        <tr>
+          <td align="center" valign="top">
+            <iframe
+              src="viewer.html?models/quadruped_fox.gltf"
+              title="Night Runner" width="100%" height="320"
+              frameborder="0" loading="lazy" allowfullscreen>
+            </iframe>
+            <div><strong>Night Runner</strong></div>
+          </td>
+        </tr>
+      </table>
+
+
+    </div>
+
 
     </div>
 
