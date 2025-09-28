@@ -1,2 +1,81 @@
-Ready for assignment 2.
+<html>
+  <head>
+    <style>
+        body {
+          background-color: black;
+        }
+    </style>
 
+    <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+    
+    # from https://stackoverflow.com/questions/436411
+    <script src="loader.js"></script>
+
+    <script>
+      SELECTED_CUBE = null
+      CAMERA_ROTATION = true
+
+      window.onload = function() {
+        var SIZE = 20
+        var GAP = 7
+
+        r = new X.renderer3D();
+        r.init()
+
+        for (var z = -5; z < 6; z++) {
+          for (var y = -5; y < 6; y++) {
+            for (var x = -5; x < 6; x++) {
+              newCube = new X.cube
+              newCube.transform.translateX((SIZE + GAP) * x)
+              newCube.transform.translateY((SIZE + GAP) * y)
+              newCube.transform.translateZ((SIZE + GAP) * z)
+
+              r.add(newCube)
+            }
+          }
+        }
+        r.interactor.onMouseMove = function(event) {
+          cubeid = r.pick(event.offsetX, event.offsetY)
+          SELECTED_CUBE = r.get(cubeid)
+        }
+
+        window.onkeypress = function(e) {
+          if (e.key == "q") {
+            SELECTED_CUBE.visible = false
+          }
+          if (e.key == "w") {
+            var r = Math.random()
+            var g = Math.random()
+            var b = Math.random()
+            SELECTED_CUBE.color = [r, g, b]
+          }
+          if (e.key == "e") {
+            SELECTED_CUBE.transform.rotateX(10)
+          }
+          if (e.key == "b") {
+            if (CAMERA_ROTATION) {CAMERA_ROTATION = false}
+            else {CAMERA_ROTATION = true}
+          }
+          if (e.key == "o") {
+            download()
+          }
+          if (e.key == "l") {
+            upload("scene.json")
+          }
+        }
+
+        r.camera.position = [0, 0, 600]
+
+        r.onRender = function() {
+          if (CAMERA_ROTATION) {
+            r.camera.rotate([1, 0])
+          }
+        }
+
+        r.render()
+      }
+
+
+    </script>
+  </head>
+</html>
