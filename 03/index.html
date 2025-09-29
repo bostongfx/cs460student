@@ -30,11 +30,17 @@
       import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
       const hotPink = 0xff69b4;
-      const grassGreen = 0x7CFC00;
+      const grassGreen = 0x7cfc00;
 
       let renderer, controls, scene, camera, lastObject;
 
-      let readyToScale = false;
+      let readyToScale = false; // This will only ever be true while the user is holding down click AND a torus was successfully placed.
+
+      let torusArray = []; // Stores a reference to every torus in the scene.
+
+      let isFlickering = false; // Determines if every torus should be flickering
+
+      let showWireframe = false; // Determines if the torus should appear with their wireframe.
 
       window.onload = () => {
         scene = new THREE.Scene();
@@ -65,40 +71,41 @@
         scene.add(light);
 
         /* configure torus - Arguments are: 
-          - torus radius (Overall width, height, depth)
-          - tube radius ( )
+          - torus radius (overall width, height, depth)
+          - tube radius (thickness of the tube of the torus.)
           - tubular segments (smoothness of arc) 
           - radial segments (smoothness of tubes)
           - p (Rotations around axis of symmetry)
           - q (Rotations around center of geometry)
         */
         let torusGeometry = new THREE.TorusKnotGeometry(20, 6);
-        let blueMaterial = new THREE.MeshStandardMaterial({
+        const blueMaterial = new THREE.MeshStandardMaterial({
           color: 0x42a4f5,
+          wireframe: showWireframe,
         });
-        let torus = new THREE.Mesh(torusGeometry, blueMaterial);
-        scene.add(torus);
+
+        let initialTorus = new THREE.Mesh(torusGeometry, blueMaterial);
+        torusArray.push(initialTorus);
+        scene.add(initialTorus);
 
         // The invisible plane
         let planeGeometry = new THREE.PlaneGeometry(10000, 10000);
-        let planeMaterial = new THREE.MeshBasicMaterial({
-          visible: false,
-        });
-        let invisible_plane = new THREE.Mesh(planeGeometry, planeMaterial );
+        let planeMaterial = new THREE.MeshBasicMaterial({ visible: false });
+        let invisible_plane = new THREE.Mesh(planeGeometry, planeMaterial);
         scene.add(invisible_plane);
 
         // Click to create new torus
         renderer.domElement.onmousedown = (event) => {
-          if (!event.shiftKey) return;  // Ignore interaction if shift key isn't pressed.
+          if (!event.shiftKey) return; // Ignore interaction if shift key isn't pressed.
 
-          controls.enabled = false;
+          controls.enabled = false; // Disable camera controls.
 
           let pixel_coords = new THREE.Vector2(event.clientX, event.clientY); // Get the 2D coords of click from event
 
           // Normalize coords between [-1, 1]
           let vp_coords = new THREE.Vector2(
             (pixel_coords.x / window.innerWidth) * 2 - 1, // X
-            -(pixel_coords.y / window.innerHeight) * 2 + 1  // Y
+            -(pixel_coords.y / window.innerHeight) * 2 + 1 // Y
           );
 
           // Create 3D coords on zNear plane.
@@ -108,12 +115,14 @@
           let raycaster = new THREE.Raycaster();
           raycaster.setFromCamera(vp_coords_near, camera);
           let intersects = raycaster.intersectObject(invisible_plane);
-          
+
           if (intersects.length == 0) return; // If raycaster didn't hit anything exit.
-          
-          let pinkMaterial = new THREE.MeshStandardMaterial({
+
+          const pinkMaterial = new THREE.MeshStandardMaterial({
             color: hotPink,
+            wireframe: showWireframe,
           });
+
           // Create a new torus to add to the scene.
           lastObject = new THREE.Mesh(torusGeometry, pinkMaterial);
 
@@ -124,41 +133,67 @@
             intersects[0].point.z
           );
 
-          readyToScale = true;
+          readyToScale = true; // Set torus ready to be scaled.
 
+          torusArray.push(lastObject);
           scene.add(lastObject);
         };
 
         renderer.domElement.onmouseup = (event) => {
+          // Enable camera controls and reset torus scale flag.
           controls.enabled = true;
           readyToScale = false;
-        }
+        };
 
         renderer.domElement.onmousemove = (event) => {
-          if (!readyToScale) return;  // Ready to scale will only be true right after a torus was placed.
+          if (!readyToScale) return; // Ready to scale will only be true right after a torus was placed.
 
           lastObject.scale.set(
-            lastObject.scale.x + (event.movementY / 20),
-            lastObject.scale.y + (event.movementY / 20),
-            lastObject.scale.z + (event.movementY / 20));
+            lastObject.scale.x + event.movementY / 20,
+            lastObject.scale.y + event.movementY / 20,
+            lastObject.scale.z + event.movementY / 20
+          );
 
           if (lastObject.scale.x < 0) {
-            lastObject.material.color.set(grassGreen)
+            lastObject.material.color.set(grassGreen);
           } else {
-            lastObject.material.color.set(hotPink)
+            lastObject.material.color.set(hotPink);
           }
-        }
+        };
 
-        // Call animation/rendering loop
+        window.onkeypress = (event) => {
+          if (event.key == "f") {
+            isFlickering = !isFlickering; // Toggle flickering on f press.
+          } else if (event.key == "w") {
+            showWireframe = !showWireframe; // Toggle and apply wireframe on w press.
+            for (const index in torusArray) {
+              torusArray[index].material.wireframe = showWireframe;
+            }
+          }
+        };
+
+        // Call animate to begin the rendering loop.
         animate();
       };
 
+      // Loop through everything in torus array and randomize the opacity.
+      const flicker = () => {
+        for (const index in torusArray) {
+          torusArray[index].material.opacity = Math.random();
+          torusArray[index].material.transparent = true;
+          torusArray[index].material.needsUpdate = true;
+        }
+      };
+
+      // Called every frame.
       const animate = () => {
         requestAnimationFrame(animate);
 
+        if (isFlickering) flicker();
+
         controls.update();
         renderer.render(scene, camera);
-      }
+      };
     </script>
   </head>
   <body></body>
