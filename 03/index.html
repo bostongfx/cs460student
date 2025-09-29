@@ -24,31 +24,55 @@
     <script type="module">
 
         import * as THREE from 'three';
-        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 
         var renderer, controls, scene, camera;
+        var invisible_plane;
+        var isShiftPressed = false;
+        var mouseReleased = true;
+        var LAST_TORUS;
+        var FLICKERING = false;
+        var WIREDUP = false;
+
+        // Track shift key state
+        document.addEventListener('keydown', function(event) {
+            if (event.shiftKey) {
+                isShiftPressed = true;
+                controls.enabled = false;
+            }
+        });
+
+        document.addEventListener('keyup', function(event) {
+            if (!event.shiftKey) {
+                isShiftPressed = false;
+                controls.enabled = true;
+            }
+        });
 
         window.onload = function() {
 
             // Three.js code goes here
             scene = new THREE.Scene();
 
-            // setup the camera
+            // Set up the camera
             var fov = 75;
-            var ratio = window.innerWidth / window.innerHeight;
+            var ratio = (window.innerWidth / window.innerHeight);
             var zNear = 1;
             var zFar = 10000;
             camera = new THREE.PerspectiveCamera( fov, ratio, zNear, zFar );
             camera.position.set(0, 0, 100);
 
-            // create renderer and set up the canvas
+            // Create renderer and set up the canvas
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize( window.innerWidth, window.innerHeight );
             document.body.appendChild( renderer.domElement );
 
 
+            renderer.domElement.onmousedown = function( e ){
 
-            renderer.domElement.onclick = function( e ){
+                if (!isShiftPressed) {
+                    return;
+                }
 
                 console.log('Yay! We clicked!');
 
@@ -71,11 +95,44 @@
 
                 console.log('Ray to Invisible Plane', intersects[0].point);
 
-                // update cube position
-                cube.position.set(intersects[0].point.x, intersects[0].point.y, intersects[0].point.z);
+                // update torus position
+                if (intersects.length > 0) {
+                    console.log('Ray to Invisible Plane', intersects[0].point);
+                    // Add new torus at clicked position
+                    LAST_TORUS = addTorus(intersects[0].point.x, intersects[0].point.y, intersects[0].point.z, "#FF69B4");
+                    mouseReleased = false; // Mouse button is now pressed
+                }
 
             };
 
+            renderer.domElement.onmouseup = function( e ){
+                // Mark mouse as released so scaling stops
+                mouseReleased = true;
+                console.log('Mouse released!');
+            };
+
+            renderer.domElement.onmousemove = function( e ){
+                if (mouseReleased || !LAST_TORUS) {
+                    return;
+                }
+
+                console.log('movementY:', e.movementY);
+
+                // Scale based on mouse movement in Y direction
+                // Negative movementY means moving up (make bigger)
+                // Positive movementY means moving down (make smaller)
+                var scaleFactor = -e.movementY * 0.01;
+
+                var newScale = LAST_TORUS.scale.x + scaleFactor;
+
+                LAST_TORUS.scale.set(newScale, newScale, newScale);
+
+                if (newScale < 0) {
+                    LAST_TORUS.material.color.set("#7CFC00");
+                } else {
+                    LAST_TORUS.material.color.set("#FF69B4");
+                }
+            }
 
             // setup lights
             var ambientLight = new THREE.AmbientLight();
@@ -85,46 +142,98 @@
             light.position.set( 10, 100, 10 );
             scene.add( light );
 
-            // configure cube
-            var geometry = new THREE.BoxGeometry( 20, 20, 20 );
-            var material = new THREE.MeshStandardMaterial({ color: 0xffffff, wireframe: true });
+            addTorus(0, 0, 0, 0x7FFFD4);
 
-            var cube = new THREE.Mesh( geometry, material );
+            // function to add multiple torus
+            function addTorus(x, y, z, color) {
+                // configure torus geometry
+                var torusGeometry = new THREE.TorusKnotGeometry( 10, 3, 100, 16 );
+                var torusMaterial = new THREE.MeshStandardMaterial({ color: color, wireframe: false })
 
-            scene.add( cube );
+                var newTorus = new THREE.Mesh( torusGeometry, torusMaterial );
+                newTorus.position.set(x, y, z);
+                scene.add(newTorus);
+                return newTorus;
+            }
+
+            // Listen for 'f' key to toggle flickering
+            window.onkeydown = function(event) {
+                if (event.key === 'f' || event.key === 'F') {
+                    FLICKERING = !FLICKERING; // Toggle flickering on/off
+
+                    // If we're turning off flickering, reset all opacities to 1
+                    if (!FLICKERING) {
+                        scene.traverse( function ( object ) {
+                            if ( object.isMesh && object !== invisible_plane) {
+                                object.material.opacity = 1.0;
+                                object.material.transparent = true;
+                                object.material.needsUpdate = true;
+                            }
+                        });
+                    }
+                }
+
+                // If turning off wires, reset wires to false
+                if (event.key === 'w' || event.key === 'W') {
+                    WIREDUP = !WIREDUP;
+
+                    if (!WIREDUP) {
+                        scene.traverse( function ( object ) {
+                            if ( object.isMesh && object !== invisible_plane) {
+                                object.material.wireframe = false;
+                            }
+                        });
+                    }
+                }
+            }
 
 
 
             //
             // The invisible plane
             //
-            geometry = new THREE.PlaneGeometry( 10000, 10000 );
-            material = new THREE.MeshBasicMaterial( {
+            var geometry = new THREE.PlaneGeometry( 10000, 10000 );
+            var material = new THREE.MeshBasicMaterial( {
                 visible: false
             });
 
-            var invisible_plane = new THREE.Mesh( geometry, material );
+            invisible_plane = new THREE.Mesh( geometry, material );
 
             scene.add( invisible_plane );
-            //
-            //
-            //
 
-
-
-            // interaction
+            // Tnteraction
             controls = new OrbitControls( camera, renderer.domElement );
 
-            // call animation/rendering loop
+            // Call animation/rendering loop
             animate();
 
         };
+
 
         function animate() {
 
             requestAnimationFrame( animate );
 
-            // and here..
+            // If flickering is enabled, randomize opacity of all toruses
+            if (FLICKERING) {
+                scene.traverse( function ( object ) {
+                    if ( object.isMesh && object !== invisible_plane) {
+                        object.material.opacity = Math.random();
+                        object.material.transparent = true;
+                        object.material.needsUpdate = true;
+                    }
+                });
+            }
+
+            // If wired is enabled, enable wires.
+            if (WIREDUP) {
+                scene.traverse( function ( object ) {
+                    if ( object.isMesh && object !== invisible_plane) {
+                        object.material.wireframe = true;
+                    }
+                });
+            }
+
             controls.update();
             renderer.render( scene, camera );
 
