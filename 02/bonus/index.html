@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>CS460 – HW2 (Bonus part) </title>
+  <style>
+    html, body { height:100%; margin:0; background:#000; }
+    canvas { display:block; background:#000; }
+  </style>
+</head>
+<body>
+  <script src="https://get.goxtk.com/xtk_edge.js"></script>
+  <script src="loader.js"></script>
+
+
+  <script>
+    var r;
+
+    // globals 
+    var STEP = 13;            // spacing between sphere centers
+    var R_MIN = 2, R_MAX = 5; // random radius range
+    var SELECTED_SPHERE = null;
+    var SPIN = false;      
+
+
+    // 0–255 helpers
+    function rand255(){ 
+      return Math.floor(Math.random()*256); }
+    function to01(n){
+       return n/255; }
+
+    
+    var CAMERAS = [];
+    var camTimer = null;
+    var camIndex = 0;
+
+    function keyOf(e){
+      //  key extraction
+      var k = e.key || e.code || '';
+      if (!k && (e.which || e.keyCode)) k = String.fromCharCode(e.which || e.keyCode);
+      return (k+'').toLowerCase();
+    }
+
+    window.onload = function () {
+      r = new X.renderer3D();
+      
+      r.init();
+      r.bgColor = [0,0,0];
+      r.camera.position = [0,0,450];
+
+     
+      for (var z=-5; z<6; z++) {
+        for (var y=-5; y<6; y++) {
+          for (var x=-5; x<6; x++) {
+            var s = new X.sphere();
+            s.radius = R_MIN + Math.random() * (R_MAX - R_MIN);
+            s.color = [1,1,1];
+            s.transform.translateX(STEP * x);
+            s.transform.translateY(STEP * y);
+            s.transform.translateZ(STEP * z);
+            r.add(s);
+          }
+        }
+      }
+
+      // hover pick
+      r.interactor.onMouseMove = function (event) {
+        var sphereId = r.pick(event.offsetX, event.offsetY);
+        SELECTED_SPHERE = sphereId ? r.get(sphereId) : null;
+      };
+
+      // render loop
+      r.onRender = function () {
+    
+
+        if (SPIN) r.camera.rotate([1, 0]); 
+      };
+
+
+      document.addEventListener('keydown', function (e) {
+        var k = keyOf(e);
+
+      
+
+        // ignore when typing in inputs (just in case)
+        var tag = (e.target && e.target.tagName || '').toLowerCase();
+        if (tag === 'input' || tag === 'textarea') return;
+
+        
+
+        // toggle spin
+        if (k === 'b') { SPIN = !SPIN; return; }
+
+        // save/load
+        if (k === 'o') { download(); return; }
+        if (k === 'l') { upload('scene.json'); return; }
+
+        //Camera presets 
+        if (k === 'c') {
+          if (e.repeat) return; 
+         
+          var snap = r.camera.view.slice(0);
+          CAMERAS.push(snap);
+          console.log('Saved camera #'+CAMERAS.length, snap);
+          return;
+        }
+
+        if (k === 'v') {
+          if (e.repeat) return; 
+          if (camTimer) {
+            clearInterval(camTimer);
+            camTimer = null;
+            console.log('Camera cycle: OFF');
+            return;
+          }
+          if (CAMERAS.length === 0) {
+            console.log('No saved cameras. Press C to save one first.');
+            return;
+          }
+
+          // Stop manual spin so it doesn’t fight the cycle
+          SPIN = false;
+
+          console.log('Camera cycle: ON');
+          camIndex = 0;
+          camTimer = setInterval(function () {
+            
+            r.camera.view = CAMERAS[camIndex].slice(0);
+            r.render();
+            camIndex = (camIndex + 1) % CAMERAS.length;
+          }, 1000);
+          return;
+        }
+        
+
+        // need a hovered sphere for edits below
+        if (!SELECTED_SPHERE) return;
+
+        if (k === 'q') {
+          SELECTED_SPHERE.visible = false;                       // hide
+        } else if (k === 'w') {
+          var R = rand255(), G = rand255(), B = rand255();       // 0–255
+          SELECTED_SPHERE.color = [to01(R), to01(G), to01(B)];   // convert to 0–1
+          console.log('color (0–255):', R, G, B);
+        } else if (k === 'e') {
+          SELECTED_SPHERE.transform.rotateX(10);                 // +10° X
+        }
+      });
+
+      r.render();
+      console.log('objects in scene:', r.Ha.length); // expect 1331
+    };
+  </script>
+</body>
+</html>

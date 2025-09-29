@@ -1,0 +1,193 @@
+<html>
+  <head>
+    <style>
+      html, body { 
+        background-color:#000;
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden !important;  
+      }
+    </style>
+    
+    <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@latest/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@latest/examples/jsm/"
+      }
+    }
+    </script>
+
+    <script type="module">
+      import * as THREE from 'three';
+      import { OrbitControls } from 'three/addons/controls/OrbitControls.js';      
+
+      // globals
+      var renderer, controls, scene, camera;
+      var LASTOBJECT = null;     
+      var flag = false;
+
+      // Part 7 globals
+      var TORI = [];         
+      var FLICKERING = false; 
+
+      window.onload = function() {
+
+     
+        scene = new THREE.Scene();
+
+        // setup the camera
+        var fov = 75;
+        var ratio = window.innerWidth / window.innerHeight;
+        var zNear = 1;
+        var zFar = 10000;
+        camera = new THREE.PerspectiveCamera( fov, ratio, zNear, zFar );
+        camera.position.set(0, 0, 100);
+
+        // create renderer and setup the canvas
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize( window.innerWidth, window.innerHeight );
+        document.body.appendChild( renderer.domElement );
+
+        // setup lights 
+        var ambientLight = new THREE.AmbientLight();
+        scene.add( ambientLight );
+
+        var light = new THREE.DirectionalLight( 0xffffff, 5.0 );
+        light.position.set( 10, 100, 10 );
+        scene.add( light );
+
+        // colors
+        var HOTPINK = '#FF69B4';
+        var GRASSGREEN = '#7CFC00';
+
+        // torus factory 
+        function createTorusKnot(color) {
+          var geometry = new THREE.TorusKnotGeometry(10, 3, 100, 16);
+          var material = new THREE.MeshStandardMaterial({ color: color, metalness: 0.2, roughness: 0.4 });
+          return new THREE.Mesh(geometry, material);
+        }
+
+        //
+        // The invisible plane 
+        //
+        var geometry = new THREE.PlaneGeometry( 10000, 10000 );
+        var material = new THREE.MeshBasicMaterial({ visible: false });
+        var invisible_plane = new THREE.Mesh( geometry, material );
+        scene.add( invisible_plane );
+        //
+        //
+        //
+
+        // interaction
+        controls = new OrbitControls( camera, renderer.domElement );
+
+        // Part 3: switch to onmousedown, check SHIFT, disable controls, place HOTPINK torus
+        renderer.domElement.onmousedown = function( e ) {
+          if ( !e.shiftKey ) return;
+
+        
+          var pixel_coords = new THREE.Vector2( e.clientX, e.clientY );
+          var vp_coords = new THREE.Vector2( 
+            ( pixel_coords.x / window.innerWidth ) * 2 - 1,
+            -( pixel_coords.y / window.innerHeight ) * 2 + 1
+          );
+          var vp_coords_near = new THREE.Vector3( vp_coords.x, vp_coords.y, 0);
+
+          var raycaster = new THREE.Raycaster();
+          raycaster.setFromCamera(vp_coords_near, camera);
+          var intersects = raycaster.intersectObject(invisible_plane);
+          if (!intersects.length) return;
+
+          controls.enabled = false;
+
+          var torus = createTorusKnot(HOTPINK);
+          torus.position.copy(intersects[0].point);
+          scene.add(torus);
+
+          TORI.push(torus);    
+          flag = true;         
+          LASTOBJECT = torus;  
+        };
+
+       // Part 4
+        renderer.domElement.onmousemove = function (e) {
+          if (!flag || !LASTOBJECT) return;
+
+          var DELTA = -e.movementY * 0.01;
+          var next = LASTOBJECT.scale.x + DELTA;
+
+          LASTOBJECT.scale.set(
+            LASTOBJECT.scale.x + DELTA,
+            LASTOBJECT.scale.y + DELTA,
+            LASTOBJECT.scale.z + DELTA
+          );
+
+       
+          LASTOBJECT.material.color.set(next >= 0 ? HOTPINK : GRASSGREEN);
+        };
+
+      // Part 5
+        renderer.domElement.onmouseup = function () {
+          controls.enabled = true;
+          flag = false;
+          LASTOBJECT = null;
+        };
+
+        // Part 6
+        window.onkeypress = function (e) {
+          var k = (e.key || '').toLowerCase();
+
+          if (k === 'f') {
+            FLICKERING = !FLICKERING;
+            if (FLICKERING) {
+              for (var i=0;i<TORI.length;i++){
+                var t = TORI[i];
+                t.material.opacity = 0.7;
+                t.material.transparent = true;
+                t.material.needsUpdate = true;
+              }
+            } else {
+              for (var j=0;j<TORI.length;j++){
+                var t2 = TORI[j];
+                t2.material.opacity = 1.0;
+                t2.material.transparent = false;
+                t2.material.needsUpdate = true;
+              }
+            }
+          } else if (k === 'w') {
+            var wf = !(TORI[0] && TORI[0].material.wireframe);
+            for (var k2=0;k2<TORI.length;k2++){
+              var t3 = TORI[k2];
+              t3.material.wireframe = wf;
+              t3.material.needsUpdate = true;
+            }
+          }
+        };
+
+        // call animation/rendering loop 
+        animate();
+      };
+
+      function animate() {
+        requestAnimationFrame( animate );
+
+        // Part 7
+        if (FLICKERING && TORI.length) {
+          for (var i=0;i<TORI.length;i++){
+            var t = TORI[i];
+            t.material.opacity = Math.random();
+            t.material.needsUpdate = true;
+          }
+        }
+
+        controls.update();
+        renderer.render( scene, camera );
+      };
+    </script>
+  </head>
+  <body></body>
+</html>
