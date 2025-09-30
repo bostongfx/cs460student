@@ -194,21 +194,21 @@
         // Each 'tubular segment' has 'radial segment' number of sides.
         // So total number of faces is 'tubular segment' * 'radial segment' * 2! This value is then multiplied by the number of toruses in ths scene.
         const faces = radialSegments * tubularSegments * 2
-        console.log(`Number of Faces in Singular Torus: ${faces * torusCount}`);
+        console.log(`Estimated Number of Faces in Scene: ${faces * torusCount}`);
 
         // Vertex Calculation:
         // The calculation for vertices can be seen in a similar way. Each torus will have vertices located where two 'tubular segments' meet.
         // Each 'tubular segment' will have 'radial segment' vertices, one for each side of the 'tubular segment'.
         // Therefore, the calculation is just 'radialSegments' * 'tubularSegments'! This value is then multiplied by the number of toruses in ths scene.
         const vertices = radialSegments * tubularSegments
-        console.log(`Number of Vertices Calculated in Singular Torus: ${vertices * torusCount}`);
+        console.log(`Estimated Number of Vertices Calculated in Scene: ${vertices * torusCount}`);
 
         // Edge Calculation:
         // A: Each 'tubular segment' has an edge for each 'radial segment' - which forms the vertices at each segment.
         // B: There will also be 2 additional edges from each vertex at each 'tubular segment' connecting to the next 'tubular segment' - which forms the faces in between 'tubular segments'.
         // Adding these two values together yields the total number of edges: A + B or: ('radial segments' * 'tubular segments') + (2 * 'radial segments' * 'tubular segments')
         // This calculation also happens to work out as the number of vertices + number of faces! This value is then multiplied by the number of toruses in ths scene.
-        console.log(`Number of Edges Calculated in Singular Torus: ${(vertices + faces) * torusCount}`);
+        console.log(`Estimated Number of Edges Calculated in Scene: ${(vertices + faces) * torusCount}`);
         console.log("--------------------------------------");
       }
 
