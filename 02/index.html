@@ -1,2 +1,80 @@
-Ready for assignment 2.
+<html>
+    <head>
+        <style>
+            body{
+                background-color: black;
+            }
+        </style>
+        <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+        <script type="text/javascript" src="loader.js"></script>
+        <script>
+            SIZE = 25;
+            GAP = .25;
+            SELECTED_CUBE = 0;
+            ROTATE = false;
+            window.onload = function(){
+                r = new X.renderer3D();
+                r.init();
+                
+                // c = new X.cube();
+                // c.color = [1, 0, 0];
+                // r.add(c);
+                // r.render();
+                for (var z=-5; z < 6; z++) {
+                    for (var y=-5; y < 6; y++) {
+                        for(var x=-5; x < 6; x++) {
+                            new_cube = new X.cube();
+                            new_cube.transform.translateX((SIZE + GAP) * x);
+                            new_cube.transform.translateY((SIZE + GAP) * y);
+                            new_cube.transform.translateZ((SIZE + GAP) * z);
+                            r.add(new_cube);
+                        }
+                    }
+                }
+                r.camera.position = [0, 0 ,500];
+                r.render();
+                //total 1331 cubes 11x11x11
 
+                r.interactor.onMouseMove = function(event){
+                    cubeid = r.pick(event.offsetX, event.offsetY);
+                    if(cubeid != 0){
+                        SELECTED_CUBE = r.get(cubeid);
+                    }
+                
+                    window.onkeypress = function(e){
+                        if(e.key == 'q'){
+                            SELECTED_CUBE.visible = false;
+                        } else if(e.key == 'w'){
+                            red = Math.random();
+                            green = Math.random();
+                            blue = Math.random();
+                            SELECTED_CUBE.color = [red, green, blue];
+                        } else if (e.key == 'e'){
+                            SELECTED_CUBE.transform.rotateX(10);
+                        } else if (e.key == 'b'){
+                            if(ROTATE == true){
+                                ROTATE = false;
+                            }
+                            else{
+                                ROTATE = true;
+                            }
+                        } else if (e.key == 'o'){
+                            download();
+                        } else if (e.key == 'l'){
+                            upload("scene.json");
+                        }
+                    }
+                };
+                r.onRender = function(){
+                    if(ROTATE == true){
+                        r.camera.rotate([1, 0]);
+                    }
+                }
+            }
+
+        </script>
+    </head>
+    <body>
+
+    </body>
+</html>
