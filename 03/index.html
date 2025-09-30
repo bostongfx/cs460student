@@ -1,0 +1,186 @@
+<html>
+    <head>
+        <style>
+            html, body { 
+                background-color:#000;
+                margin: 0;
+                padding: 0;
+                height: 100%;
+                overflow: hidden !important;  
+            }
+        </style>
+    
+        <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+
+        <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@latest/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@latest/examples/jsm/"
+            }
+        }
+        </script>
+
+        <script type="module">
+
+            import * as THREE from 'three';
+            import { OrbitControls } from 'three/addons/controls/OrbitControls.js';      
+
+            var renderer, controls, scene, camera;
+            var geometry, material, torusKnot, lastObject;
+            var mousePressed = false, flickering = false, wireframeMode = false;
+
+            window.onload = function() {
+                // Three.js code goes here
+                scene = new THREE.Scene();
+
+                // setup the camera
+                var fov = 75;
+                var ratio = window.innerWidth / window.innerHeight;
+                var zNear = 1;
+                var zFar = 10000;
+                camera = new THREE.PerspectiveCamera(fov, ratio, zNear, zFar);
+                camera.position.set(0, 0, 100);
+
+                // create renderer and setup the canvas
+                renderer = new THREE.WebGLRenderer({antialias: true});
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                document.body.appendChild(renderer.domElement);
+
+                renderer.domElement.onmousedown = function(e) {
+                    if (e.shiftKey) {
+                        console.log('Yay! We pressed shift and clicked mouse!');
+                        
+                        // Disable the orbit controls when shift is pressed and mouse is clicked.
+                        controls.enabled = false;
+
+                        mousePressed = true;
+
+                        var pixel_coords = new THREE.Vector2(e.clientX, e.clientY);
+
+                        console.log('Pixel coords', pixel_coords);
+
+                        var vp_coords = new THREE.Vector2(
+                            (pixel_coords.x / window.innerWidth) * 2 - 1,  //X
+                            -(pixel_coords.y / window.innerHeight) * 2 + 1 // Y
+                        );
+
+                        console.log('Viewport coords', vp_coords);
+
+                        var vp_coords_near = new THREE.Vector3(vp_coords.x, vp_coords.y, 0);
+
+                        var raycaster = new THREE.Raycaster();
+                        raycaster.setFromCamera(vp_coords_near, camera);
+                        var intersects = raycaster.intersectObject(invisible_plane);
+
+                        console.log('Ray to Invisible Plane', intersects[0].point);
+
+                        // create a new torus knot at that position.
+                        geometry = new THREE.TorusKnotGeometry(10, 3, 100, 16, 2, 3);
+                        material = new THREE.MeshBasicMaterial({color: 0xFF69B4});
+                        torusKnot = new THREE.Mesh(geometry, material);
+                        torusKnot.position.copy(intersects[0].point);
+                        lastObject = torusKnot;
+                        scene.add(torusKnot);
+                    }
+                };
+
+                // Re-enable the orbit controls when the mouse is released.
+                renderer.domElement.onmouseup = function(e) {
+                    mousePressed = false;
+                    if (!controls.enabled) {
+                        controls.enabled = true;
+                        if (controls.enabled) {
+                            console.log('Controls enabled');
+                        }
+                    }
+                }; 
+
+                // Scale and change color the last created object when the mouse is moved while the mouse button is pressed.
+                var colorToggle = false;
+                
+                renderer.domElement.onmousemove = function(e) {
+                    if (!controls.enabled && mousePressed) {
+                        var DELTA = e.movementY;
+                        var prevScale = lastObject.scale.x;
+                        var newScale = prevScale + (DELTA * 0.05);
+
+                        lastObject.scale.set(newScale, newScale, newScale);
+
+                        if ((prevScale > 0 && newScale <= 0) || (prevScale < 0 && newScale >= 0)) {
+                            colorToggle = !colorToggle;
+                            lastObject.material.color.set(colorToggle ? 0x7CFC00 : 0xFF69B4);
+                        } 
+                    }
+                };
+
+                // setup lights
+                var ambientLight = new THREE.AmbientLight();
+                scene.add(ambientLight);
+
+                var light = new THREE.DirectionalLight(0xffffff, 5.0);
+                light.position.set(10, 100, 10);
+                scene.add(light);
+
+                // configure torus knot
+                geometry = new THREE.TorusKnotGeometry(10, 3, 100, 16, 2, 3);
+                material = new THREE.MeshBasicMaterial({color: 0xFFFF00});
+                torusKnot = new THREE.Mesh(geometry, material);
+                scene.add(torusKnot);
+
+                // The invisible plane
+                geometry = new THREE.PlaneGeometry(10000, 10000);
+                material = new THREE.MeshBasicMaterial({visible: false});
+                var invisible_plane = new THREE.Mesh(geometry, material);
+
+                scene.add( invisible_plane );
+
+                // interaction
+                controls = new OrbitControls(camera, renderer.domElement);
+
+                // call animation/rendering loop
+                animate();
+            };
+
+            window.onkeypress = function(e) {
+                if (e.key == 'f') {
+                    flickering = !flickering;
+                    if (flickering) {
+                        console.log('flickering on');
+                    } else {
+                        console.log('flickering off');
+                    }
+                } else if (e.key == 'w') {
+                    wireframeMode = !wireframeMode;
+                    scene.traverse(function (object) {
+                        if (object.isMesh && object.material && object.geometry.type == "TorusKnotGeometry") {
+                            object.material.wireframe = wireframeMode;
+                            object.material.needsUpdate = true;
+                        }
+                    });
+                }
+            };  
+
+            function animate() {
+                requestAnimationFrame(animate);
+
+                if (flickering) {
+                    scene.traverse(function(object) {
+                        if (object.geometry && object.geometry.type == "TorusKnotGeometry") {
+                            object.material.opacity = Math.random(); 
+                            object.material.transparent = true;
+                            object.material.needsUpdate = true;
+                        }
+                    });
+                }
+
+                controls.update();
+                renderer.render(scene, camera);
+            };
+        </script>
+    </head>
+
+    <body>
+
+    </body>
+</html>
