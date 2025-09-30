@@ -185,27 +185,30 @@
       };
 
       const countToruses = () => {
+        const torusCount = torusArray.length  // Count of torus found from length of array.
         // I discovered the pattern of vertices, faces, and edges by adjusting the tubular segment and radial segment parameters to low settings and counting what I saw.
         // For example, by setting tubularSegments to 3 and radialSegments to 3, I was able to count the number of vertices, faces, and edges and I then observed how it changed when I increased parameters.
-        console.log(`-------- ${torusArray.length} Toruses in Scene ----------`);
+        console.log(`-------- ${torusCount} Toruses in Scene ----------`);
         // Faces Calculation:
         // This calculation works as one side of a 'tubular segment', which is one cross-sectional slice of the arc of the torus, has 2 faces, as seen by wireframe view.
         // Each 'tubular segment' has 'radial segment' number of sides.
         // So total number of faces is 'tubular segment' * 'radial segment' * 2! This value is then multiplied by the number of toruses in ths scene.
-        console.log(`Number of Faces in Singular Torus: ${radialSegments * tubularSegments * 2 * torusArray.length}`);
+        const faces = radialSegments * tubularSegments * 2
+        console.log(`Number of Faces in Singular Torus: ${faces * torusCount}`);
 
         // Vertex Calculation:
         // The calculation for vertices can be seen in a similar way. Each torus will have vertices located where two 'tubular segments' meet.
         // Each 'tubular segment' will have 'radial segment' vertices, one for each side of the 'tubular segment'.
         // Therefore, the calculation is just 'radialSegments' * 'tubularSegments'! This value is then multiplied by the number of toruses in ths scene.
-        console.log(`Number of Vertices Calculated in Singular Torus: ${radialSegments * tubularSegments * torusArray.length}`);
+        const vertices = radialSegments * tubularSegments
+        console.log(`Number of Vertices Calculated in Singular Torus: ${vertices * torusCount}`);
 
         // Edge Calculation:
         // A: Each 'tubular segment' has an edge for each 'radial segment' - which forms the vertices at each segment.
         // B: There will also be 2 additional edges from each vertex at each 'tubular segment' connecting to the next 'tubular segment' - which forms the faces in between 'tubular segments'.
         // Adding these two values together yields the total number of edges: A + B or: ('radial segments' * 'tubular segments') + (2 * 'radial segments' * 'tubular segments')
         // This calculation also happens to work out as the number of vertices + number of faces! This value is then multiplied by the number of toruses in ths scene.
-        console.log(`Number of Edges Calculated in Singular Torus: ${(radialSegments * tubularSegments + radialSegments * tubularSegments * 2) * torusArray.length}`);
+        console.log(`Number of Edges Calculated in Singular Torus: ${(vertices + faces) * torusCount}`);
         console.log("--------------------------------------");
       }
 
