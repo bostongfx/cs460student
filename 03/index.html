@@ -1,0 +1,236 @@
+<html>
+  <head>
+    <style>
+      html,
+      body {
+        background-color: #000;
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden !important;
+      }
+    </style>
+
+    <script
+      async
+      src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"
+    ></script>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@latest/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@latest/examples/jsm/"
+        }
+      }
+    </script>
+
+    <script type="module">
+      import * as THREE from "three";
+      import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+      /* ---- Global Variables ---- */
+
+      const hotPink = 0xff69b4;
+      const grassGreen = 0x7cfc00;
+
+      let renderer, controls, scene, camera, lastObject;
+
+      let readyToScale = false; // This will only ever be true while the user is holding down click AND a torus was successfully placed.
+      let torusArray = []; // Stores a reference to every torus in the scene.
+      let isFlickering = false; // Determines if every torus should be flickering
+      let showWireframe = false; // Determines if the torus should appear with their wireframe.
+
+      // Torus Arguments
+      let torusRadius = 20; // (overall width, height, depth)
+      let tubeRadius = 6; // (thickness of the tube of the torus)
+      let tubularSegments = 64; // (smoothness of arc)
+      let radialSegments = 8; // (smoothness of tubes)
+      let p = 2; // (Rotations around axis of symmetry)
+      let q = 3; // (Rotations around center of geometry)
+
+      /* ---- Main Code ---- */
+
+      window.onload = () => {
+        scene = new THREE.Scene();
+
+        // setup the camera
+        let fov = 75;
+        let ratio = window.innerWidth / window.innerHeight;
+        let zNear = 1;
+        let zFar = 10000;
+        camera = new THREE.PerspectiveCamera(fov, ratio, zNear, zFar);
+        camera.position.set(0, 0, 100);
+
+        // create renderer and setup the canvas
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Setup Camera Controls
+        controls = new OrbitControls(camera, renderer.domElement);
+
+        // setup ambient light
+        let ambientLight = new THREE.AmbientLight();
+        scene.add(ambientLight);
+
+        // setup direct light
+        let light = new THREE.DirectionalLight(0xffffff, 5.0);
+        light.position.set(10, 100, 10);
+        scene.add(light);
+
+        let torusGeometry = new THREE.TorusKnotGeometry(torusRadius, tubeRadius, tubularSegments, radialSegments, p, q);
+        const blueMaterial = new THREE.MeshStandardMaterial({
+          color: 0x42a4f5,
+          wireframe: showWireframe,
+        });
+
+        let initialTorus = new THREE.Mesh(torusGeometry, blueMaterial);
+        torusArray.push(initialTorus);
+        scene.add(initialTorus);
+
+        // Display initial count of edges, faces, and vertices.
+        countToruses();
+
+        // The invisible plane
+        let planeGeometry = new THREE.PlaneGeometry(10000, 10000);
+        let planeMaterial = new THREE.MeshBasicMaterial({ visible: false });
+        let invisible_plane = new THREE.Mesh(planeGeometry, planeMaterial);
+        scene.add(invisible_plane);
+
+        // Click to create new torus
+        renderer.domElement.onmousedown = (event) => {
+          if (!event.shiftKey) return; // Ignore interaction if shift key isn't pressed.
+
+          controls.enabled = false; // Disable camera controls.
+
+          let pixel_coords = new THREE.Vector2(event.clientX, event.clientY); // Get the 2D coords of click from event
+
+          // Normalize coords between [-1, 1]
+          let vp_coords = new THREE.Vector2(
+            (pixel_coords.x / window.innerWidth) * 2 - 1, // X
+            -(pixel_coords.y / window.innerHeight) * 2 + 1 // Y
+          );
+
+          // Create 3D coords on zNear plane.
+          let vp_coords_near = new THREE.Vector3(vp_coords.x, vp_coords.y, 0);
+
+          // Create raycaster and find the list of objects that it intersects.
+          let raycaster = new THREE.Raycaster();
+          raycaster.setFromCamera(vp_coords_near, camera);
+          let intersects = raycaster.intersectObject(invisible_plane);
+
+          if (intersects.length == 0) return; // If raycaster didn't hit anything, exit.
+
+          const pinkMaterial = new THREE.MeshStandardMaterial({
+            color: hotPink,
+            wireframe: showWireframe,
+          });
+
+          // Create a new torus to add to the scene.
+          lastObject = new THREE.Mesh(torusGeometry, pinkMaterial);
+
+          // Update torus position.
+          lastObject.position.set(
+            intersects[0].point.x,
+            intersects[0].point.y,
+            intersects[0].point.z
+          );
+
+          readyToScale = true; // Set torus ready to be scaled.
+
+          torusArray.push(lastObject);
+          scene.add(lastObject);
+        };
+
+        renderer.domElement.onmouseup = (event) => {
+          // Enable camera controls and reset torus scale flag.
+          controls.enabled = true;
+          readyToScale = false;
+        };
+
+        renderer.domElement.onmousemove = (event) => {
+          if (!readyToScale) return; // Ready to scale will only be true right after a torus was placed. If it is false, exit call.
+
+          // Divide movementY by 17 to lower sensitivity of mouse movement.
+          lastObject.scale.set(
+            lastObject.scale.x + event.movementY / 17,
+            lastObject.scale.y + event.movementY / 17,
+            lastObject.scale.z + event.movementY / 17
+          );
+
+          // Flip color if the scale becomes negative.
+          if (lastObject.scale.x < 0) {
+            lastObject.material.color.set(grassGreen);
+          } else {
+            lastObject.material.color.set(hotPink);
+          }
+        };
+
+        window.onkeypress = (event) => {
+          if (event.key == "f") {
+            isFlickering = !isFlickering; // Toggle flickering on f press.
+          } else if (event.key == "w") {
+            showWireframe = !showWireframe; // Toggle and apply wireframe on w press.
+            for (const index in torusArray) {
+              torusArray[index].material.wireframe = showWireframe;
+            }
+          } else if (event.key == "c") {
+            countToruses(); // Prints out in console the current number of edges, faces, and vertices in the scene.
+          }
+        };
+
+        // Call animate to begin the rendering loop.
+        animate();
+      };
+
+      const countToruses = () => {
+        const torusCount = torusArray.length  // Count of torus found from length of array.
+        // I discovered the pattern of vertices, faces, and edges by adjusting the tubular segment and radial segment parameters to low settings and counting what I saw.
+        // For example, by setting tubularSegments to 3 and radialSegments to 3, I was able to count the number of vertices, faces, and edges and I then observed how it changed when I increased parameters.
+        console.log(`-------- ${torusCount} Toruses in Scene ----------`);
+        // Faces Calculation:
+        // This calculation works as one side of a 'tubular segment', which is one cross-sectional slice of the arc of the torus, has 2 faces, as seen by wireframe view.
+        // Each 'tubular segment' has 'radial segment' number of sides.
+        // So total number of faces is 'tubular segment' * 'radial segment' * 2! This value is then multiplied by the number of toruses in ths scene.
+        const faces = radialSegments * tubularSegments * 2
+        console.log(`Estimated Number of Faces in Scene: ${faces * torusCount}`);
+
+        // Vertex Calculation:
+        // The calculation for vertices can be seen in a similar way. Each torus will have vertices located where two 'tubular segments' meet.
+        // Each 'tubular segment' will have 'radial segment' vertices, one for each side of the 'tubular segment'.
+        // Therefore, the calculation is just 'radialSegments' * 'tubularSegments'! This value is then multiplied by the number of toruses in ths scene.
+        const vertices = radialSegments * tubularSegments
+        console.log(`Estimated Number of Vertices Calculated in Scene: ${vertices * torusCount}`);
+
+        // Edge Calculation:
+        // A: Each 'tubular segment' has an edge for each 'radial segment' - which forms the vertices at each segment.
+        // B: There will also be 2 additional edges from each vertex at each 'tubular segment' connecting to the next 'tubular segment' - which forms the faces in between 'tubular segments'.
+        // Adding these two values together yields the total number of edges: A + B or: ('radial segments' * 'tubular segments') + (2 * 'radial segments' * 'tubular segments')
+        // This calculation also happens to work out as the number of vertices + number of faces! This value is then multiplied by the number of toruses in ths scene.
+        console.log(`Estimated Number of Edges Calculated in Scene: ${(vertices + faces) * torusCount}`);
+        console.log("--------------------------------------");
+      }
+
+      // Loop through everything in torus array and randomize the opacity.
+      const flicker = () => {
+        for (const index in torusArray) {
+          torusArray[index].material.opacity = Math.random();
+          torusArray[index].material.transparent = true;
+          torusArray[index].material.needsUpdate = true;
+        }
+      };
+
+      // Called every frame.
+      const animate = () => {
+        requestAnimationFrame(animate);
+
+        if (isFlickering) flicker();
+
+        controls.update();
+        renderer.render(scene, camera);
+      };
+    </script>
+  </head>
+  <body></body>
+</html>
