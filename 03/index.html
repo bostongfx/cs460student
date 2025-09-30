@@ -29,18 +29,27 @@
       import * as THREE from "three";
       import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
+      /* ---- Global Variables ---- */
+
       const hotPink = 0xff69b4;
       const grassGreen = 0x7cfc00;
 
       let renderer, controls, scene, camera, lastObject;
 
       let readyToScale = false; // This will only ever be true while the user is holding down click AND a torus was successfully placed.
-
       let torusArray = []; // Stores a reference to every torus in the scene.
-
       let isFlickering = false; // Determines if every torus should be flickering
-
       let showWireframe = false; // Determines if the torus should appear with their wireframe.
+
+      // Torus Arguments
+      let torusRadius = 20; // (overall width, height, depth)
+      let tubeRadius = 6; // (thickness of the tube of the torus)
+      let tubularSegments = 64; // (smoothness of arc)
+      let radialSegments = 8; // (smoothness of tubes)
+      let p = 2; // (Rotations around axis of symmetry)
+      let q = 3; // (Rotations around center of geometry)
+
+      /* ---- Main Code ---- */
 
       window.onload = () => {
         scene = new THREE.Scene();
@@ -70,14 +79,6 @@
         light.position.set(10, 100, 10);
         scene.add(light);
 
-        // Torus Arguments
-        let torusRadius = 20; // (overall width, height, depth)
-        let tubeRadius = 6; // (thickness of the tube of the torus)
-        let tubularSegments = 64; // (smoothness of arc)
-        let radialSegments = 8; // (smoothness of tubes)
-        let p = 2;  // (Rotations around axis of symmetry)
-        let q = 3;  // (Rotations around center of geometry)
-
         let torusGeometry = new THREE.TorusKnotGeometry(torusRadius, tubeRadius, tubularSegments, radialSegments, p, q);
         const blueMaterial = new THREE.MeshStandardMaterial({
           color: 0x42a4f5,
@@ -88,27 +89,8 @@
         torusArray.push(initialTorus);
         scene.add(initialTorus);
 
-        // I discovered the pattern of vertices, faces, and edges by adjusting the tubular segment and radial segment parameters to low settings and counting what I saw.
-        // For example, by setting tubularSegments to 3 and radialSegments to 3, I was able to count the number of vertices, faces, and edges and I then observed how it changed when I increased parameters.
-
-        // Faces Calculation:
-        // This calculation works as one side of a 'tubular segment', which is one cross-sectional slice of the arc of the torus, has 2 faces, as seen by wireframe view. 
-        // Each 'tubular segment' has 'radial segment' number of sides.
-        // So total number of faces is 'tubular segment' * 'radial segment' * 2!
-        console.log(`Number of Faces in Singular Torus: ${radialSegments * tubularSegments * 2}`);
-
-        // Vertex Calculation:
-        // The calculation for vertices can be seen in a similar way. Each torus will have vertices located where two 'tubular segments' meet.
-        // Each 'tubular segment' will have 'radial segment' vertices, one for each side of the 'tubular segment'. 
-        // Therefore, the calculation is just 'radialSegments' * 'tubularSegments'!
-        console.log(`Number of Vertices Calculated in Singular Torus: ${radialSegments * tubularSegments}`)
-
-        // Edge Calculation:
-        // A: Each 'tubular segment' has an edge for each 'radial segment' - which forms the vertices at each segment.
-        // B: There will also be 2 additional edges from each vertex at each 'tubular segment' connecting to the next 'tubular segment' - which forms the faces in between 'tubular segments'.
-        // Adding these two values together yields the total number of edges: A + B or: ('radial segments' * 'tubular segments') + (2 * 'radial segments' * 'tubular segments')
-        // This calculation also happens to work out as the number of vertices + number of faces!
-        console.log(`Number of Edges Calculated in Singular Torus: ${(radialSegments * tubularSegments) + (2 * radialSegments * tubularSegments)}`);
+        // Display initial count of edges, faces, and vertices.
+        countToruses();
 
         // The invisible plane
         let planeGeometry = new THREE.PlaneGeometry(10000, 10000);
@@ -191,12 +173,39 @@
             for (const index in torusArray) {
               torusArray[index].material.wireframe = showWireframe;
             }
+          } else if (event.key == "c") {  // Prints out in console the current number of edges, faces, and vertices in the scene.
+            countToruses();
           }
         };
 
         // Call animate to begin the rendering loop.
         animate();
       };
+
+      const countToruses = () => {
+        // I discovered the pattern of vertices, faces, and edges by adjusting the tubular segment and radial segment parameters to low settings and counting what I saw.
+        // For example, by setting tubularSegments to 3 and radialSegments to 3, I was able to count the number of vertices, faces, and edges and I then observed how it changed when I increased parameters.
+        console.log(`-------- ${torusArray.length} Toruses in Scene ----------`);
+        // Faces Calculation:
+        // This calculation works as one side of a 'tubular segment', which is one cross-sectional slice of the arc of the torus, has 2 faces, as seen by wireframe view.
+        // Each 'tubular segment' has 'radial segment' number of sides.
+        // So total number of faces is 'tubular segment' * 'radial segment' * 2! This value is then multiplied by the number of toruses in ths scene.
+        console.log(`Number of Faces in Singular Torus: ${radialSegments * tubularSegments * 2 * torusArray.length}`);
+
+        // Vertex Calculation:
+        // The calculation for vertices can be seen in a similar way. Each torus will have vertices located where two 'tubular segments' meet.
+        // Each 'tubular segment' will have 'radial segment' vertices, one for each side of the 'tubular segment'.
+        // Therefore, the calculation is just 'radialSegments' * 'tubularSegments'! This value is then multiplied by the number of toruses in ths scene.
+        console.log(`Number of Vertices Calculated in Singular Torus: ${radialSegments * tubularSegments * torusArray.length}`);
+
+        // Edge Calculation:
+        // A: Each 'tubular segment' has an edge for each 'radial segment' - which forms the vertices at each segment.
+        // B: There will also be 2 additional edges from each vertex at each 'tubular segment' connecting to the next 'tubular segment' - which forms the faces in between 'tubular segments'.
+        // Adding these two values together yields the total number of edges: A + B or: ('radial segments' * 'tubular segments') + (2 * 'radial segments' * 'tubular segments')
+        // This calculation also happens to work out as the number of vertices + number of faces! This value is then multiplied by the number of toruses in ths scene.
+        console.log(`Number of Edges Calculated in Singular Torus: ${(radialSegments * tubularSegments + radialSegments * tubularSegments * 2) * torusArray.length}`);
+        console.log("--------------------------------------");
+      }
 
       // Loop through everything in torus array and randomize the opacity.
       const flicker = () => {
