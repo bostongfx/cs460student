@@ -120,7 +120,7 @@
           raycaster.setFromCamera(vp_coords_near, camera);
           let intersects = raycaster.intersectObject(invisible_plane);
 
-          if (intersects.length == 0) return; // If raycaster didn't hit anything exit.
+          if (intersects.length == 0) return; // If raycaster didn't hit anything, exit.
 
           const pinkMaterial = new THREE.MeshStandardMaterial({
             color: hotPink,
@@ -150,14 +150,16 @@
         };
 
         renderer.domElement.onmousemove = (event) => {
-          if (!readyToScale) return; // Ready to scale will only be true right after a torus was placed.
+          if (!readyToScale) return; // Ready to scale will only be true right after a torus was placed. If it is false, exit call.
 
+          // Divide movementY by 17 to lower sensitivity of mouse movement.
           lastObject.scale.set(
-            lastObject.scale.x + event.movementY / 20,
-            lastObject.scale.y + event.movementY / 20,
-            lastObject.scale.z + event.movementY / 20
+            lastObject.scale.x + event.movementY / 17,
+            lastObject.scale.y + event.movementY / 17,
+            lastObject.scale.z + event.movementY / 17
           );
 
+          // Flip color if the scale becomes negative.
           if (lastObject.scale.x < 0) {
             lastObject.material.color.set(grassGreen);
           } else {
@@ -173,8 +175,8 @@
             for (const index in torusArray) {
               torusArray[index].material.wireframe = showWireframe;
             }
-          } else if (event.key == "c") {  // Prints out in console the current number of edges, faces, and vertices in the scene.
-            countToruses();
+          } else if (event.key == "c") {
+            countToruses(); // Prints out in console the current number of edges, faces, and vertices in the scene.
           }
         };
 
