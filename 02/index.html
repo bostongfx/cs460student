@@ -1,2 +1,111 @@
-Ready for assignment 2.
+<html>
 
+<head>
+    <style>
+        body {
+            background-color: black;
+        }
+    </style>
+
+    <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+    
+    <!-- UPDATE WITH GITHUB PAGES -->
+    <script type="text/javascript" src="https://qinflan.github.io/cs460student/02/loader.js"></script>
+
+    <script>
+
+        LAYERS = 11
+        SIZE = 20;
+        GAP = 5;
+        SELECTED_CUBE = 0;
+        ROTATE_CAMERA = false;
+
+        window.onload = function () {
+
+            r = new X.renderer3D();
+            r.init();
+
+            // Render cubes in shape of a pyramid instead of cube :)
+            for (let z = 0; z < LAYERS; z++) {
+                const cubesInLayer = LAYERS - z;
+                const startX = -((cubesInLayer - 1) * (SIZE + GAP)) / 2;
+                const startY = -((cubesInLayer - 1) * (SIZE + GAP)) / 2;
+
+                for (let y = 0; y < cubesInLayer; y++) {
+                    for (let x = 0; x < cubesInLayer; x++) {
+                        const cube = new X.cube();
+                        cube.transform.translateX(startX + x * (SIZE + GAP));
+                        cube.transform.translateY(startY + y * (SIZE + GAP));
+                        cube.transform.translateZ(z * (SIZE + GAP));
+                        r.add(cube);
+                    }
+                }
+            }
+
+            r.camera.position = [400, 400, 0];
+
+            r.render();
+
+            r.interactor.onMouseMove =
+                function (event) {
+                    var cubeid = 0;
+                    cubeid = r.pick(event.offsetX, event.offsetY);
+
+                    if (cubeid != 0) {
+                        SELECTED_CUBE = r.get(cubeid)
+                        console.log(`cube ${cubeid} selected.`)
+                    }
+
+                };
+
+            window.onkeypress = function (e) {
+                if (e.key == 'q') {
+                    SELECTED_CUBE.visible = false;
+                }
+
+                if (e.key == 'w') {
+                    colorPalette = [
+                        [0.71, 1, 0.75],
+                        [0.63, 1, 0.63],
+                        [0.78, 1, 0.78],
+                        [0.85, 1, 0.73],
+                        [0.89, 1, 0.88]
+                    ]
+                    randomColorIndex = Math.floor(Math.random() * colorPalette.length);
+                    SELECTED_CUBE.color = colorPalette[randomColorIndex];
+                }
+
+                if (e.key == 'e') {
+                    SELECTED_CUBE.transform.rotateX(1);
+                }
+
+                if (e.key == 'b') {
+                    ROTATE_CAMERA ? r.onRender = function () {
+                        r.camera.rotate([0, 0]);
+                        ROTATE_CAMERA = false;
+                    } :
+
+                    r.onRender = function () {
+                        r.camera.rotate([1, 0]);
+                        ROTATE_CAMERA = true;
+                    }
+
+                }
+
+                if(e.key == 'o') {
+                    download()
+                }
+
+                if(e.key == 'l') {
+                    upload("scene.json")
+                }
+            };
+
+        }
+
+    </script>
+</head>
+
+<body></body>
+
+</html>

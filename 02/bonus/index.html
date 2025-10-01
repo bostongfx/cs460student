@@ -1,0 +1,134 @@
+<html>
+
+<head>
+    <style>
+        body {
+            background-color: black;
+        }
+    </style>
+
+    <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+
+    <!-- UPDATE WITH GITHUB PAGES -->
+    <script type="text/javascript" src="https://qinflan.github.io/cs460student/02/bonus/loader.js"></script>
+
+    <script>
+
+        SIZE = 20;
+        GAP = 10;
+        SELECTED_SPHERE = 0;
+        CAM_INDEX = 0;
+        ROTATE_CAMERA = false;
+        CYCLE_CAMERAS = false;
+        CAMERAS = [];
+
+        window.onload = function () {
+
+            r = new X.renderer3D();
+            r.init();
+
+            for (var z = -5; z < 6; z++) {
+                for (var y = -5; y < 6; y++) {
+                    for (var x = -5; x < 6; x++) {
+                        randomSize = Math.random() * 20
+                        new_sphere = new X.sphere();
+                        new_sphere.radius = randomSize;
+                        new_sphere.transform.translateX((SIZE + GAP) * x);
+                        new_sphere.transform.translateY((SIZE + GAP) * y);
+                        new_sphere.transform.translateZ((SIZE + GAP) * z);
+                        r.add(new_sphere);
+                    }
+                }
+            }
+
+            r.camera.position = [0, 0, 500];
+
+            r.render();
+
+            r.interactor.onMouseMove =
+                function (event) {
+                    var sphereid = 0;
+                    sphereid = r.pick(event.offsetX, event.offsetY);
+
+                    if (sphereid != 0) {
+                        SELECTED_SPHERE = r.get(sphereid)
+                        // console.log(`cube ${sphereid} selected.`)
+                    }
+
+                };
+
+            window.onkeypress = function (e) {
+                if (e.key == 'q') {
+                    SELECTED_SPHERE.visible = false;
+                }
+
+                if (e.key == 'w') {
+                    colorPalette = [
+                        [1, 0.71, 0.75],
+                        [1, 0.63, 0.63],
+                        [1, 0.78, 0.78],
+                        [1, 0.85, 0.73],
+                        [1, 0.89, 0.88]
+                    ]
+                    randomColorIndex = Math.floor(Math.random() * colorPalette.length);
+                    SELECTED_SPHERE.color = colorPalette[randomColorIndex];
+                }
+
+                if (e.key == 'e') {
+                    SELECTED_SPHERE.transform.rotateX(1);
+                }
+
+                if (e.key == 'b') {
+                    ROTATE_CAMERA ? r.onRender = function () {
+                        r.camera.rotate([0, 0]);
+                        ROTATE_CAMERA = false;
+                    } :
+
+                    r.onRender = function () {
+                        r.camera.rotate([1, 0]);
+                        ROTATE_CAMERA = true;
+                    }
+                }
+
+                if (e.key == 'o') {
+                    download()
+                }
+
+                if (e.key == 'l') {
+                    upload("scene.json")
+                }
+
+                if (e.key == "c") {
+                    CAMERAS.push(new Float32Array(r.camera.view));
+                    // console.log("camera position saved.")
+                }
+                
+                if (e.key == "v") {
+                    if (CYCLE_CAMERAS) {
+                        clearInterval(camInterval);
+                        CYCLE_CAMERAS = false;
+                        camInterval = null;
+
+                    } else {
+                        camInterval = setInterval(() => {
+                            CYCLE_CAMERAS = true;
+                            if (CAMERAS.length == 0) {
+                                return;
+
+                            } else {
+                                r.camera.view = (CAMERAS[CAM_INDEX]);
+                                r.render();
+                                CAM_INDEX= (CAM_INDEX + 1) % CAMERAS.length;
+                            }
+                        }, 1000);
+                    }
+                }
+            };
+        };
+
+    </script>
+</head>
+
+<body></body>
+
+</html>

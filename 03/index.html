@@ -1,0 +1,211 @@
+<html>
+  <head>
+    <style>
+      html, body { 
+        background-color:#000;
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden !important;  
+      }
+    </style>
+    
+    <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@latest/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@latest/examples/jsm/"
+      }
+    }
+    </script>
+
+    <script type="module">
+
+      import * as THREE from 'three';
+      import { OrbitControls } from 'three/addons/controls/OrbitControls.js';      
+
+      var renderer, controls, scene, camera;
+      var LAST_OBJECT;
+      var MOUSE_HOLD = false;
+      var FLICKERING = false;
+      var WIREFRAME = false;
+      var TORUSES = [];
+      
+
+      window.onload = function() {
+
+        // Three.js code goes here
+        scene = new THREE.Scene();
+
+        // setup the camera
+        var fov = 75;
+        var ratio = window.innerWidth / window.innerHeight;
+        var zNear = 1;
+        var zFar = 10000;
+        camera = new THREE.PerspectiveCamera( fov, ratio, zNear, zFar );
+        camera.position.set(0, 0, 100);
+
+        // create renderer and setup the canvas
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize( window.innerWidth, window.innerHeight );
+        document.body.appendChild( renderer.domElement );
+
+        // global var for last placed torus
+
+
+
+        renderer.domElement.onmousedown = function( e ){
+          MOUSE_HOLD = true;
+
+          if (e.shiftKey) {
+            controls.enabled = false;
+
+            var pixel_coords = new THREE.Vector2( e.clientX, e.clientY );
+
+            console.log('Pixel coords', pixel_coords);
+
+            var vp_coords = new THREE.Vector2( 
+              ( pixel_coords.x / window.innerWidth ) * 2 - 1,  //X
+              -( pixel_coords.y / window.innerHeight ) * 2 + 1) // Y
+
+            console.log('Viewport coords', vp_coords);
+
+            var vp_coords_near = new THREE.Vector3( vp_coords.x, vp_coords.y, 0);
+
+
+            var raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera(vp_coords_near, camera);
+            var intersects = raycaster.intersectObject(invisible_plane);
+            // configure torus
+            var geometry = new THREE.TorusKnotGeometry( 10, 3, 100, 16 );
+            var material = new THREE.MeshStandardMaterial({ color: 0xFF69B4, wireframe: false });
+
+            var newTorus = new THREE.Mesh( geometry, material );
+            
+            newTorus.position.set(intersects[0].point.x, intersects[0].point.y, intersects[0].point.z);
+            scene.add( newTorus );
+            TORUSES.push(newTorus);
+            LAST_OBJECT = newTorus;
+
+          } 
+
+          renderer.domElement.onmouseup = function( e ){
+            controls.enabled = true;
+            MOUSE_HOLD = false;
+          }
+
+        };
+
+
+        renderer.domElement.onmousemove = function( e ){
+          if (!e.shiftKey) {
+            return;
+          }
+
+          if (MOUSE_HOLD) {
+            LAST_OBJECT.scale.set(
+              LAST_OBJECT.scale.x + e.movementY,
+              LAST_OBJECT.scale.y + e.movementY,
+              LAST_OBJECT.scale.z + e.movementY
+            )
+            // since object scales uniformly we can just check x val
+            if (LAST_OBJECT.scale.x < 0) {
+              LAST_OBJECT.material.color.set(0x7CFC00) // set green when flipped scale
+            } else {
+              LAST_OBJECT.material.color.set(0xFF69B4) // revert to pink
+            }
+          }
+        }
+
+        window.onkeypress = function(e) {
+          if (e.key == 'w') {
+            if (WIREFRAME) WIREFRAME = false;
+            else WIREFRAME = true;
+          }
+
+          if (e.key == 'f') {
+            if (FLICKERING) FLICKERING = false;
+            else FLICKERING = true;
+          }
+        }
+
+
+        // setup lights
+        var ambientLight = new THREE.AmbientLight();
+        scene.add( ambientLight );
+
+        var light = new THREE.DirectionalLight( 0xffffff, 5.0 );
+        light.position.set( 10, 100, 10 );
+        scene.add( light );
+
+
+        // configure torus
+        var geometry = new THREE.TorusKnotGeometry( 10, 3, 100, 16 );
+        var material = new THREE.MeshStandardMaterial({ color: 0x00ff00, wireframe: false });
+        var torus = new THREE.Mesh( geometry, material );
+
+        scene.add(torus);
+        TORUSES.push(torus);
+
+
+        //
+        // The invisible plane
+        //
+        geometry = new THREE.PlaneGeometry( 10000, 10000 );
+        material = new THREE.MeshBasicMaterial( {
+          visible: false
+        });
+
+        var invisible_plane = new THREE.Mesh( geometry, material );
+
+        scene.add( invisible_plane );
+
+        // interaction
+        controls = new OrbitControls( camera, renderer.domElement );
+
+        // call animation/rendering loop
+        animate();
+        
+      };
+
+      function animate() {
+        // if flicker is toggled then loop through toruses and make them flicker
+        if (FLICKERING) {
+          TORUSES.forEach(t => {
+            let randOpacity = Math.random();
+            t.material.opacity = randOpacity;
+            t.material.transparent = true;
+            t.material.needsUpdate = true;
+          });
+        } else {
+          TORUSES.forEach(t => {
+            t.material.opacity = 1;
+            t.material.transparent = false;
+            t.material.needsUpdate = true;
+          })
+        }
+
+        if (WIREFRAME) {
+          // if wireframe mode is toggled then loop toruses and enable wireframe
+          TORUSES.forEach(t => {
+            t.material.wireframe = true;
+          });
+        } else {
+          TORUSES.forEach(t => {
+            t.material.wireframe = false;
+          });
+        }
+
+        requestAnimationFrame( animate );
+
+        // and here..
+        controls.update();
+        renderer.render( scene, camera );
+        
+      };
+    </script>
+  </head>
+  <body></body>
+</html>
