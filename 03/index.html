@@ -1,0 +1,204 @@
+<html>
+  <head>
+    <style>
+      html, body { 
+        background-color:#000;
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden !important;  
+      }
+    </style>
+    
+    <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@latest/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@latest/examples/jsm/"
+      }
+    }
+    </script>
+
+    <script type="module">
+
+      import * as THREE from 'three';
+      import { OrbitControls } from 'three/addons/controls/OrbitControls.js';      
+
+        let LASTOBJ = null;
+        let DRAGGING = false;
+        const HOTPINK = 0xff69b4;
+        const GREEN = 0x7CFC00;
+        let FLICKER = false;
+        let WIREFRAME = false;
+
+      var renderer, controls, scene, camera;
+
+      window.onload = function() {
+
+        // Three.js code goes here
+        scene = new THREE.Scene();
+
+        // setup the camera
+        var fov = 75;
+        var ratio = window.innerWidth / window.innerHeight;
+        var zNear = 1;
+        var zFar = 10000;
+        camera = new THREE.PerspectiveCamera( fov, ratio, zNear, zFar );
+        camera.position.set(0, 0, 100);
+
+        // create renderer and setup the canvas
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize( window.innerWidth, window.innerHeight );
+        document.body.appendChild( renderer.domElement );
+
+
+
+        function pickOnPlane(e) {
+            const ndc = new THREE.Vector2(
+                (e.clientX / window.innerWidth) * 2 - 1,
+                -(e.clientY / window.innerHeight) * 2 + 1
+            );
+            const ray = new THREE.Raycaster();
+            ray.setFromCamera(ndc, camera);
+            const hits = ray.intersectObject(invisible_plane);
+            return (hits && hits[0]) ? hits[0].point : null;
+        }
+
+        // places hotpink torus and scales
+        renderer.domElement.onmousedown = function (e) {
+            if (!e.shiftKey) return;
+            controls.enabled = false;
+
+            const p = pickOnPlane(e);
+            if (!p) return;
+
+            const g = new THREE.TorusKnotGeometry(10, 3, 100, 16);
+            const m = new THREE.MeshStandardMaterial({ color: HOTPINK, side: THREE.DoubleSide }); // hotpink
+            const torus = new THREE.Mesh(g, m);
+            torus.position.copy(p);
+            scene.add(torus);
+            torus.userData.isTorus = true;
+
+            LASTOBJ = torus;
+            DRAGGING = true;
+        };
+
+        // drags to scale last torus (use Y movement)
+        renderer.domElement.onmousemove = function (e) {
+            if (!DRAGGING || !LASTOBJ) return;
+
+            // additional scaling
+            const k = -0.01;                 // shrinks
+            const prev = LASTOBJ.scale.y;  
+            let next = prev + k * e.movementY;
+
+            if (Math.abs(next) < 0.0001) next = (prev >= 0 ? -0.0001 : 0.0001);
+
+            // If sign changed, toggle color
+            if ((prev >= 0 && next < 0) || (prev < 0 && next >= 0)) {
+                const current = LASTOBJ.material.color.getHex();
+                LASTOBJ.material.color.set( current === HOTPINK ? GREEN : HOTPINK );
+            }
+
+            LASTOBJ.scale.set(next, next, next);
+        };
+
+        // mouse up to stop scaling
+        renderer.domElement.onmouseup = function () {
+            DRAGGING = false;
+            controls.enabled = true;
+        };
+
+
+
+        // setup lights
+        var ambientLight = new THREE.AmbientLight();
+        scene.add( ambientLight );
+
+        var light = new THREE.DirectionalLight( 0xffffff, 5.0 );
+        light.position.set( 10, 100, 10 );
+        scene.add( light );
+
+        // configure torus
+        var geometry = new THREE.TorusGeometry(8, 3, 16, 64);
+        var material = new THREE.MeshStandardMaterial({ color: 0xffd84a });
+        var cube = new THREE.Mesh(geometry, material);
+        cube.userData.isTorus = true;
+
+        scene.add(cube);
+
+        //
+        // The invisible plane
+        //
+        geometry = new THREE.PlaneGeometry( 10000, 10000 );
+        material = new THREE.MeshBasicMaterial( {
+          visible: false
+        });
+
+        var invisible_plane = new THREE.Mesh( geometry, material );
+
+        scene.add( invisible_plane );
+        //
+        //
+        //
+
+
+
+        // interaction
+        controls = new OrbitControls( camera, renderer.domElement );
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key.toLowerCase() !== 'f') return;
+            FLICKER = !FLICKER;
+
+            scene.traverse(obj => {
+                if (obj.isMesh && obj.userData.isTorus) {
+                    obj.material.transparent = true;
+                    obj.material.needsUpdate = true;
+                    if (!FLICKER) {              // reset when turning off
+                        obj.material.opacity = 1.0;
+                    }
+                }
+            });
+        });
+
+        // W toggles wireframe
+        window.addEventListener('keydown', (e) => {
+            if (e.key.toLowerCase() !== 'w') return;
+            WIREFRAME = !WIREFRAME;
+
+            scene.traverse(obj => {
+                if (obj.isMesh && obj.userData.isTorus) {
+                    obj.material.wireframe = WIREFRAME;
+                    obj.material.needsUpdate = true;
+                }
+            });
+        });
+
+        // call animation/rendering loop
+        animate();
+        
+      };
+
+      // flickering
+      function animate() {
+        requestAnimationFrame(animate);
+        controls.update();
+
+        if (FLICKER) {
+            scene.traverse(obj => {
+                if (obj.isMesh && obj.userData.isTorus) {
+                    obj.material.transparent = true;
+                    obj.material.opacity = 0.35 + 0.65 * Math.random();
+                }
+            });
+        }
+
+        renderer.render(scene, camera);
+    }
+    </script>
+  </head>
+  <body></body>
+</html>
