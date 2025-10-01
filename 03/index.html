@@ -27,8 +27,11 @@
       import { OrbitControls } from 'three/addons/controls/OrbitControls.js';      
 
       var renderer, controls, scene, camera;
+      let LASTOBJECT = NULL;
 
       window.onload = function() {
+
+        window.THREE = THREE;
 
         // Three.js code goes here
         scene = new THREE.Scene();
@@ -46,10 +49,18 @@
         renderer.setSize( window.innerWidth, window.innerHeight );
         document.body.appendChild( renderer.domElement );
 
+        renderer.domElement.onmouseup = function () {
+            controls.enabled = true;
+        };
 
+        renderer.domElement.onmousedown = function( e ){
 
-        renderer.domElement.onclick = function( e ){
-          
+            if (!e.shiftKey){
+              return;
+            }
+            
+            controls.enabled = false;
+
             console.log('Yay! We clicked!');
 
             var pixel_coords = new THREE.Vector2( e.clientX, e.clientY );
@@ -58,7 +69,7 @@
 
             var vp_coords = new THREE.Vector2( 
                         ( pixel_coords.x / window.innerWidth ) * 2 - 1,  //X
-                        -( pixel_coords.y / window.innerHeight ) * 2 + 1) // Y
+                        -( pixel_coords.y / window.innerHeight ) * 2 + 1); // Y
 
             console.log('Viewport coords', vp_coords);
 
@@ -71,9 +82,17 @@
 
             console.log('Ray to Invisible Plane', intersects[0].point);
 
-            // update cube position
-            cube.position.set(intersects[0].point.x, intersects[0].point.y, intersects[0].point.z);
+            // update torus position
+            // torus.position.set(intersects[0].point.x, intersects[0].point.y, intersects[0].point.z);
 
+            // Instead of updatingt he position everytime, it clones it using the clone() method
+
+            const torus_new = torus.clone();
+            torus_new.material = torus_new.material.clone();
+            torus_new.position.set(intersects[0].point.x, intersects[0].point.y, intersects[0].point.z);
+            torus_new.material.color.setHex( 0xff69b4 );
+            scene.add(torus_new);
+            // console.log(intersects.length);
           };
 
 
@@ -85,15 +104,19 @@
         light.position.set( 10, 100, 10 );
         scene.add( light );
 
-        // configure cube
-        var geometry = new THREE.TorusKnotGeometry( 10, 3, 100, 16 );
-        var material = new THREE.MeshStandardMaterial({ color: 0xffffff, wireframe: true });
+        // configure torus
+        var geometry = new THREE.TorusKnotGeometry( 10, 3, 100, 16 ); 
+        // yellow
+        var material = new THREE.MeshStandardMaterial({ color: 0xFFFF00, wireframe: false });
+        var torus = new THREE.Mesh( geometry, material );
+        scene.add( torus );
 
-        var cube = new THREE.Mesh( geometry, material );
-
-        scene.add( cube );
-
-
+        var geometry = new THREE.TorusKnotGeometry( 10, 3, 100, 16 );        
+        // hot pink
+        // var material = new THREE.MeshStandardMaterial({ color: 0xff69b4, wireframe: false });
+        // var pink_torus = new THREE.Mesh( geometry, material );
+        // scene.add( pink_torus );
+    
 
         //
         // The invisible plane
@@ -104,16 +127,20 @@
         });
 
         var invisible_plane = new THREE.Mesh( geometry, material );
-
         scene.add( invisible_plane );
         //
         //
         //
 
-
-
         // interaction
         controls = new OrbitControls( camera, renderer.domElement );
+
+        // Making the shift press key function 
+        // window.onkeypress = function(a){
+        //   if (a.key == "SHIFT"){
+        //     scene.add(torus);
+        //   }
+        // }
 
         // call animation/rendering loop
         animate();
@@ -126,6 +153,7 @@
 
         // and here..
         controls.update();
+        // controls.autoRotate();
         renderer.render( scene, camera );
         
       };
