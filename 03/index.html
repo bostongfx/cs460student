@@ -1,0 +1,183 @@
+<html>
+  <head>
+    <style>
+      html, body { 
+        background-color:#000;
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden !important;  
+      }
+    </style>
+    
+    <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@latest/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@latest/examples/jsm/"
+      }
+    }
+    </script>
+
+    <script type="module">
+
+      import * as THREE from 'three';
+      import { OrbitControls } from 'three/addons/controls/OrbitControls.js';      
+
+      var renderer, controls, scene, camera;
+      var invisible_plane;
+      var LASTOBJECT = null;   
+      var isDragging = false;  
+      var FLICKERING = false;
+      var WIREFRAME = false; 
+      var toruses = [];        
+
+      window.onload = function() {
+
+        scene = new THREE.Scene();
+
+        // setup the camera
+        var fov = 75;
+        var ratio = window.innerWidth / window.innerHeight;
+        var zNear = 1;
+        var zFar = 10000;
+        camera = new THREE.PerspectiveCamera( fov, ratio, zNear, zFar );
+        camera.position.set(0, 0, 100);
+
+        // create renderer and setup the canvas
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize( window.innerWidth, window.innerHeight );
+        document.body.appendChild( renderer.domElement );
+
+        // setup lights
+        var ambientLight = new THREE.AmbientLight();
+        scene.add( ambientLight );
+
+        var light = new THREE.DirectionalLight( 0xffffff, 5.0 );
+        light.position.set( 10, 100, 10 );
+        scene.add( light );
+
+        // the invisible plane
+        var geometry = new THREE.PlaneGeometry( 10000, 10000 );
+        var material = new THREE.MeshBasicMaterial( { visible: false });
+        invisible_plane = new THREE.Mesh( geometry, material );
+        scene.add( invisible_plane );
+
+        // initial torus
+        var initGeo = new THREE.TorusKnotGeometry(10, 3, 100, 16);
+        var initMat = new THREE.MeshStandardMaterial({ 
+          color: 0x82C3D9, // light blue
+          wireframe: WIREFRAME
+        }); 
+        var initTorus = new THREE.Mesh(initGeo, initMat);
+        initTorus.position.set(0,0,0);
+        scene.add(initTorus);
+        toruses.push(initTorus);
+        LASTOBJECT = initTorus;
+
+        // interaction
+        controls = new OrbitControls( camera, renderer.domElement );
+
+        // part 3: add torus if SHIFT is pressed
+        renderer.domElement.onmousedown = function(e){
+          if(e.shiftKey){
+            controls.enabled = false; // disable orbit controls
+            var pixel_coords = new THREE.Vector2( e.clientX, e.clientY );
+            var vp_coords = new THREE.Vector2( 
+              ( pixel_coords.x / window.innerWidth ) * 2 - 1, 
+              -( pixel_coords.y / window.innerHeight ) * 2 + 1
+            );
+            var vp_coords_near = new THREE.Vector3( vp_coords.x, vp_coords.y, 0);
+            var raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera(vp_coords_near, camera);
+            var intersects = raycaster.intersectObject(invisible_plane);
+
+            if(intersects.length > 0){
+              // part 2: torus
+              var torusGeo = new THREE.TorusKnotGeometry(10, 3, 100, 16); 
+              var torusMat = new THREE.MeshStandardMaterial({ 
+                color: 0xff69b4, // hotpink
+                wireframe: WIREFRAME 
+              }); 
+              var torus = new THREE.Mesh(torusGeo, torusMat);
+              torus.position.copy(intersects[0].point);
+              scene.add(torus);
+              toruses.push(torus);  
+              LASTOBJECT = torus;   
+              isDragging = true;    
+            }
+          }
+        };
+
+        // part 4: re enable controls
+        renderer.domElement.onmouseup = function(e){
+          controls.enabled = true;
+          isDragging = false;
+        };
+
+        // part 5: torus scaling
+        renderer.domElement.onmousemove = function(e){
+          if(isDragging && LASTOBJECT){
+            let delta = -e.movementY * 0.01; 
+            let newScale = LASTOBJECT.scale.x + delta;
+            if(newScale > -5){
+              LASTOBJECT.scale.set(newScale, newScale, newScale);
+
+              // part 6: change color
+              if(newScale < 0){
+                LASTOBJECT.material.color.set(0x7CFC00); // grassgreen
+              } else {
+                LASTOBJECT.material.color.set(0xff69b4); // hotpink
+              }
+            }
+          }
+        };
+
+        //part 7: press f to flick
+        window.onkeypress = function(e){
+          if(e.key === 'f'){
+            FLICKERING = !FLICKERING;
+            if(!FLICKERING){
+              toruses.forEach(t=>{
+                t.material.opacity = 0.7;
+                t.material.transparent = false;
+                t.material.needsUpdate = true;
+              });
+            }
+          }
+
+          // bonus: press w to wireframe 
+          if(e.key === 'w'){
+            WIREFRAME = !WIREFRAME;
+            toruses.forEach(t=>{
+              t.material.wireframe = WIREFRAME;
+            });
+          }
+        };
+
+        // call animation/rendering loop
+        animate();
+      };
+
+      function animate() {
+        requestAnimationFrame( animate );
+
+        // part 7: flicker 
+        if(FLICKERING){
+          toruses.forEach(t=>{
+            t.material.transparent = true;
+            t.material.opacity = Math.random();
+            t.material.needsUpdate = true;
+          });
+        }
+
+        controls.update();
+        renderer.render( scene, camera );
+      };
+    </script>
+  </head>
+  <body></body>
+</html>
+

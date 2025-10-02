@@ -13,26 +13,32 @@
     <script type="text/javascript" src="loader.js"></script>
 
     <script>
-      const SIZE = 5;
-      const GAP = 20;
-      var SELECTED_CUBE = null
+      const SIZE = 1;
+      const GAP = 13;
+      var SELECTED_SPHERE = null
       var ROTATE_CAMERA = null
+
+      var CAMERA = [];
+      var CYCLING = false;
+      var index = 0;
+      var cycleInterval = null;
 
       window.onload = function() {
         r = new X.renderer3D();
         r.init();
          
-        // part 2: (1331 cubes)
+        // part 2: (1331 spheres)
         for (var z=-5; z < 6; z++) {
           for (var y=-5; y < 6; y++) {
             for(var x=-5; x < 6; x++) {
 
-              new_cube = new X.cube();
-              new_cube.transform.translateX((SIZE + GAP) * x);
-              new_cube.transform.translateY((SIZE + GAP) * y);
-              new_cube.transform.translateZ((SIZE + GAP) * z);
+              new_sphere = new X.sphere();
+              new_sphere.radius = Math.random() * 5 + 1;
+              new_sphere.transform.translateX((SIZE + GAP) * x);
+              new_sphere.transform.translateY((SIZE + GAP) * y);
+              new_sphere.transform.translateZ((SIZE + GAP) * z);
               
-              r.add(new_cube);
+              r.add(new_sphere);
             }
           }
         }
@@ -43,32 +49,31 @@
 
         //part 4:
         r.interactor.onMouseMove = function(event) {
-          cubeid = r.pick(event.offsetX, event.offsetY);
+          sphereid = r.pick(event.offsetX, event.offsetY);
           
-          if (cubeid !== 0) {
-            cube = r.get(cubeid);
-            SELECTED_CUBE = r.get(cubeid);
+          if (sphereid !== 0) {
+            sphere = r.get(sphereid);
+            SELECTED_SPHERE = r.get(sphereid);
           }
         };
         
-        ROTATE_CAMERA = false;
-
         // part 5:
         window.onkeypress = function(e) {
-          if (SELECTED_CUBE) {
+
+          if (SELECTED_SPHERE) {
             if (e.key == 'q') { // q: hide 
-              SELECTED_CUBE.visible = false;
+              SELECTED_SPHERE.visible = false;
             }
             
             if (e.key == 'w') { // w: change color
               const rColor = Math.random();
               const gColor = Math.random();
               const bColor = Math.random();
-              SELECTED_CUBE.color = [rColor, gColor, bColor];
+              SELECTED_SPHERE.color = [rColor, gColor, bColor];
             }
 
             if (e.key == 'e') { // e: rotate
-              SELECTED_CUBE.transform.rotateX(10);
+              SELECTED_SPHERE.transform.rotateX(10);
             }
           }
 
@@ -85,6 +90,25 @@
           if (e.key == 'l') { // l: upload
             upload("scene.json");
           }
+          
+          // bonus:
+          if (e.key === 'c') {
+            CAMERA.push(new Float32Array(r.camera.view));
+            console.log(CAMERA);
+          }
+
+          if (e.key === 'v') {
+            if (!CYCLING && CAMERA.length > 0) {
+              CYCLING = true;
+                cycleInterval = setInterval(function() {
+                  r.camera.view = CAMERA[index];
+                  index = (index + 1) % CAMERA.length;
+              }, 1000);
+            } else if (CYCLING) {
+              CYCLING = false;
+                clearInterval(cycleInterval)
+            }
+          }
         };
 
         // part 6:
@@ -93,7 +117,6 @@
             r.camera.rotate([1, 0]);
           }
         };
-
       };
 
       </script>
