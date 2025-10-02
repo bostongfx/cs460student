@@ -27,6 +27,10 @@
       import { OrbitControls } from 'three/addons/controls/OrbitControls.js';      
 
       var renderer, controls, scene, camera;
+      var LASTOBJECT = null;
+      let mousePressed = false;
+      var FLICKERING = false;
+      var wireframeMode = false;
 
       window.onload = function() {
 
@@ -41,6 +45,7 @@
         camera = new THREE.PerspectiveCamera( fov, ratio, zNear, zFar );
         camera.position.set(0, 0, 100);
 
+
         // create renderer and setup the canvas
         renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize( window.innerWidth, window.innerHeight );
@@ -48,11 +53,12 @@
 
 
 
-        renderer.domElement.onMouseDown = function( e ){
-            if (e.shiftkey){
-                controls.enabled = false;
-                      
-            //console.log('Yay! We clicked!');
+        renderer.domElement.onmousedown = function( e ){
+          if (e.shiftKey){
+            controls.enabled = false;
+            console.log('Yay! We shifted!');
+
+            mousePressed = true;
 
             var pixel_coords = new THREE.Vector2( e.clientX, e.clientY );
 
@@ -74,17 +80,40 @@
             console.log('Ray to Invisible Plane', intersects[0].point);
 
             // update TorusKnot position
-            //TorusKnot.position.set(intersects[0].point.x, intersects[0].point.y, intersects[0].point.z);
+            // TorusKnot.position.set(intersects[0].point.x, intersects[0].point.y, intersects[0].point.z);
             var geometry = new THREE.TorusKnotGeometry(10, 3, 100, 16);
-            var material = new THREE.MeshStandardMaterial({ color: 0xFF69B4, wireframe: true });
-            var newTorus = new THREE.Mesh(geometry, material);
-            newTorus.position.copy(intersects[0].point);
-            scene.add(newTorus);
-            }else{
-                controls.enabled = true;
-            }
-          };
+            var material = new THREE.MeshStandardMaterial({ color: 0xFF69B4, wireframe: false });
+            var newTorusKnot = new THREE.Mesh( geometry, material );
+            newTorusKnot.position.set(intersects[0].point.x, intersects[0].point.y, intersects[0].point.z);
+            LASTOBJECT = newTorusKnot;
+            scene.add( newTorusKnot );
+            //console.log(newTorusKnot.geometry.type);
+            //console.log(newTorusKnot.geometry);
+          }
+        };
 
+        renderer.domElement.onmouseup = function(e){
+          //mousePressed = false;
+          if (!controls.enabled){
+            controls.enabled = true;
+          }
+        }; 
+
+        var toggleColor = false;//false = pink, true = green 7CFC00
+        renderer.domElement.onmousemove = function(e){
+          if (!controls.enabled && mousePressed){
+            var DELTA = e.movementY*0.1;
+            var before = LASTOBJECT.scale.x;
+            var after = before + DELTA;
+
+            LASTOBJECT.scale.set(LASTOBJECT.scale.x+DELTA, LASTOBJECT.scale.y+DELTA, LASTOBJECT.scale.z+DELTA);
+
+            if ((before > 0 && after < 0) || (before < 0 && after > 0)){
+              toggleColor = !toggleColor;
+              LASTOBJECT.material.color.set(toggleColor ? 0x7CFC00 : 0xFF69B4);
+            } 
+          }
+        };
 
         // setup lights
         var ambientLight = new THREE.AmbientLight();
@@ -95,14 +124,12 @@
         scene.add( light );
 
         // configure TorusKnot
-        var geometry = new THREE.TorusKnotGeometry( 10, 3, 100, 16 ); 
+        var geometry = new THREE.TorusKnotGeometry(10, 3, 100, 16);
+        // console.log(geometry.attributes.position.count);
+        // console.log(geometry.index.count/3);
         var material = new THREE.MeshStandardMaterial({ color: 0xff0000, wireframe: false });
-
         var TorusKnot = new THREE.Mesh( geometry, material );
-
         scene.add( TorusKnot );
-
-
 
         //
         // The invisible plane
@@ -119,7 +146,20 @@
         //
         //
 
-
+        window.onkeypress = function(e){
+          if (e.key == 'f'){
+            FLICKERING = !FLICKERING;
+          }else if (e.key == 'w'){
+            wireframeMode = !wireframeMode;
+            scene.traverse(function (object){
+            if (object.material && object.geometry.type == "TorusKnotGeometry"){
+              object.material.wireframe = wireframeMode;
+              object.material.needsUpdate = true;
+            }
+          });
+          }else if (e.key == 'c'){
+          }
+        }
 
         // interaction
         controls = new OrbitControls( camera, renderer.domElement );
@@ -132,6 +172,17 @@
       function animate() {
 
         requestAnimationFrame( animate );
+
+        if (FLICKERING){
+          scene.traverse(function(object){
+            //console.log(object.geometry && object.geometry.type);
+            if (object.geometry && object.geometry.type == "TorusKnotGeometry"){
+              object.material.opacity = Math.random(); 
+              object.material.transparent = true;
+              object.material.needsUpdate = true;
+            }
+          });
+        }
 
         // and here..
         controls.update();
