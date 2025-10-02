@@ -1,0 +1,122 @@
+<html>
+  <head>
+    <style>
+      body {
+        background-color: black;
+        margin: 0;
+        overflow: hidden;
+      }
+    </style>
+
+    <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+    <script type="text/javascript" src="loader.js"></script>
+
+    <script>
+      var SELECTED_SPHERE = null;
+      var SPINNING = false;
+      var r; 
+      var CAMERAS = [];  
+      var cameraInterval = null;
+      var cameraIndex = 0;
+
+      window.onload = function() {
+
+        r = new X.renderer3D(); 
+        r.init();
+
+        var GAP = 1;
+
+
+        for (var z = -5; z < 6; z++) {
+          for (var y = -5; y < 6; y++) {
+            for (var x = -5; x < 6; x++) {
+              var sphere = new X.sphere();
+              
+
+              sphere.radius = Math.random() * 2 + 1;
+
+              sphere.transform.translateX((5 + GAP) * x);
+              sphere.transform.translateY((5 + GAP) * y);
+              sphere.transform.translateZ((5 + GAP) * z);
+
+
+              sphere.color = [1, 1, 1];
+
+              r.add(sphere);
+            }
+          }
+        }
+
+        r.camera.position = [0, 0, 300];
+
+
+        r.interactor.onMouseMove = function(event) {
+          var sphereid = r.pick(event.offsetX, event.offsetY);
+
+          if (sphereid != 0) {
+            SELECTED_SPHERE = r.get(sphereid);
+          } else {
+            SELECTED_SPHERE = null;
+          }
+        };
+
+
+        window.onkeypress = function(e) {
+
+          if (!SELECTED_SPHERE && e.key !== 'b' && e.key !== 'o' && e.key !== 'l' && e.key !== 'c' && e.key !== 'v') return;
+
+          if (e.key == 'q') {
+            SELECTED_SPHERE.visible = false;
+          } else if (e.key == 'w') {
+            SELECTED_SPHERE.color = [
+              Math.random(),
+              Math.random(),
+              Math.random()
+            ];
+
+          } else if (e.key == 'e') {
+            SELECTED_SPHERE.transform.rotateX(10);
+
+          } else if (e.key == 'b') {
+            SPINNING = !SPINNING;
+
+          } else if (e.key == 'o') {
+            download();  
+
+          } else if (e.key == 'l') {
+            upload("scene.json"); 
+
+          } else if (e.key == 'c') {
+
+            CAMERAS.push(r.camera.view.slice());
+            console.log("Stored camera:", r.camera.view);
+
+          } else if (e.key == 'v') {
+
+            if (cameraInterval) {
+              clearInterval(cameraInterval);
+              cameraInterval = null;
+              console.log("Stopped camera loop");
+            } else if (CAMERAS.length > 0) {
+              cameraInterval = setInterval(function() {
+                r.camera.view = CAMERAS[cameraIndex];
+                cameraIndex = (cameraIndex + 1) % CAMERAS.length;
+              }, 1000); 
+              console.log("Started camera loop");
+            }
+          }
+        };
+
+        r.onRender = function() {
+          if (SPINNING) {
+            r.camera.rotate([1, 0]);
+          }
+        };
+
+        r.render();
+      };
+    </script>
+  </head>
+  <body>
+  </body>
+</html>

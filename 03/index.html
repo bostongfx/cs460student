@@ -1,0 +1,170 @@
+<html> 
+  <head>
+    <style>
+      html, body { 
+        background-color:#000;
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden !important;  
+      }
+    </style>
+    
+    <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@latest/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@latest/examples/jsm/"
+      }
+    }
+    </script>
+
+    <script type="module">
+      import * as THREE from 'three';
+      import { OrbitControls } from 'three/addons/controls/OrbitControls.js';      
+
+      var renderer, controls, scene, camera, invisible_plane;
+      var LASTOBJECT = null;      // store the last placed torus
+      var isPlacing = false;      // flag to control scaling while dragging
+      var lastSign = 1;           // store the last sign of scale
+      var TORUSES = [];           // keep track of all toruses
+      var FLICKERING = false;     // global flag for flickering
+      var WIREFRAME = false;      // global flag for wireframe view
+
+      window.onload = function() {
+        // Three.js code goes here
+        scene = new THREE.Scene();
+
+        // setup the camera
+        var fov = 75;
+        var ratio = window.innerWidth / window.innerHeight;
+        var zNear = 1;
+        var zFar = 10000;
+        camera = new THREE.PerspectiveCamera( fov, ratio, zNear, zFar );
+        camera.position.set(0, 0, 100);
+
+        // create renderer and setup the canvas
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize( window.innerWidth, window.innerHeight );
+        document.body.appendChild( renderer.domElement );
+
+        //
+        // The invisible plane
+        //
+        var geometry = new THREE.PlaneGeometry( 10000, 10000 );
+        var material = new THREE.MeshBasicMaterial({ visible: false });
+        invisible_plane = new THREE.Mesh( geometry, material );
+        scene.add( invisible_plane );
+
+        // setup lights
+        var ambientLight = new THREE.AmbientLight();
+        scene.add( ambientLight );
+
+        var light = new THREE.DirectionalLight( 0xffffff, 5.0 );
+        light.position.set( 10, 100, 10 );
+        scene.add( light );
+
+       
+        renderer.domElement.onmousedown = function( e ){
+          if (e.shiftKey && e.button === 0) {   
+            controls.enabled = false;
+            isPlacing = true;
+
+            var pixel_coords = new THREE.Vector2( e.clientX, e.clientY );
+            var vp_coords = new THREE.Vector2( 
+              ( pixel_coords.x / window.innerWidth ) * 2 - 1,  //X
+              -( pixel_coords.y / window.innerHeight ) * 2 + 1 // Y
+            );
+
+            var raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera(vp_coords, camera);
+            var intersects = raycaster.intersectObject(invisible_plane);
+
+            if (intersects.length > 0) {
+              var point = intersects[0].point;
+
+       
+              var torusGeo = new THREE.TorusKnotGeometry(10, 3, 100, 16);
+              var torusMat = new THREE.MeshStandardMaterial({ color: 0xFF69B4 }); 
+              var torus = new THREE.Mesh(torusGeo, torusMat);
+
+              torus.position.copy(point);
+              scene.add(torus);
+
+              LASTOBJECT = torus;  
+              lastSign = 1; 
+              TORUSES.push(torus); 
+            }
+          }
+        };
+
+    
+        renderer.domElement.onmousemove = function(e) {
+          if (isPlacing && LASTOBJECT) {
+            let delta = -e.movementY * 0.01; 
+            let newScale = LASTOBJECT.scale.x + delta;
+
+            LASTOBJECT.scale.set(newScale, newScale, newScale);
+
+       
+            let currentSign = Math.sign(newScale);
+            if (currentSign !== 0 && currentSign !== lastSign) {
+              if (LASTOBJECT.material.color.getHex() === 0xFF69B4) {
+                LASTOBJECT.material.color.set(0x7CFC00); 
+              } else {
+                LASTOBJECT.material.color.set(0xFF69B4); 
+              }
+              lastSign = currentSign;
+            }
+          }
+        };
+
+  
+        renderer.domElement.onmouseup = function(e) {
+          isPlacing = false;
+          controls.enabled = true;
+        };
+
+
+        window.onkeypress = function(e) {
+          if (e.key === 'f' || e.key === 'F') {
+            FLICKERING = !FLICKERING;
+            console.log("Flickering set to:", FLICKERING);
+          }
+          if (e.key === 'w' || e.key === 'W') {
+            WIREFRAME = !WIREFRAME;
+            console.log("Wireframe set to:", WIREFRAME);
+            TORUSES.forEach(torus => {
+              torus.material.wireframe = WIREFRAME;
+            });
+          }
+        };
+
+  
+        controls = new OrbitControls( camera, renderer.domElement );
+
+
+        animate();
+      };
+
+      function animate() {
+        requestAnimationFrame( animate );
+
+ 
+        if (FLICKERING) {
+          TORUSES.forEach(torus => {
+            torus.material.transparent = true;
+            torus.material.opacity = Math.random(); 
+            torus.material.needsUpdate = true;
+          });
+        }
+
+        controls.update();
+        renderer.render( scene, camera );
+      };
+    </script>
+  </head>
+  <body></body>
+</html>
