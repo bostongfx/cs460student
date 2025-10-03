@@ -31,6 +31,9 @@
       let LASTOBJECT = null;
       let DELTA = 0;
       const factor = 0.05;
+      let zero_sign = 1;
+      let FLICKERING = false;
+      let ARRAY_TORUSES = [];
 
       window.onload = function() {
 
@@ -55,11 +58,13 @@
         renderer.domElement.onmouseup = function () {
             controls.enabled = true;
             zoom = false;
+            // console.log("Controls switchedddd");
         };
 
         renderer.domElement.onmousedown = function( e ){
 
             if (!e.shiftKey){
+              console.log("Shift key Presedddd!!!!");
               return;
             }
 
@@ -96,10 +101,16 @@
             torus_new.material = torus_new.material.clone();
             torus_new.position.set(intersects[0].point.x, intersects[0].point.y, intersects[0].point.z);
             torus_new.material.color.setHex( 0xff69b4 );
+            // if(inverse_c){
+            //   torus_new.material.color.setHex( 0x7cfc00 );
+            //   console.log("inverted");
+            // }
+            // ARRAY_TORUSES.appendChild(torus_new);
             scene.add(torus_new);
             // console.log(intersects.length);
             LASTOBJECT = torus_new;
             zoom = true;
+            zero_sign = Math.sign(LASTOBJECT.scale.x);
 
           };
 
@@ -118,6 +129,20 @@
             LASTOBJECT.scale.set(LASTOBJECT.scale.x + DELTA,
                                  LASTOBJECT.scale.y + DELTA,
                                  LASTOBJECT.scale.z + DELTA);
+              
+            let next = LASTOBJECT.scale.x + DELTA;
+
+            const sign_now = Math.sign(LASTOBJECT.scale.x);
+            const sign_later = Math.sign(next);
+
+            LASTOBJECT.scale.set(next, next, next);
+            if (sign_later < 0) {
+              LASTOBJECT.material.color.setHex(0x7cfc00);
+            } else {
+              LASTOBJECT.material.color.setHex(0xff69b4);
+            }
+            zero_sign = sign_later;
+           
           }
         // setup lights
         var ambientLight = new THREE.AmbientLight();
@@ -164,7 +189,13 @@
         //     scene.add(torus);
         //   }
         // }
+        window.onkeypress = function (k){
+          if (k.key == 'f'){
+            FLICKERING = !FLICKERING;
+            console.log("'f' key was pressed", FLICKERING);
+          }
 
+        } 
         // call animation/rendering loop
         animate();
         
@@ -173,6 +204,11 @@
       function animate() {
 
         requestAnimationFrame( animate );
+        if (FLICKERING){
+          torus_new.material.opacity = 0.7;
+          torus_new.material.transparent = true;
+          torus_new.material.needsUpdate = true;
+        }
 
         // and here..
         controls.update();
