@@ -14,6 +14,11 @@
         margin: auto;
         width:50%;
       }
+      .viewer {
+        width: 400px;
+        height: 300px;
+        border: none;
+      }
 
       #screenshot {
         float:left;
@@ -50,24 +55,60 @@
 
     <div class='demo'>
 
-      <!-- TODO: REPLACE WITH A SCREENSHOT OF RO.ME -->
-      <img id='screenshot' src='https://placehold.co/300x300'>
+      <img id='screenshot' src='./images/RO.ME.png'>
+
       <p id='description'>
-      <!-- TODO: FILL IN YOUR DESCRIPTION -->
-      RO.ME is a very cool webgl demo!
+
+        RO.ME: 3 Dreams of Black came out in 2011, created by Chris Milk and Google Creative Lab. 
+        It was one of the first interactive films to run entirely in a web browser using WebGL. 
+        The demo showed that web browsers could handle 3D graphics and interactive storytelling. 
+
       </p>
+
       <p id='technology'>
-      Technology: TODO! <!-- TODO: FILL IN THE TECHNOLOGIES USED -->
-      </p>
+      Technology: WebGL for rendering 3D graphics, Three.js JavaScript library, HTML5 , JavaScript, Google Chrome. </p>
+      
       <p id='comparison'>
-      Comparison: TODO! <!-- TODO: FILL IN THE COMPARISON -->
+      Comparison: <a href="https://wldlght.com" target="_blank">WLDLGHT</a> is an interactive WebGL experience that focuses on exploring light and shadow in a 3D environment. 
+      Unlike RO.ME, which tells a cinematic story, WLDLGHT emphasizes visual experimentation and user interaction rather than narrative.
       </p>
       <p id='ai'>
-      Significance (AI): TODO! <!-- TODO: SUMMARIZE THE AI OUTPUT -->
+      Significance (AI): RO.ME was important because it demonstrated that fully interactive, cinematic 3D experiences could run directly in a web browser using WebGL, without 
+      any plugins like Flash, highlighting the web's potential for immersive storytelling.
+      <br><em>- ChatGPT, GPT-5-mini</em>
       </p>
 
       <div id='bonus'>
-        <!-- TODO: BONUS TASK GOES HERE -->
+        <h2>Bonus: Animated Models</h2>
+
+        <!-- Model 1 -->
+        <iframe 
+          src="viewer.html?files/models/black_soup/alligator.gltf"
+          class="viewer"
+          title="Alligator Model"
+          loading="lazy">
+        </iframe>
+        
+
+        <!-- Model 2 -->
+        <iframe src="viewer.html?files/models/black_soup/goat.gltf"
+          class="viewer"
+          title="Goat Model"
+          loading="lazy">
+        </iframe>
+
+        <!-- Model 3 -->
+        <iframe src="viewer.html?files/models/life_soup/quadruped_bear.gltf"
+          class="viewer"
+          title="Quadruped bear Model"
+          loading="lazy">
+        </iframe>
+
+        <p>
+          Models and viewer from 
+          <a href="https://github.com/mrdoob/rome-gltf" target="_blank">mrdoob/rome-gltf</a> 
+          (licensed CC BY-NC-SA 3.0).
+        </p>
       </div>
 
     </div>
