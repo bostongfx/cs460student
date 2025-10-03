@@ -1,0 +1,127 @@
+<html>
+  <head>
+      <style>
+        body {
+            background-color: black;
+        }
+      </style>
+
+      <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+      <script type='text/javascript' src='loader.js'></script>
+
+      <script>
+
+          window.onload = function() {
+
+              // once everything is done loading
+
+              var SELECTED_SPHERE;
+              var SIZE = 10;
+              var GAP = 5;
+
+              r = new X.renderer3D();
+              r.init();
+
+            r.camera.position = [0, 0, 300];
+
+            for (var z=-5; z < 6; z++) {
+              for (var y=-5; y < 6; y++) {
+                for(var x=-5; x < 6; x++) {
+
+                    new_sphere = new X.sphere();
+                    new_sphere.radius = Math.random() * 10;
+                    new_sphere.transform.translateX((SIZE + GAP) * x);
+                    new_sphere.transform.translateY((SIZE + GAP) * y);
+                    new_sphere.transform.translateZ((SIZE + GAP) * z);
+
+                    r.add(new_sphere);
+
+                }
+              }
+            }
+
+            r.interactor.onMouseMove = function(event) { 
+
+                sphereid =  r.pick(event.offsetX, event.offsetY) ;
+
+                // YOUR CODE GOES HERE
+                if (sphereid != 0){
+                  SELECTED_SPHERE = r.get(sphereid);
+                }
+                
+              };
+
+        var spin = false;
+
+        var CAMERAS = [];         
+        var cycle = false;      
+        var pos;       
+        var time;
+
+        window.onkeypress = function(e) {
+    
+            if (e.key == 'q') {
+                  SELECTED_SPHERE.visible = false;
+            }
+
+            if (e.key == 'w') {
+              SELECTED_SPHERE.color = [Math.random(),Math.random(),Math.random()]
+            }
+
+            if (e.key == 'e') {
+                  SELECTED_SPHERE.transform.rotateX(10);
+            }
+          
+            if (e.key == 'b') {
+                spin = !spin;
+
+                r.onRender = function() {
+                // spin the camera in X direction by 1 degree
+                  if(spin){
+                    r.camera.rotate([1, 0])
+                  }
+                }
+            }
+
+            if (e.key == 'o') {
+                  download();
+            }
+          
+            if (e.key == 'l') {
+                  upload("scene.json");
+            }
+
+              if (e.key == 'c') {
+                  CAMERAS.push(new Float32Array(r.camera.view));
+              }
+
+              if (e.key == 'v') {
+                  if (!cycle && CAMERAS.length > 0) {
+                      cycle = true;
+                      pos = 0;
+                      
+                      // referenced W3Schools to get a better understanding of setInterval
+                      // https://www.w3schools.com/jsref/met_win_setinterval.asp
+                      
+                      time = setInterval(function(){
+                          r.camera.view = CAMERAS[pos];
+                          pos = pos + 1;
+                          if (pos >= CAMERAS.length) {
+                              pos = 0;
+                          }
+                      }, 1000);
+                  }
+
+                  else{
+                      cycle = false;
+                      clearInterval(time);
+                  }
+  
+              }
+            }
+
+              r.render();
+          }
+      </script>
+  </head>
+</html>

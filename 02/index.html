@@ -1,2 +1,95 @@
-Ready for assignment 2.
+<html>
+  <head>
+      <style>
+        body {
+            background-color: black;
+        }
+      </style>
 
+      <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+      <script type='text/javascript' src='loader.js'></script>
+
+      <script>
+
+          window.onload = function() {
+
+              // once everything is done loading
+
+          	  var SELECTED_CUBE;
+          	  var SIZE = 20;
+          	  var GAP = 5;
+
+              r = new X.renderer3D();
+              r.init();
+
+            r.camera.position = [0, 0, 300];
+
+            for (var z=-5; z < 6; z++) {
+              for (var y=-5; y < 6; y++) {
+                for(var x=-5; x < 6; x++) {
+
+                    new_cube = new X.cube();
+                    new_cube.transform.translateX((SIZE + GAP) * x);
+                    new_cube.transform.translateY((SIZE + GAP) * y);
+                    new_cube.transform.translateZ((SIZE + GAP) * z);
+
+                    r.add(new_cube);
+
+                }
+              }
+            }
+
+            r.interactor.onMouseMove = function(event) { 
+
+                cubeid =  r.pick(event.offsetX, event.offsetY) ;
+
+                // YOUR CODE GOES HERE
+                if (cubeid != 0){
+                	SELECTED_CUBE = r.get(cubeid);
+                }
+                
+              };
+
+    		var spin = false;
+
+    		window.onkeypress = function(e) {
+    
+        		if (e.key == 'q') {
+              		SELECTED_CUBE.visible = false;
+        		}
+
+        		if (e.key == 'w') {
+        			SELECTED_CUBE.color = [Math.random(),Math.random(),Math.random()]
+        		}
+
+        		if (e.key == 'e') {
+              		SELECTED_CUBE.transform.rotateX(10);
+        		}
+
+        		if (e.key == 'b') {
+    				    spin = !spin;
+
+                r.onRender = function() {
+                // spin the camera in X direction by 1 degree
+                  if(spin){
+                    r.camera.rotate([1, 0])
+                  }
+                }
+            }
+
+        		if (e.key == 'o') {
+              		download();
+        		}
+    			
+        		if (e.key == 'l') {
+              		upload("scene.json");
+        		}
+    		}
+
+              r.render();
+              
+          }
+
+      </script>
+  </head>
+</html>
