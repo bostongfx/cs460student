@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      html, body { 
+        background-color:#000;
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden !important;  
+      }
+      canvas { display:block; }
+    </style>
+
+    <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@latest/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@latest/examples/jsm/"
+      }
+    }
+    </script>
+
+    <script type="module">
+      import * as THREE from 'three';
+      import { OrbitControls } from 'three/addons/controls/OrbitControls.js';      
+
+      let renderer, scene, camera, controls;
+      let invisible_plane;                 
+      const raycaster = new THREE.Raycaster();
+      const ndc = new THREE.Vector2();
+      const TORI = [];
+      let cube; 
+
+      const STATE = { placing:false, last:null, flicker:false, wire:false };
+
+      const HOTPINK = 0xff69b4;
+      const GRASS   = 0x7cfc00;
+      const YELLOW  = 0xffff00;
+
+      window.onload = () => {
+        scene = new THREE.Scene();
+        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 10000);
+        camera.position.set(0, 0, 100);
+
+        renderer = new THREE.WebGLRenderer({ antialias:true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        renderer.domElement.onclick = function(e){
+          console.log('Yay! We clicked!');
+          var pixel_coords = new THREE.Vector2(e.clientX, e.clientY);
+          console.log('Pixel coords', pixel_coords);
+
+          var vp_coords = new THREE.Vector2( 
+            ( pixel_coords.x / window.innerWidth ) * 2 - 1,
+            -( pixel_coords.y / window.innerHeight ) * 2 + 1
+          );
+          console.log('Viewport coords', vp_coords);
+
+          var vp_coords_near = new THREE.Vector3(vp_coords.x, vp_coords.y, 0);
+          var ray = new THREE.Raycaster();
+          ray.setFromCamera(vp_coords_near, camera);
+          var intersects = ray.intersectObject(invisible_plane);
+          console.log('Ray to Invisible Plane', intersects[0].point);
+
+          cube.position.set(intersects[0].point.x, intersects[0].point.y, intersects[0].point.z);
+        };
+
+        scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+        const sun = new THREE.DirectionalLight(0xffffff, 3.5);
+        sun.position.set(10, 100, 10);
+        scene.add(sun);
+
+        let geo = new THREE.BoxGeometry(20,20,20);
+        let mat = new THREE.MeshStandardMaterial({ color:0xffffff, wireframe:true });
+        cube = new THREE.Mesh(geo, mat);
+        scene.add(cube);
+
+        geo = new THREE.PlaneGeometry(10000, 10000);
+        mat = new THREE.MeshBasicMaterial({ visible:false });
+        invisible_plane = new THREE.Mesh(geo, mat);
+        scene.add(invisible_plane);
+
+        scene.add(makeTorus(new THREE.Vector3(0,0,0), 10, YELLOW));
+
+        controls = new OrbitControls(camera, renderer.domElement);
+
+        renderer.domElement.onmousedown = function(e) {
+          if (!e.shiftKey) return;  
+          controls.enabled = false;
+          STATE.placing = true;
+          const p = pickOnInvisiblePlane(e.clientX, e.clientY);
+          if (!p) return;
+          const t = makeTorus(p, 10, HOTPINK);
+          scene.add(t);
+          STATE.last = t;
+        };
+
+        renderer.domElement.onmousemove = function(e) {
+          if (!STATE.placing || !STATE.last) return;
+          const delta = -e.movementY * 0.1;
+          const t = STATE.last;
+          const sx = t.scale.x + delta;
+          const sy = t.scale.y + delta;
+          const sz = t.scale.z + delta;
+          t.scale.set(sx, sy, sz);
+          if (t.scale.x < 0) {
+            t.material.color.set(GRASS);
+          } else {
+            t.material.color.set(HOTPINK);
+          }
+        };
+
+        window.onmouseup = function() {
+          if (!STATE.placing) return;
+          controls.enabled = true;
+          STATE.placing = false;
+        };
+
+        window.onkeypress = function(e) {
+          const k = (e.key || '').toLowerCase();
+          if (k === 'f') {
+            STATE.flicker = !STATE.flicker;
+            TORI.forEach(m => {
+              if (m.material) {
+                m.material.transparent = true;
+                m.material.needsUpdate = true;
+              }
+            });
+          } else if (k === 'w') {
+            toggleWireframe(!STATE.wire);
+          }
+        };
+
+        window.onresize = function() {
+          camera.aspect = window.innerWidth / window.innerHeight;
+          camera.updateProjectionMatrix();
+          renderer.setSize(window.innerWidth, window.innerHeight);
+        };
+
+        renderer.setAnimationLoop(update);
+      };
+
+      function makeTorus(position, size=10, color=HOTPINK) {
+        const geo = new THREE.TorusKnotGeometry(size, 3, 96, 14);
+        const mat = new THREE.MeshStandardMaterial({ color });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.copy(position);
+        TORI.push(mesh);
+        return mesh;
+      }
+
+      function toggleWireframe(on) {
+        STATE.wire = on;
+        scene.traverse(obj => {
+          if (obj.isMesh && obj.material) obj.material.wireframe = on;
+        });
+      }
+
+      function pickOnInvisiblePlane(clientX, clientY) {
+        ndc.set(
+          (clientX / window.innerWidth) * 2 - 1,
+          -(clientY / window.innerHeight) * 2 + 1
+        );
+        raycaster.setFromCamera(ndc, camera);
+        const hits = raycaster.intersectObject(invisible_plane);
+        return (hits && hits.length) ? hits[0].point : null;
+      }
+
+      function update() {
+        if (STATE.flicker) {
+          for (const m of TORI) {
+            if (!m.material) continue;
+            m.material.opacity = Math.random();
+            m.material.needsUpdate = true;
+          }
+        }
+        controls.update();
+        renderer.render(scene, camera);
+      }
+    </script>
+  </head>
+  <body></body>
+</html>
