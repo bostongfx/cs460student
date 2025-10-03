@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>CS460 – A03: The Flickering Pink (and Green) Torus World</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    html, body { margin:0; height:100%; background:#111; overflow:hidden; }
+    #info{
+      position:fixed; left:12px; bottom:12px; color:#ddd; font:12px monospace;
+      background:#0008; padding:8px 10px; border-radius:8px; pointer-events:none;
+    }
+    #info b { color:#fff; }
+  </style>
+</head>
+<body>
+<div id="info">
+  <div><b>Controls:</b></div>
+  <div>• <b>Shift</b> + Left-click to place a torus at the mouse point.</div>
+  <div>• While holding mouse: drag <i>up/down</i> to scale (crossing zero flips pink/green).</div>
+  <div>• Release mouse to stop scaling and re-enable orbit.</div>
+  <div>• Orbit: left-drag • Zoom: wheel</div>
+  <div>• Keys: <b>F</b> flicker, <b>W</b> wireframe, <b>R</b> reset, <b>G</b> grid toggle.</div>
+</div>
+
+<script type="module">
+  import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+
+  // Minimal orbit controller (enabled flag + update), no external imports
+  class MiniOrbitControls {
+    constructor(camera, dom, target = new THREE.Vector3(0,0,0)) {
+      this.camera = camera; this.dom = dom; this.target = target.clone(); this.enabled = true;
+      const off = camera.position.clone().sub(this.target);
+      this.radius = off.length();
+      this.theta  = Math.atan2(off.x, off.z);
+      this.phi    = Math.atan2(Math.hypot(off.x, off.z), off.y);
+      this.dragging = false; this.lastX = 0; this.lastY = 0;
+
+      dom.addEventListener('mousedown', e => {
+        if (!this.enabled || e.shiftKey || e.button !== 0) return;
+        this.dragging = true; this.lastX = e.clientX; this.lastY = e.clientY;
+        window.addEventListener('mousemove', this._onMove);
+        window.addEventListener('mouseup',  this._onUp, { once:true });
+      });
+      dom.addEventListener('wheel', e => {
+        if (!this.enabled) return; e.preventDefault();
+        const scale = Math.exp(-e.deltaY * 0.0015);
+        this.radius = Math.max(0.5, Math.min(200, this.radius * scale));
+        this.update();
+      }, { passive:false });
+
+      this._onMove = (e) => {
+        if (!this.dragging) return;
+        const dx = e.clientX - this.lastX, dy = e.clientY - this.lastY;
+        this.lastX = e.clientX; this.lastY = e.clientY;
+        this.theta -= dx * 0.005; this.phi -= dy * 0.005;
+        const EPS = 0.001; this.phi = Math.max(EPS, Math.min(Math.PI - EPS, this.phi));
+        this.update();
+      };
+      this._onUp = () => { this.dragging = false; window.removeEventListener('mousemove', this._onMove); };
+      this.update();
+    }
+    update() {
+      const sinPhi = Math.sin(this.phi), cosPhi = Math.cos(this.phi);
+      const sinTh = Math.sin(this.theta), cosTh = Math.cos(this.theta);
+      const x = this.radius * sinPhi * sinTh, y = this.radius * cosPhi, z = this.radius * sinPhi * cosTh;
+      this.camera.position.set(this.target.x + x, this.target.y + y, this.target.z + z);
+      this.camera.lookAt(this.target);
+    }
+  }
+
+  // Scene
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x202225);
+
+  const camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 500);
+  camera.position.set(8, 7, 12);
+
+  const renderer = new THREE.WebGLRenderer({ antialias:true });
+  renderer.setSize(innerWidth, innerHeight);
+  document.body.appendChild(renderer.domElement);
+
+  const controls = new MiniOrbitControls(camera, renderer.domElement);
+
+  // Lights + ground
+  scene.add(new THREE.AmbientLight(0xffffff, 0.9));
+  const dl = new THREE.DirectionalLight(0xffffff, 0.9); dl.position.set(6,10,5); scene.add(dl);
+  const grid = new THREE.GridHelper(60, 60, 0x555555, 0x333333);  // ⇦ keep a reference
+  scene.add(grid);
+
+  // Interaction state
+  const HOTPINK = '#FF69B4', GRASSGREEN = '#7CFC00';
+  const TORI = [];
+  let LASTOBJECT = null, IS_DRAGGING = false, FLICKERING = false;
+
+  const raycaster = new THREE.Raycaster();
+  const mouseNDC = new THREE.Vector2();
+  const groundPlane = new THREE.Plane(new THREE.Vector3(0,1,0), 0); // y=0 plane
+
+  // Starter torus (visible immediately)
+  placeTorusAt(new THREE.Vector3(0, 0.01, 0)).scale.setScalar(1.2);
+
+  // Events
+  addEventListener('resize', () => {
+    camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight); controls.update();
+  });
+
+  renderer.domElement.addEventListener('mousedown', (e) => {
+    if (!e.shiftKey) return; e.preventDefault();
+    controls.enabled = false;
+    const hit = worldFromMouse(e.clientX, e.clientY); if (!hit) return;
+    LASTOBJECT = placeTorusAt(hit); IS_DRAGGING = true;
+    addEventListener('mousemove', onDrag);
+    addEventListener('mouseup', () => {
+      IS_DRAGGING = false; LASTOBJECT = null; controls.enabled = true;
+      removeEventListener('mousemove', onDrag);
+    }, { once:true });
+  });
+
+  addEventListener('keydown', (e) => {
+    const k = e.key.toLowerCase();
+    if (k === 'f') {
+      FLICKERING = !FLICKERING;
+      if (!FLICKERING) TORI.forEach(t => t.material.opacity = 1);
+    } else if (k === 'w') {
+      TORI.forEach(t => t.material.wireframe = !t.material.wireframe);
+    } else if (k === 'g') {              // NEW: grid toggle
+      grid.visible = !grid.visible;
+    } else if (k === 'r') {              // NEW: reset scene/camera
+      resetScene();
+    }
+  });
+
+  function onDrag(e){
+    if (!IS_DRAGGING || !LASTOBJECT) return;
+    const delta = -e.movementY * 0.01;
+    const next = LASTOBJECT.scale.x + delta;
+    LASTOBJECT.scale.setScalar(next); // allow negative (flip)
+    const prevSign = LASTOBJECT.userData.sign ?? 1;
+    const newSign = next === 0 ? prevSign : Math.sign(next);
+    if (newSign !== prevSign){
+      const isPink = LASTOBJECT.material.color.getHexString().toUpperCase() === 'FF69B4';
+      LASTOBJECT.material.color.set(isPink ? GRASSGREEN : HOTPINK);
+    }
+    LASTOBJECT.userData.sign = newSign;
+  }
+
+  // Helpers
+  function placeTorusAt(pos){
+    const geo = new THREE.TorusKnotGeometry(1, 0.3, 100, 16, 2, 3);
+    const mat = new THREE.MeshStandardMaterial({ color:HOTPINK, metalness:0.1, roughness:0.6, transparent:true, opacity:1 });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.copy(pos); mesh.scale.setScalar(1); mesh.userData.sign = 1;
+    scene.add(mesh); TORI.push(mesh); return mesh;
+  }
+  function worldFromMouse(clientX, clientY){
+    const r = renderer.domElement.getBoundingClientRect();
+    mouseNDC.x = ((clientX - r.left)/r.width) * 2 - 1;
+    mouseNDC.y = -((clientY - r.top)/r.height) * 2 + 1;
+    raycaster.setFromCamera(mouseNDC, camera);
+    const out = new THREE.Vector3();
+    return raycaster.ray.intersectPlane(groundPlane, out) ? out : null;
+  }
+  function resetScene(){
+    // Stop flicker, restore materials/scale/colors
+    FLICKERING = false;
+    TORI.forEach(t => {
+      t.material.opacity = 1;
+      t.material.wireframe = false;
+      t.material.color.set(HOTPINK);
+      t.scale.setScalar(1);
+      t.userData.sign = 1;
+    });
+    // Reset camera view
+    controls.target.set(0,0,0);
+    controls.radius = 13;   // feel free to tweak these three values
+    controls.theta  = 0.8;
+    controls.phi    = 1.0;
+    controls.update();
+  }
+
+  // Loop
+  (function animate(){
+    requestAnimationFrame(animate);
+    if (FLICKERING) for (const t of TORI) t.material.opacity = Math.random();
+    renderer.render(scene, camera);
+  })();
+</script>
+</body>
+</html>
