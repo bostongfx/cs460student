@@ -105,7 +105,7 @@
             //   torus_new.material.color.setHex( 0x7cfc00 );
             //   console.log("inverted");
             // }
-            // ARRAY_TORUSES.appendChild(torus_new);
+            ARRAY_TORUSES.push(torus_new);
             scene.add(torus_new);
             // console.log(intersects.length);
             LASTOBJECT = torus_new;
@@ -157,6 +157,8 @@
         // yellow
         var material = new THREE.MeshStandardMaterial({ color: 0xFFFF00, wireframe: false });
         var torus = new THREE.Mesh( geometry, material );
+        torus.material.opacity = 1;
+        ARRAY_TORUSES.push(torus);
         scene.add( torus );
 
         var geometry = new THREE.TorusKnotGeometry( 10, 3, 100, 16 );        
@@ -194,6 +196,11 @@
             FLICKERING = !FLICKERING;
             console.log("'f' key was pressed", FLICKERING);
           }
+          if (k.key == "w"){
+            for (const j of ARRAY_TORUSES){
+          j.material.wireframe = !j.material.wireframe;
+        }
+          }
 
         } 
         // call animation/rendering loop
@@ -205,10 +212,12 @@
 
         requestAnimationFrame( animate );
         if (FLICKERING){
-          torus_new.material.opacity = 0.7;
-          torus_new.material.transparent = true;
-          torus_new.material.needsUpdate = true;
+          for (const i of ARRAY_TORUSES){
+          i.material.opacity = 0.1 + 0.9 * Math.random();
+          i.material.transparent = true;
+          i.material.needsUpdate = true;
         }
+      }
 
         // and here..
         controls.update();
