@@ -20,28 +20,33 @@
     }
 </style>
 <body>
-    <h1>Assignment 2 - CS 460</h1>
+    <h1>Assignment 2 (BONUS) - CS 460</h1>
 
     <script>
-        const SIZE = 55;
+        const SIZE = 30;
         const GAP = 15;
         let B_ROTATE = false;
+        let CAMERAS = [];
+        let cameraNum = 0;
+        let Time_CAMERA = null; 
+        const DELAY = 1000;
 
         window.onload = function(){
             r = new X.renderer3D();
             r.init();
-                for (var z=-5; z < 11; z++) {
-                    for (var y=-5; y < 11; y++) {
-                        for(var x=-5; x < 11; x++) {
-                            new_cube = new X.cube();
-                            new_cube.transform.translateX((SIZE + GAP) * x);
-                            new_cube.transform.translateY((SIZE + GAP) * y);
-                            new_cube.transform.translateZ((SIZE + GAP) * z);
-                            r.add(new_cube);
+                for (var z=-5; z < 6; z++) {
+                    for (var y=-5; y < 6; y++) {
+                        for(var x=-5; x < 6; x++) {
+                            new_sphere = new X.sphere();
+                            new_sphere.transform.translateX((SIZE + GAP) * x);
+                            new_sphere.transform.translateY((SIZE + GAP) * y);
+                            new_sphere.transform.translateZ((SIZE + GAP) * z);
+                            new_sphere.radius = new_sphere.radius + 20 * Math.random();
+                            r.add(new_sphere);
                         }
                     }
                 }
-                r.camera.position = [0, 0, 300];
+                r.camera.position = [0, 0, 500];
                 r.interactor.onMouseMove = function(event){
                     cubeid = r.pick(event.offsetX, event.offsetY);
                     if (cubeid == 0){
@@ -76,14 +81,26 @@
                         upload("scene.json");
                         console.log("It works!!");
                     }
+                    if (e.key == "c"){
+                        CAMERAS.push(new Float32Array (r.camera.view));
+                    }
+                    if (e.key == "v"){
+                        if (Time_CAMERA){
+                            clearInterval(Time_CAMERA);
+                            Time_CAMERA = null;
+                        }
+                        Time_CAMERA = setInterval(function(){
+                            r.camera.view = CAMERAS[cameraNum];
+                            cameraNum = (cameraNum + 1);
+                           },   DELAY);
+                        
+                    }
                 }
                 r.onRender = function(){
                     if (B_ROTATE == true){
                     r.camera.rotate([1, 0]);
                    }
                 }
-
-
 
             r.render();
             
