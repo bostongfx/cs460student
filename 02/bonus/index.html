@@ -13,10 +13,14 @@ Ready for assignment 2.
         <script type="text/javascript" src="loader.js"></script>
         
         <script>
-            var SIZE = 30;
-            var GAP = 1;
+            const SIZE = 5;
+            const GAP = 1;
             var SELECTED_CUBE;
             var ROTATING = 0;
+            const CAMERAS = [];
+            var cameraSpin = 0;
+            var index = 0;
+            let cameraInterval = null;
             
             window.onload = function() {
 
@@ -33,7 +37,8 @@ Ready for assignment 2.
                 for (var z=-5; z < 6; z++) {
                     for (var y=-5; y < 6; y++) {
                         for(var x=-5; x < 6; x++) {
-                            new_cube = new X.cube();
+                            new_cube = new X.sphere();
+                            new_cube.radius = Math.random()*4;
                             new_cube.transform.translateX((SIZE + GAP) * x);
                             new_cube.transform.translateY((SIZE + GAP) * y);
                             new_cube.transform.translateZ((SIZE + GAP) * z);
@@ -87,6 +92,31 @@ Ready for assignment 2.
                 if (e.key == 'l') {
                     upload("scene.json");
                 }
+                if (e.key == 'c') {
+                    CAMERAS.push(new Float32Array(r.camera.view));
+                }
+                if (e.key == 'v') {
+                    if (cameraSpin == 0) {
+                        cameraSpin++;
+                    } else if (cameraSpin == 1) {
+                        cameraSpin--;
+                    }
+
+                    if (CAMERAS.length == 0) {
+                        return;
+                    } 
+
+                    if (cameraSpin == 0) {
+                        index = 0;
+                        cameraInterval = setInterval(() =>{
+                            r.camera.view = new Float32Array(CAMERAS[index++]);
+                            index = index % CAMERAS.length;
+                        }, 1000)
+                    } else if (cameraSpin == 1) {
+                        clearInterval(cameraInterval);
+                    }
+                    
+                }
             }
 
             
@@ -96,6 +126,5 @@ Ready for assignment 2.
 
     </head>
     <body>
-        
     </body>
 </html>
