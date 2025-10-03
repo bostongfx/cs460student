@@ -1,0 +1,242 @@
+<html>
+  <head>
+    <style>
+      html, body { 
+        background-color:#000;
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden !important;  
+      }
+    </style>
+    
+    <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@latest/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@latest/examples/jsm/"
+      }
+    }
+    </script>
+
+    <script type="module">
+
+  import * as THREE from 'three';
+  import { OrbitControls } from 'three/addons/controls/OrbitControls.js';      
+
+  var renderer, controls, scene, camera;
+  var LASTOBJECT = null;
+  var isPlacing = false;
+  var COLOR_HOTPINK = 0xFF69B4;
+  var COLOR_GRASSGREEN = 0x7CFC00;
+  var TORUSES = [];
+  var FLICKERING = false;
+  var WIREFRAME = false;
+
+      window.onload = function() {
+
+        // Three.js code goes here
+        scene = new THREE.Scene();
+
+        // setup the camera
+        var fov = 75;
+        var ratio = window.innerWidth / window.innerHeight;
+        var zNear = 1;
+        var zFar = 10000;
+        camera = new THREE.PerspectiveCamera( fov, ratio, zNear, zFar );
+        camera.position.set(0, 0, 100);
+
+        // create renderer and setup the canvas
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize( window.innerWidth, window.innerHeight );
+        document.body.appendChild( renderer.domElement );
+
+
+
+        // Use mousedown
+        renderer.domElement.onmousedown = function( e ){
+
+            //place geometry when SHIFT is held; otherwise let OrbitControls handle it.
+            if ( !e.shiftKey ) {
+              return;
+            }
+
+            // Temporarily disable controls
+            controls.enabled = false;
+
+            var rect = renderer.domElement.getBoundingClientRect();
+            var ndc = new THREE.Vector2(
+              ( ( e.clientX - rect.left ) / rect.width ) * 2 - 1,
+              - ( ( e.clientY - rect.top ) / rect.height ) * 2 + 1
+            );
+
+            // Build a canonical ray from camera through the mouse NDC and intersect the invisible plane
+            var raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera( ndc, camera );
+            var intersects = raycaster.intersectObject( invisible_plane, false );
+
+            if ( !intersects || intersects.length === 0 ) {
+              controls.enabled = true;
+              return;
+            }
+
+            var hit = intersects[0].point;
+
+            // create a new hotpink torus knot
+            var newTorusGeo = new THREE.TorusKnotGeometry( 10, 3, 100, 16, 2, 3 );
+            var newTorusMat = new THREE.MeshStandardMaterial({ color: 0xFF69B4, wireframe: WIREFRAME });
+            var newTorus = new THREE.Mesh( newTorusGeo, newTorusMat );
+            newTorus.position.copy( hit );
+            newTorus.rotation.x = Math.random() * Math.PI;
+            newTorus.rotation.y = Math.random() * Math.PI;
+            scene.add( newTorus );
+
+            TORUSES.push( newTorus );
+
+            LASTOBJECT = newTorus;
+            isPlacing = true;
+
+            // Re-enable controls when the mouse button is released and stop placing
+            var onMouseUp = function(){
+              controls.enabled = true;
+              isPlacing = false;
+              LASTOBJECT = LASTOBJECT;
+              window.removeEventListener('mouseup', onMouseUp);
+            };
+            window.addEventListener('mouseup', onMouseUp);
+
+          };
+
+
+        // setup lights
+        var ambientLight = new THREE.AmbientLight();
+        scene.add( ambientLight );
+
+        var light = new THREE.DirectionalLight( 0xffffff, 5.0 );
+        light.position.set( 10, 100, 10 );
+        scene.add( light );
+
+  // configure a solid yellow torus
+  var geometry = new THREE.TorusKnotGeometry( 20, 6, 32, 100 );
+  var material = new THREE.MeshStandardMaterial({ color: 0xFFFF00 });
+
+  var torus = new THREE.Mesh( geometry, material );
+
+  scene.add( torus );
+
+
+
+        //
+        // The invisible plane
+        //
+        geometry = new THREE.PlaneGeometry( 10000, 10000 );
+        material = new THREE.MeshBasicMaterial( {
+          visible: false
+        });
+
+        var invisible_plane = new THREE.Mesh( geometry, material );
+
+        scene.add( invisible_plane );
+        //
+        //
+        //
+
+
+
+        // interaction
+        controls = new OrbitControls( camera, renderer.domElement );
+
+        // Ensure OrbitControls is re-enabled on mouseup
+        renderer.domElement.onmouseup = function( e ){
+          controls.enabled = true;
+        };
+
+        // While placing, allow scaling the last placed object
+        renderer.domElement.onmousemove = function( e ){
+          if ( !isPlacing || !LASTOBJECT ) return;
+
+          // movementY is positive when moving down, negative when moving up
+          var movement = e.movementY || 0;
+          var sensitivity = 0.01;
+          var delta = -movement * sensitivity;
+          var prevScale = LASTOBJECT.scale.x;
+          var newScale = prevScale + delta;
+
+          // Detect crossing through zero and toggle color when that happens
+          if ( (prevScale > 0 && newScale <= 0) || (prevScale < 0 && newScale >= 0) ) {
+
+            var current = LASTOBJECT.material.color.getHex();
+            if ( current === COLOR_HOTPINK ) {
+              LASTOBJECT.material.color.set( COLOR_GRASSGREEN );
+            } else {
+              LASTOBJECT.material.color.set( COLOR_HOTPINK );
+            }
+          }
+
+          LASTOBJECT.scale.set( newScale, newScale, newScale );
+
+        };
+
+        // call animation/rendering loop
+        animate();
+        
+      };
+
+      function animate() {
+
+        requestAnimationFrame( animate );
+
+        // and here..
+        controls.update();
+
+        // If flickering mode is active, randomize opacity for all tracked toruses
+        if ( FLICKERING ) {
+          for ( var i = 0; i < TORUSES.length; i++ ) {
+            var obj = TORUSES[i];
+            if ( obj && obj.material ) {
+              obj.material.transparent = true;
+              obj.material.opacity = Math.random();
+              obj.material.needsUpdate = true;
+            }
+          }
+        } else {
+          // ensure full opacity when not flickering
+          for ( var i = 0; i < TORUSES.length; i++ ) {
+            var obj = TORUSES[i];
+            if ( obj && obj.material ) {
+              obj.material.opacity = 1.0;
+              obj.material.transparent = false;
+              obj.material.needsUpdate = true;
+            }
+          }
+        }
+
+        renderer.render( scene, camera );
+        
+      };
+
+      // Toggle flickering with 'f' and wireframe with 'w'
+      window.onkeypress = function( e ){
+        if ( e.key === 'f' || e.key === 'F' ) {
+          FLICKERING = !FLICKERING;
+          console.log('Flickering:', FLICKERING);
+        }
+        if ( e.key === 'w' || e.key === 'W' ) {
+          WIREFRAME = !WIREFRAME;
+          console.log('Wireframe:', WIREFRAME);
+
+          for ( var i = 0; i < TORUSES.length; i++ ) {
+            var obj = TORUSES[i];
+            if ( obj && obj.material ) {
+              obj.material.wireframe = WIREFRAME;
+              obj.material.needsUpdate = true;
+            }
+          }
+        }
+      };
+    </script>
+  </head>
+  <body></body>
+</html>

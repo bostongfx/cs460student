@@ -1,2 +1,113 @@
-Ready for assignment 2.
+<html>
+  <head>
 
+      <style>
+        body {
+            background-color: black;
+        }
+      </style>
+
+  <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+  <script type="text/javascript" src="loader.js"></script>
+
+    <script>
+  // global cube size and gap between cubes
+  var SIZE = 1;
+  var GAP = 25;
+
+  // currently selected cube
+  var SELECTED_CUBE = null;
+  // camera spin toggle
+  var ROTATE_CAMERA = false;
+
+      window.onload = function() {
+              // once everything is done loading
+
+              r = new X.renderer3D();
+              r.init();
+
+              // spin camera when enabled
+              r.onRender = function() {
+                if (ROTATE_CAMERA) {
+                    r.camera.rotate([0, 1]);
+
+                }
+              };
+
+              // select a cube on mouse move
+              r.interactor.onMouseMove = function(event) {
+                  var cubeid = r.pick(event.offsetX, event.offsetY);
+                  if (cubeid !== 0) {
+                    SELECTED_CUBE = r.get(cubeid);
+                  } else {
+                    SELECTED_CUBE = null;
+                  }
+              };
+
+
+
+              // create a centered 11 x 11 x 11 grid
+              for (var z=-5; z < 6; z++) {
+                for (var y=-5; y < 6; y++) {
+                    for(var x=-5; x < 6; x++) {
+                        new_cube = new X.cube();
+                        new_cube.transform.translateX((SIZE + GAP) * x);
+                        new_cube.transform.translateY((SIZE + GAP) * y);
+                        new_cube.transform.translateZ((SIZE + GAP) * z);
+                        r.add(new_cube);
+                    }
+                }
+            }
+
+              // move camera back so the whole cube grid is visible
+              r.camera.position = [0, 0, 500];
+
+              r.render();
+
+              // keyboard controls: Q hide, W random color, E rotate, O download, L upload
+              window.onkeypress = function(e) {
+                var key = (e.key || String.fromCharCode(e.charCode || e.which)).toLowerCase();
+                if (key === 'q') { // Hide cube
+                  if (SELECTED_CUBE) {
+                    SELECTED_CUBE.visible = false;
+                    r.render();
+                  }
+                } 
+                else if (key === 'w') { // Random color
+                  if (SELECTED_CUBE) {
+                    SELECTED_CUBE.color = [Math.random(), Math.random(), Math.random()];
+                    r.render();
+                  }
+                } 
+
+                else if (key === 'b') { // Toggle camera spin
+                  ROTATE_CAMERA = !ROTATE_CAMERA;
+                }
+
+                else if (key === 'e') { // Rotate selected cube left (yaw) by 10 degrees around Y
+                  if (SELECTED_CUBE) {
+                    var angle = 10;
+                    SELECTED_CUBE.transform.rotateX(angle);
+                    r.render();
+                  }
+                }
+
+                else if (key === 'o') { // Download
+                  if (typeof download === 'function') {
+                    download();
+                  }
+                } 
+
+                else if (key === 'l') { // Upload
+                  var scene = prompt('Enter scene URL or filename to load (GET):', 'scene.json');
+                  if (scene) upload(scene);
+                }
+              };
+          }
+
+      </script>
+
+  </head>
+  <body>
+  </body>
+</html>
