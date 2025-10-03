@@ -1,0 +1,188 @@
+<html>
+  <head>
+    <style>
+      html, body { 
+        background-color:#000;
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden !important;  
+      }
+    </style>
+    
+    <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@latest/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@latest/examples/jsm/"
+      }
+    }
+    </script>
+
+    <script type="module">
+      import * as THREE from 'three';
+      import { OrbitControls } from 'three/addons/controls/OrbitControls.js';      
+
+      var renderer, controls, scene, camera;
+
+      let toruses= []; // keep a track of all toruses added
+      let flickering = false; // keep track of flickering state
+      let wireframe = false; // keep track of wireframe state
+      window.onload = function() {
+
+        // Three.js code goes here
+        scene = new THREE.Scene();
+
+        // setup the camera
+        var fov = 75;
+        var ratio = window.innerWidth / window.innerHeight;
+        var zNear = 1;
+        var zFar = 10000;
+        camera = new THREE.PerspectiveCamera( fov, ratio, zNear, zFar );
+        camera.position.set(0, 0, 100);
+
+        const hotpink = 0xFF69B4;  // HOTPINK
+        const green = 0x7CFC00; // GREEN
+        const sharedTorusMaterial = new THREE.MeshStandardMaterial({
+          color: hotpink
+        });
+        var lastObject = null; // variable to hold last object added
+        
+        // create renderer and setup the canvas
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize( window.innerWidth, window.innerHeight );
+        document.body.appendChild( renderer.domElement );
+
+        // ONE mousedown handler: Shift places + disables controls
+        renderer.domElement.onmousedown = function( e ){
+          if (!e.shiftKey) return;
+
+          controls.enabled = false;
+
+          var pixel_coords = new THREE.Vector2( e.clientX, e.clientY );
+          var vp_coords = new THREE.Vector2( 
+            ( pixel_coords.x / window.innerWidth ) * 2 - 1,
+            -( pixel_coords.y / window.innerHeight ) * 2 + 1
+          );
+          var vp_coords_near = new THREE.Vector3( vp_coords.x, vp_coords.y, 0 );
+
+          var raycaster = new THREE.Raycaster();
+          raycaster.setFromCamera(vp_coords_near, camera);
+          var intersects = raycaster.intersectObject(invisible_plane);
+          if (intersects.length === 0) return;
+
+          var p = intersects[0].point;
+
+          // Torus Knot Geometry
+          var torusGeom = new THREE.TorusKnotGeometry(10, 3, 100, 16);
+          var torus = new THREE.Mesh(torusGeom, sharedTorusMaterial.clone()); 
+          torus.material.color.setHex(hotpink); // set color to HOTPINK
+          torus.position.copy(p); // position at intersection point
+          scene.add(torus); // add to scene
+          toruses.push(torus); // add to list of toruses
+
+          lastObject = torus; // update lastObject to the newly added torus
+          console.log('The last placed object is:', lastObject);  
+          dragging = true; // start dragging
+          previousMouseY = e.clientY; // initialize previousMouseY
+        };
+
+        // re enable OrbitControls after click release
+        renderer.domElement.onmouseup = function(){ 
+          controls.enabled = true; // re enable controls
+          dragging = false; // stop dragging
+        };
+
+        // if the shift key is held while placing a block and the mouse button is held down as well
+        // then the torus scale can be changed by dragging the mouse up and down
+        var dragging = false;
+        var previousMouseY = 0;
+        var DELTA = 0.05; // scale change factor
+
+        renderer.domElement.onmousemove = function( e ){
+          // only proceed if shift is held, dragging is true, and left button is pressed
+          if (!e.shiftKey || !dragging || !lastObject || !(e.buttons & 1)) return; 
+
+          var deltaY = -e.movementY * DELTA; // invert to make upward movement increase scale
+          let s = lastObject.scale.x + deltaY; // scare for all axes of moving the mouse up and down (x,y,z)
+
+          if (Math.abs(s) < 0.001) s = (s < 0 ? -0.001 : 0.001); // prevent scale from going below 0.1
+          // adjust scale based on vertical movement of the mouse
+          lastObject.scale.set(s,s,s); 
+
+          lastObject.material.color.set(s < 0 ? green : hotpink); // change color to GREEN while dragging
+          previousMouseY = e.clientY; // update previousMouseY
+        };
+
+
+        // setup lights
+        var ambientLight = new THREE.AmbientLight();
+        scene.add( ambientLight );
+
+        var light = new THREE.DirectionalLight( 0xffffff, 5.0 ); 
+        light.position.set( 10, 100, 10 );
+        scene.add( light );
+
+
+        // configure cube
+        // var geometry = new THREE.BoxGeometry( 20, 20, 20 );
+        // var material = new THREE.MeshStandardMaterial({ color: 0xffffff, wireframe: true });
+        // var cube = new THREE.Mesh( geometry, material );
+        // scene.add( cube );
+
+        //
+        // The invisible plane
+        //
+        let geometry = new THREE.PlaneGeometry( 10000, 10000 );
+        let material = new THREE.MeshBasicMaterial({ visible: false });
+        var invisible_plane = new THREE.Mesh( geometry, material );
+        scene.add( invisible_plane );
+
+        // interaction
+        controls = new OrbitControls( camera, renderer.domElement );
+        
+        window.onkeypress = function(e) {
+        if (e.key === 'f') {
+          flickering = !flickering; // toggle on and off
+          console.log("Flickering:", flickering);
+          if (!flickering) {
+            // reset all toruses to default color when flickering stops
+            for(const t of toruses) { // iterate through all toruses
+              t.material.transparent = false; // disable transparency
+              t.material.opacity = 1.0; // reset opacity
+              t.material.needsUpdate = true; 
+            }
+          }
+        }
+        if (e.key === 'w') { // toggle wireframe mode
+            wireframe = !wireframe; // toggle wireframe state to true
+            console.log("Wireframe:", wireframe); // log current state
+            for (const t of toruses) { // apply to all toruses
+                t.material.wireframe = wireframe; // set wireframe property
+                t.material.needsUpdate = true; 
+                }
+            }
+        };
+
+        // call animation/rendering loop
+        animate();
+      };
+
+      function animate() {
+        if (flickering) {
+          for(const t of toruses) {
+            t.material.transparent = true;
+            t.material.opacity = Math.random(); // random opacity for flickering
+            t.material.needsUpdate = true; // ensure material updates
+          }
+        }
+        requestAnimationFrame( animate );
+        controls.update();
+        renderer.render( scene, camera );
+      }
+    </script>
+  </head>
+  <body></body>
+</html>
