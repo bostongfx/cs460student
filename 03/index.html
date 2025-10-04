@@ -1,0 +1,229 @@
+<html>
+  <head>
+    <style>
+      html, body { 
+        background-color:#000;
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden !important;  
+      }
+    </style>
+    
+    <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@latest/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@latest/examples/jsm/"
+      }
+    }
+    </script>
+
+    <script type="module">
+
+      import * as THREE from 'three';
+      import { OrbitControls } from 'three/addons/controls/OrbitControls.js';      
+
+      var renderer, controls, scene, camera;
+      var unreleasedClick = false, flipped = false, FLICKERING = false, WIREFRAME = false;
+      var DELTA = 0.1, size = 0;
+      var torusKnot, LASTOBJECT;
+      var torusArr = [];
+
+      window.onload = function() {
+
+        // Three.js code goes here
+        scene = new THREE.Scene();
+
+        // setup the camera
+        var fov = 75;
+        var ratio = window.innerWidth / window.innerHeight;
+        var zNear = 1;
+        var zFar = 10000;
+        camera = new THREE.PerspectiveCamera( fov, ratio, zNear, zFar );
+        camera.position.set(0, 0, 100);
+
+        // create renderer and setup the canvas
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize( window.innerWidth, window.innerHeight );
+        document.body.appendChild( renderer.domElement );
+
+
+        // Part 2: Replaced cube with torus knot
+        const geo = new THREE.TorusKnotGeometry(10, 3, 100, 16, 2, 3); 
+        const mat = new THREE.MeshStandardMaterial({ color: 0xffff00 }); // Yellow color
+        const initKnot = new THREE.Mesh(geo, mat);
+        
+        scene.add(initKnot);
+        torusArr.push(initKnot);
+        size++;
+        estimate(); // Bonus
+
+        // Part 1: New torus knot on each click at the current mouse position
+        renderer.domElement.onmousedown = function( e ){          
+            console.log('Yay! We clicked!');
+
+            // interaction
+            if (e.shiftKey) { // Part 3: Place new hotpink torus knot
+              console.log('Shift key is pressed! False OrbitControls');
+              // Part 3: Turn off OrbitControls using enabled property
+              controls.enabled = false;
+
+              var pink_coords = new THREE.Vector2( e.clientX, e.clientY );
+              var vpink_coords = new THREE.Vector2( 
+                        ( pink_coords.x / window.innerWidth ) * 2 - 1,  //X
+                        -( pink_coords.y / window.innerHeight ) * 2 + 1) // Y
+
+              var vpink_coords_znear = new THREE.Vector3( vpink_coords.x, vpink_coords.y, 0);
+              var raycaster = new THREE.Raycaster();
+              raycaster.setFromCamera(vpink_coords_znear, camera);
+              var intersects = raycaster.intersectObject(invisible_plane);
+              torusKnot = new THREE.Mesh( new THREE.TorusKnotGeometry( 10, 3, 100, 16 ), new THREE.MeshStandardMaterial( { color: 0xff69b4 } ) );
+              torusKnot.position.set(intersects[0].point.x, intersects[0].point.y, intersects[0].point.z);
+
+              scene.add( torusKnot );
+              torusArr.push(torusKnot);
+              size++;
+              LASTOBJECT = torusKnot;
+              unreleasedClick = true;
+              estimate(); // Bonus
+            }
+          };
+
+          // Part 4: Turn on OrbitControls using enabled property
+          renderer.domElement.onmouseup = function( e ) {
+            console.log("RELEASED");
+            unreleasedClick = false;
+            controls.enabled = true;
+            console.log("Mouse released, enabling Orbit controls");
+          }
+
+          let y = 0;
+          // Part 5: On hold click, scale torus based on up or down mouse movement
+          renderer.domElement.onmousemove = function( e ) {
+
+            if (unreleasedClick) {
+              console.log("Hold down click! Scaling!");
+              if (e.pageY < y) {
+                LASTOBJECT.scale.set(LASTOBJECT.scale.x + DELTA,
+                  LASTOBJECT.scale.y + DELTA,
+                  LASTOBJECT.scale.z + DELTA);
+              } else if (e.pageY > y) {
+                LASTOBJECT.scale.set(LASTOBJECT.scale.x - DELTA,
+                  LASTOBJECT.scale.y - DELTA,
+                  LASTOBJECT.scale.z - DELTA);
+              } else {
+                console.log("Moving left or right");
+              }
+
+              // Part 6: Change color on flipped scale
+              if (LASTOBJECT.scale.y <= 0) {
+                flipped = true;
+                LASTOBJECT.material.color.set(0x7CFC00); // change to green
+              } else {
+                flipped = false;
+                LASTOBJECT.material.color.set(0xff69b4); // change back to hotpink
+              }
+
+              y = e.pageY;
+            }
+          }
+        
+        // Part 7: Flicker on f-key
+        window.onkeypress = function( e ) {
+          if(e.key == 'f') {
+            console.log("Pressed f-key");
+            FLICKERING = !FLICKERING;
+            console.log("FLICKERING = " + FLICKERING);
+          } else if (e.key == 'w') {
+            // Bonus: Visualize all placed (pink/green) toruses as wireframes
+            WIREFRAME = !WIREFRAME;
+
+            if (!WIREFRAME) {
+              for (var i = 1; i < size; i++) {
+                torusArr[i].material.wireframe = WIREFRAME;
+              }
+            }
+          }
+        }
+
+        // setup lights
+        var ambientLight = new THREE.AmbientLight();
+        scene.add( ambientLight );
+
+        var light = new THREE.DirectionalLight( 0xffffff, 5.0 );
+        light.position.set( 10, 100, 10 );
+        scene.add( light );
+
+        //
+        // The invisible plane
+        //
+        var geometry = new THREE.PlaneGeometry( 10000, 10000 );
+        var material = new THREE.MeshBasicMaterial( {
+          visible: false
+        });
+
+        var invisible_plane = new THREE.Mesh( geometry, material );
+
+        scene.add( invisible_plane );
+        //
+        //
+        //
+
+        controls = new OrbitControls( camera, renderer.domElement );
+
+
+        // call animation/rendering loop
+        animate();
+        
+      };
+
+
+      // Bonus: Estimate vertices, edges and faces
+      function estimate() {
+        let vertices = 0, edges = 0, faces = 0;
+        
+        for(var i = 0; i < size; i++) {
+          vertices += torusArr[i].geometry.attributes.position.count;
+          faces += torusArr[i].geometry.index.count / 3;
+        }
+
+        edges = faces * 3 / 2; // an edge is shared between two triangles
+
+        console.log("V: " + vertices + " | E: " + edges + " | F: " + faces);
+      };
+
+      function animate() {
+        requestAnimationFrame( animate );
+
+        // Part 7: Flicker all torus knots if flag is true
+        if (FLICKERING) {
+          console.log("animating");
+          for (var i = 0; i < size; i++) {
+            console.log("flickering: " + i);
+            var t =  torusArr[i];
+            t.material.transparent = true;
+            t.material.opacity = Math.random();
+            t.material.needsUpdate = true;
+          }
+        }
+
+        // Bonus: Toggle on wireframe
+        if (WIREFRAME) {
+          console.log("animating");
+          for (var i = 1; i < size; i++) {
+              torusArr[i].material.wireframe = WIREFRAME;
+          }
+        }
+
+        // and here..
+        controls.update();
+        renderer.render( scene, camera );
+        
+      };
+    </script>
+  </head>
+  <body></body>
+</html>
