@@ -1,0 +1,231 @@
+<html>
+    <head>
+        <style>
+            html, body { 
+                background-color:#000;
+                margin: 0;
+                padding: 0;
+                height: 100%;
+                overflow: hidden !important;  
+            }
+        </style>
+        
+        <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+
+        <script type="importmap">
+            {
+            "imports": {
+                "three": "https://unpkg.com/three@latest/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@latest/examples/jsm/"
+            }
+            }
+        </script>
+
+        <script type="module">
+
+            import * as THREE from 'three';
+            import { OrbitControls } from 'three/addons/controls/OrbitControls.js';      
+
+            var renderer, controls, scene, camera;
+
+            // part 7
+            var FLICKERING = false;
+            var tours_list = [];
+
+            // bonus
+            var WIREFRAME = false;
+
+            window.onload = function() {
+
+                // Three.js code goes here
+                scene = new THREE.Scene();
+
+                // setup the camera
+                var fov = 75;
+                var ratio = window.innerWidth / window.innerHeight;
+                var zNear = 1;
+                var zFar = 10000;
+                camera = new THREE.PerspectiveCamera( fov, ratio, zNear, zFar );
+                camera.position.set(0, 0, 100);
+
+                // create renderer and setup the canvas
+                renderer = new THREE.WebGLRenderer({ antialias: true });
+                renderer.setSize( window.innerWidth, window.innerHeight );
+                document.body.appendChild( renderer.domElement );
+
+                // part 5
+                var LASTOBJECT = null;
+                var not_released = false;
+
+                //renderer.domElement.onclick = function( e ){
+
+                // part 3, 5, 7
+                renderer.domElement.onmousedown = function( e ){
+                    // only when SHIFT-key is pressed
+                    if(!e.shiftKey) return;
+                    controls.enabled = false;
+                    not_released = true;
+                
+                    console.log('Yay! We clicked!');
+
+                    var pixel_coords = new THREE.Vector2( e.clientX, e.clientY );
+
+                    console.log('Pixel coords', pixel_coords);
+
+                    var vp_coords = new THREE.Vector2( 
+                                ( pixel_coords.x / window.innerWidth ) * 2 - 1,  //X
+                                -( pixel_coords.y / window.innerHeight ) * 2 + 1) // Y
+
+                    console.log('Viewport coords', vp_coords);
+
+                    var vp_coords_near = new THREE.Vector3( vp_coords.x, vp_coords.y, 0);
+
+
+                    var raycaster = new THREE.Raycaster();
+                    raycaster.setFromCamera(vp_coords_near, camera);
+                    var intersects = raycaster.intersectObject(invisible_plane);
+
+                    console.log('Ray to Invisible Plane', intersects[0].point);
+
+                    // update cube position
+                    // cube.position.set(intersects[0].point.x, intersects[0].point.y, intersects[0].point.z);
+
+                    // new torus
+                    var pink_geometry = new THREE.TorusKnotGeometry(10, 3, 100, 16);
+                    var pink_material = new THREE.MeshStandardMaterial({ color: "hotpink"}); 
+                    var pink_torus = new THREE.Mesh(pink_geometry, pink_material);
+                    pink_torus.position.set(intersects[0].point.x, intersects[0].point.y, intersects[0].point.z);
+                    scene.add(pink_torus);
+
+                    LASTOBJECT = pink_torus;
+
+                    tours_list.push(LASTOBJECT);
+
+                };
+
+                // part 5, 6
+                renderer.domElement.onmousemove = function(e) {
+                    // only when torus placed and mousebutton not realeased
+                    if (!LASTOBJECT || !not_released) return;
+
+                    var DELTA = e.movementY * -0.025;
+                    LASTOBJECT.scale.set(LASTOBJECT.scale.x + DELTA,
+                                         LASTOBJECT.scale.y + DELTA,
+                                         LASTOBJECT.scale.z + DELTA);
+
+                    if (LASTOBJECT.scale.x < 0) {
+                        LASTOBJECT.material.color.set(0x7CFC00);
+                    }
+
+                    if (LASTOBJECT.scale.x > 0) {
+                        LASTOBJECT.material.color.set("hotpink");
+                    }
+                }
+
+                // part 4, 5
+                renderer.domElement.onmouseup = function(e) {
+                    controls.enabled = true;
+                    not_released = false;
+                }
+
+                //part 7
+                window.onkeypress = function(e) {
+                    controls.enabled = false;
+                    if (e.key == 'f') {
+                        FLICKERING = !FLICKERING;
+                    }
+
+                    if (e.key == 'w') {
+                        WIREFRAME = !WIREFRAME;
+                    }
+                    controls.enabled = true;
+                }
+
+
+                // setup lights
+                var ambientLight = new THREE.AmbientLight();
+                scene.add( ambientLight );
+
+                var light = new THREE.DirectionalLight( 0xffffff, 5.0 );
+                light.position.set( 10, 100, 10 );
+                scene.add( light );
+
+                // configure cube
+                //var geometry = new THREE.BoxGeometry( 20, 20, 20 );
+                //var material = new THREE.MeshStandardMaterial({ color: 0xffffff, wireframe: true });
+                //var cube = new THREE.Mesh( geometry, material );
+                //scene.add( cube );
+
+                // part 2
+                // replace cube with torus
+                var geometry = new THREE.TorusKnotGeometry(10, 3, 100, 16);
+                var material = new THREE.MeshStandardMaterial({ color: 'darkblue'}); 
+                var torus = new THREE.Mesh(geometry, material);
+                scene.add(torus);
+
+                // part 7
+                tours_list.push(torus);
+
+
+
+                //
+                // The invisible plane
+                //
+                geometry = new THREE.PlaneGeometry( 10000, 10000 );
+                material = new THREE.MeshBasicMaterial( {
+                visible: false
+                });
+
+                var invisible_plane = new THREE.Mesh( geometry, material );
+
+                scene.add( invisible_plane );
+                //
+                //
+                //
+
+
+
+                // interaction
+                controls = new OrbitControls( camera, renderer.domElement );
+
+                // call animation/rendering loop
+                animate();
+                
+            };
+
+            function animate() {
+
+                requestAnimationFrame( animate );
+
+                // part 7
+                if (FLICKERING) {
+                    for (var i = 0; i < tours_list.length; i++) {
+                        tours_list[i].material.opacity = Math.random();
+                        tours_list[i].material.transparent = true;
+                        tours_list[i].material.needsUpdate = true;
+                    }
+                }
+
+                if (WIREFRAME) {
+                    for (var i = 1; i < tours_list.length; i++) {
+                        tours_list[i].material.wireframe = true;
+                    }
+                }
+
+                if (!WIREFRAME) {
+                    for (var i = 1; i < tours_list.length; i++) {
+                        tours_list[i].material.wireframe = false;
+                    }
+                }
+
+
+
+                // and here..
+                controls.update();
+                renderer.render( scene, camera );
+                
+            };
+        </script>
+    </head>
+    <body></body>
+</html>
