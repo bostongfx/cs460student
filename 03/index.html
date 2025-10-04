@@ -1,0 +1,224 @@
+<html>
+  <head>
+    <style>
+      html, body { 
+        background-color:#000;
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden !important;  
+      }
+    </style>
+    
+    <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+ 
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@latest/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@latest/examples/jsm/"
+      }
+    }
+    </script>
+ 
+    <script type="module">
+ 
+      import * as THREE from 'three';
+      import { OrbitControls } from 'three/addons/controls/OrbitControls.js';      
+ 
+      var renderer, controls, scene, camera;
+
+      // Code for part 2
+      const TORUS_RADIUS  = 8;   // main radius
+      const TORUS_TUBE    = 3;   // tube radius
+      const TORUS_RADIAL  = 16;  // radial segments
+      const TORUS_TUBULAR = 48;  // tubular segments
+      let FLICKERING = false;
+ 
+      window.onload = function() {
+ 
+        // Three.js code goes here
+        scene = new THREE.Scene();
+ 
+        // setup the camera
+        var fov = 75;
+        var ratio = window.innerWidth / window.innerHeight;
+        var zNear = 1;
+        var zFar = 10000;
+        camera = new THREE.PerspectiveCamera( fov, ratio, zNear, zFar );
+        camera.position.set(0, 0, 100);
+        const HOTPINK    = 0xff69b4;
+        const GRASSGREEN = 0x7cfc00;
+
+        let LASTOBJECT = null;   // most recently placed torus knot
+        let SCALING = false;     // are we currently dragging to scale?
+
+ 
+        // create renderer and setup the canvas
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize( window.innerWidth, window.innerHeight );
+        document.body.appendChild( renderer.domElement );
+ 
+ 
+ 
+        renderer.domElement.onmousedown = function( e ){
+            if (!e.shiftKey) return;
+
+            controls.enabled = false;
+
+            const pixel = new THREE.Vector2(e.clientX, e.clientY);
+            const vp = new THREE.Vector2(
+                ( pixel.x / window.innerWidth ) * 2 - 1, 
+                -( pixel.y / window.innerHeight ) * 2 + 1 
+            );
+
+            const raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera(new THREE.Vector3(vp.x, vp.y, 0), camera);
+            const hits = raycaster.intersectObject(invisible_plane);
+            if (!hits.length) return;
+
+            // part 3
+            const torus = makeTorusKnot(HOTPINK);
+            torus.position.copy(hits[0].point);
+            scene.add(torus);
+
+            // part 5
+            LASTOBJECT = torus;
+            SCALING = true;
+
+            // part 6
+            LASTOBJECT.userData.scaleSign = Math.sign(LASTOBJECT.scale.x) || 1;
+          };
+
+        // part 4
+        renderer.domElement.onmouseup = function( e ){
+            SCALING = false;
+            controls.enabled = true;
+          };
+
+        renderer.domElement.onmousemove = function (e) {
+            if (!SCALING || !LASTOBJECT) return;
+
+            const sensitivity = 0.02;                 // a touch stronger so you can cross zero
+            const delta = -e.movementY * sensitivity; // up = grow, down = shrink
+
+            const prevS = LASTOBJECT.scale.x;
+            let newSRaw = prevS + delta;              // raw candidate (can be anything)
+
+            // Did we cross zero? (sign change between prev and raw)
+            const prevSign = LASTOBJECT.userData.scaleSign ?? (Math.sign(prevS) || 1);
+            const newSignRaw = Math.sign(newSRaw);
+
+            // Avoid landing *exactly* on zero (causes jitter) but *preserve* the sign
+            const EPS = 1e-3;
+            if (Math.abs(newSRaw) < EPS) newSRaw = (newSRaw >= 0 ? EPS : -EPS);
+
+            // Clamp AFTER deciding sign changes
+            let newS = THREE.MathUtils.clamp(newSRaw, -10, 10);
+
+            // If the sign changed, toggle color and remember the new sign
+            if (newSignRaw !== 0 && newSignRaw !== prevSign) {
+                const current = LASTOBJECT.material.color.getHex();
+                LASTOBJECT.material.color.set(current === HOTPINK ? GRASSGREEN : HOTPINK);
+                LASTOBJECT.userData.scaleSign = newSignRaw;
+            }
+
+            LASTOBJECT.scale.set(newS, newS, newS);
+        };
+        // part 7
+        window.onkeypress = function( e ) {
+            if (e.key.toLowerCase() === 'f') {
+                FLICKERING = !FLICKERING;
+            }
+        }
+
+ 
+ 
+        // setup lights
+        var ambientLight = new THREE.AmbientLight();
+        scene.add( ambientLight );
+        // code for part 2
+        const light = new THREE.DirectionalLight( 0xffffff, 5.0 );
+        light.position.set( 10, 100, 10 );
+        scene.add( light );
+ 
+        // part 2 code, replace the cube with the one torus
+        const first = makeTorusKnot(0x00ffff);
+        first.position.set(0, 0, 0);
+        scene.add(first);
+ 
+ 
+        //
+        // The invisible plane
+        //
+        let geometry = new THREE.PlaneGeometry( 10000, 10000 );
+        let material = new THREE.MeshBasicMaterial( {
+          visible: false
+        });
+        let invisible_plane = new THREE.Mesh( geometry, material );
+        scene.add( invisible_plane );
+        //
+        //
+        //
+ 
+ 
+ 
+        // interaction
+        controls = new OrbitControls( camera, renderer.domElement );
+ 
+        // call animation/rendering loop
+        animate();
+        
+      };
+
+    function makeTorusKnot(color) {
+        // Tunable params
+        const radius = 8;          // overall size
+        const tube = 2.5;          // tube thickness
+        const tubularSegments = 128;
+        const radialSegments = 16;
+        const p = 2;               // how many times it winds around its axis
+        const q = 3;               // how many times it passes through its hole (trefoil-like)
+
+        const geo = new THREE.TorusKnotGeometry(
+            radius, tube, tubularSegments, radialSegments, p, q
+        );
+        const mat = new THREE.MeshStandardMaterial({
+            color,
+            roughness: 0.45,
+            metalness: 0.0
+        });
+        return new THREE.Mesh(geo, mat);
+    }
+
+ 
+      function animate() {
+ 
+        requestAnimationFrame( animate );
+ 
+        // and here..
+        controls.update();
+        renderer.render( scene, camera );
+
+        if (FLICKERING) {
+            scene.traverse( (obj) => {
+                if (obj.isMesh) {
+                    obj.material.transparent = true;
+                    obj.material.opacity = Math.random();
+                    obj.material.needsUpdate = true;
+                }
+            });
+        }
+        
+      };
+
+    window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+
+    </script>
+  </head>
+  <body></body>
+</html>
