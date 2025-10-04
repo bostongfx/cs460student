@@ -1,0 +1,202 @@
+<html>
+  <head>
+    <style>
+      html, body { 
+        background-color:#000;
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden !important;  
+      }
+    </style>
+    
+    <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@latest/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@latest/examples/jsm/"
+      }
+    }
+    </script>
+
+    <script type="module">
+
+      import * as THREE from 'three';
+      import { OrbitControls } from 'three/addons/controls/OrbitControls.js';      
+
+      var renderer, controls, scene, camera, LASTOBJECT, invisible_plane, torusKnot;
+      var Flickering = false;
+
+      window.onload = function() {
+
+        // Three.js code goes here
+        scene = new THREE.Scene();
+
+        // setup the camera
+        var fov = 75;
+        var ratio = window.innerWidth / window.innerHeight;
+        var zNear = 1;
+        var zFar = 10000;
+        camera = new THREE.PerspectiveCamera( fov, ratio, zNear, zFar );
+        camera.position.set(0, 0, 100);
+
+        // create renderer and setup the canvas
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // setup lights
+        var ambientLight = new THREE.AmbientLight();
+        scene.add(ambientLight);
+
+        var light = new THREE.DirectionalLight(0xffffff, 5.0);
+        light.position.set(10, 100, 10);
+        scene.add(light);
+
+        var geometry = new THREE.PlaneGeometry(10000, 10000);
+        var material = new THREE.MeshBasicMaterial({visible: false});
+        var invisible_plane = new THREE.Mesh(geometry, material);
+        scene.add(invisible_plane);
+
+        // var torusKnot = new THREE.Mesh( geometry, material );
+        var geometry = new THREE.TorusKnotGeometry( 10, 3, 100, 16 ); 
+        var material = new THREE.MeshBasicMaterial( { color: 0xffff00 } ); 
+        var torusKnot = new THREE.Mesh(geometry, material); 
+        scene.add(torusKnot);
+
+      // Events (e) 
+
+        renderer.domElement.onclick = function( e ){
+          
+            console.log('Yay! We clicked!');
+
+            var pixel_coords = new THREE.Vector2( e.clientX, e.clientY );
+
+            console.log('Pixel coords', pixel_coords);
+
+            var vp_coords = new THREE.Vector2( 
+                        ( pixel_coords.x / window.innerWidth ) * 2 - 1,  //X
+                        -( pixel_coords.y / window.innerHeight ) * 2 + 1) // Y
+
+            console.log('Viewport coords', vp_coords);
+
+            var vp_coords_near = new THREE.Vector3( vp_coords.x, vp_coords.y, 0);
+
+
+            var raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera(vp_coords_near, camera);
+            var intersects = raycaster.intersectObject(invisible_plane);
+
+            if (intersects.length > 0) {
+              console.log('Ray to Invisible Plane', intersects[0].point);
+            }
+          };
+
+        renderer.domElement.onmousedown = function( e ){
+          
+            console.log('Yay! We clicked!');
+
+            var pixel_coords = new THREE.Vector2( e.clientX, e.clientY );
+
+            console.log('Pixel coords', pixel_coords);
+
+            var vp_coords = new THREE.Vector2( 
+                        ( pixel_coords.x / window.innerWidth ) * 2 - 1,  //X
+                        -( pixel_coords.y / window.innerHeight ) * 2 + 1) // Y
+
+            console.log('Viewport coords', vp_coords);
+
+            var vp_coords_near = new THREE.Vector3( vp_coords.x, vp_coords.y, 0);
+
+            var raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera(vp_coords_near, camera);
+            var intersects = raycaster.intersectObject(invisible_plane);
+
+            if (intersects.length === 0) {
+              return;
+            }
+
+            console.log('Ray to Invisible Plane', intersects[0].point);
+
+            if (!e.shiftKey) {
+              console.log( "Shift key is not pressed");
+              return;
+            }
+          
+          controls.enabled = false;
+
+          const clonedTorus = torusKnot.clone();
+          clonedTorus.material = torusKnot.material.clone();
+          clonedTorus.material.color.setHex(0xFF69B4);
+          clonedTorus.position.set(intersects[0].point.x, intersects[0].point.y, intersects[0].point.z);
+          scene.add( clonedTorus);
+
+          LASTOBJECT = clonedTorus;
+
+          };
+
+        renderer.domElement.onmouseup = function(){
+
+          controls.enabled = true;
+
+        }
+
+        renderer.domElement.onmousemove = function ( e ) {
+          var flag = false;
+          var prevsize = LASTOBJECT ? LASTOBJECT.scale.y : 1;
+          
+          if (!controls.enabled && LASTOBJECT) {
+            var DELTA = e.movementY;
+            LASTOBJECT.scale.set(
+              LASTOBJECT.scale.x + DELTA * 0.1,
+              LASTOBJECT.scale.y + DELTA * 0.1,
+              LASTOBJECT.scale.z + DELTA * 0.1
+            )
+          }
+          
+          if (LASTOBJECT) {
+            var newsize = LASTOBJECT.scale.y;
+            if (prevsize > 0 && newsize < 0 || prevsize < 0 && newsize > 0) {
+              if (LASTOBJECT.material.color.getHex() == 0xff69b4 )
+                LASTOBJECT.material.color.set(0x7cfc00);
+              else
+                LASTOBJECT.material.color.set(0xff69b4);
+            }
+          }
+
+          // renderer.domElement.onkeypress = function (e) {
+          //   if (e.key == 'f') {
+          //     object.material.opacity = 0.7;
+          //     object.material.transparent = true;
+          //     object.material.needsUpdate = true;
+          //   }
+        }
+
+        // interaction
+        controls = new OrbitControls(camera, renderer.domElement);
+
+        // call animation/rendering loop
+        animate();
+    
+      };
+
+      function animate() {
+
+        requestAnimationFrame( animate );
+        controls.update();
+        
+        // if (object.isMesh && object.geometry.type == "TorusKnotGeometry"){
+        //   object.material.transparent = true;
+        //   object.material.opacity = Math.random();
+        //   object.material.needsUpdate = true;
+        // }
+        renderer.render( scene, camera );
+        
+      };
+
+    </script>
+  </head>
+  <body></body>
+</html>
