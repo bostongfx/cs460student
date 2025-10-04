@@ -1,2 +1,86 @@
-Ready for assignment 2.
+<html>
+  <head>
 
+      <style>
+        body {
+            background-color: black;
+        }
+      </style>
+
+      <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+      <script type="text/javascript" src="loader.js"></script>
+
+
+      <script>
+
+        const SIZE = 20;
+        const GAP = 5;
+        var SELECTED_CUBE = null;
+
+          window.onload = function() {
+
+            r = new X.renderer3D();
+            r.init();
+            r.camera.position = [0, 0, 300];
+
+            for (var z=-5; z < 6; z++) {
+                for (var y=-5; y < 6; y++) {
+                    for(var x=-5; x < 6; x++) {
+                        new_cube = new X.cube();
+                        new_cube.transform.translateX((SIZE + GAP) * x);
+                        new_cube.transform.translateY((SIZE + GAP) * y);
+                        new_cube.transform.translateZ((SIZE + GAP) * z);
+                        r.add(new_cube);
+                    }
+                }
+            }
+
+            r.render();  
+
+            r.interactor.onMouseMove = function(event) { 
+                                        
+                cubeid =  r.pick(event.offsetX, event.offsetY);
+
+                if (cubeid !== 0) {
+                SELECTED_CUBE = r.get(cubeid);
+                }
+            }  
+            
+            window.onkeypress = function(e) {
+                if (SELECTED_CUBE) {
+                    if (e.key == 'q') {
+                        SELECTED_CUBE.visible = false;
+                    }
+                    if (e.key == 'w') {
+                        const r_color = Math.random();
+                        const g_color = Math.random();
+                        const b_color = Math.random();
+                        SELECTED_CUBE.color = [r_color, g_color, b_color];
+                    }
+                    if (e.key == 'e') {
+                        SELECTED_CUBE.transform.rotateX(10);
+                    }
+                }    
+                if (e.key == 'b') {
+                    ROTATE = !ROTATE;
+                }
+                if (e.key == 'o') {
+                    download();
+                }
+                if (e.key == 'l') {
+                    upload("scene.json");
+                }
+            }
+            ROTATE = false;
+            r.onRender = function() {
+                if (ROTATE) {
+                    r.camera.rotate([1, 0]);
+                }
+            }
+        }
+
+      </script>
+  </head>
+  <body>
+  </body>
+</html>
