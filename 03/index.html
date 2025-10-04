@@ -1,0 +1,194 @@
+<html>
+  <head>
+    <style>
+      html, body { 
+        background-color:#000;
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden !important;  
+      }
+    </style>
+    
+    <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@latest/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@latest/examples/jsm/"
+      }
+    }
+    </script>
+
+    <script type="module">
+
+      import * as THREE from 'three';
+      import { OrbitControls } from 'three/addons/controls/OrbitControls.js';      
+
+      var renderer, controls, scene, camera;
+      var LASTOBJECT;
+      var dragging = false;
+      var FLICKERING = false;
+      var wtoggle = false;
+      var alltorus = [];
+      window.onload = function() {
+
+        // Three.js code goes here
+        scene = new THREE.Scene();
+
+        // setup the camera
+        var fov = 75;
+        var ratio = window.innerWidth / window.innerHeight;
+        var zNear = 1;
+        var zFar = 10000;
+        camera = new THREE.PerspectiveCamera( fov, ratio, zNear, zFar );
+        camera.position.set(0, 0, 100);
+
+        // create renderer and setup the canvas
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize( window.innerWidth, window.innerHeight );
+        document.body.appendChild( renderer.domElement );
+
+
+
+        renderer.domElement.onmousedown = function( e ){
+          
+            console.log('Yay! We clicked!');
+
+            var pixel_coords = new THREE.Vector2( e.clientX, e.clientY );
+
+            console.log('Pixel coords', pixel_coords);
+
+            var vp_coords = new THREE.Vector2( 
+                        ( pixel_coords.x / window.innerWidth ) * 2 - 1,  //X
+                        -( pixel_coords.y / window.innerHeight ) * 2 + 1) // Y
+
+            console.log('Viewport coords', vp_coords);
+
+            var vp_coords_near = new THREE.Vector3( vp_coords.x, vp_coords.y, 0);
+
+
+            var raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera(vp_coords_near, camera);
+            var intersects = raycaster.intersectObject(invisible_plane);
+
+            console.log('Ray to Invisible Plane', intersects[0].point);
+
+            if(e.shiftKey) {
+                controls.enabled = false;
+                var geometry = new THREE.TorusKnotGeometry( 10, 3, 100, 16 );
+                var material = new THREE.MeshStandardMaterial({ color: 0xFF69B4, wireframe: wtoggle });
+                var torus = new THREE.Mesh( geometry, material );
+                torus.position.set(intersects[0].point.x, intersects[0].point.y, intersects[0].point.z);
+                scene.add( torus );
+
+                LASTOBJECT = torus;
+                dragging = false;
+                alltorus.push(LASTOBJECT);
+            }
+          };
+          renderer.domElement.onmouseup = function(e) {
+            controls.enabled = true;
+            dragging = false;
+            LASTOBJECT = null;
+          }
+
+          renderer.domElement.onmousemove = function(e) {
+            dragging = true;
+            const DELTA = e.movementY;
+            //console.log('movementY:', e.movementY);
+
+            if(LASTOBJECT && dragging)
+                {
+                    LASTOBJECT.scale.set(LASTOBJECT.scale.x + DELTA /10, LASTOBJECT.scale.y + DELTA /10 , LASTOBJECT.scale.z + DELTA / 10);
+                    if(LASTOBJECT.scale.y < 0) {
+                        LASTOBJECT.material.color.set(0x7CFC00);
+                    } else if (LASTOBJECT.scale.y > 0){
+                        LASTOBJECT.material.color.set(0xFF69B4);
+                    }
+                }
+        }
+          window.onkeypress = function(e) {
+            if (e.key == 'f') {
+                FLICKERING = !FLICKERING;
+                if (!FLICKERING) {
+                    for (let t of alltorus) {
+                        t.material.opacity = 1;
+                        t.material.transparent = true;
+                        t.material.needsUpdate = true; 
+                    }
+                }
+            }
+            if (e.key == 'w') {
+                wtoggle = !wtoggle;
+                for (let t of alltorus) {
+                    t.material.wireframe = wtoggle;
+                    t.material.needsUpdate = true;
+                }
+            }
+        }
+
+        // setup lights
+        var ambientLight = new THREE.AmbientLight();
+        scene.add( ambientLight );
+
+        var light = new THREE.DirectionalLight( 0xffffff, 5.0 );
+        light.position.set( 10, 100, 10 );
+        scene.add( light );
+
+        // configure torus
+        var geometry = new THREE.TorusKnotGeometry( 10, 3, 100, 16 );
+        var material = new THREE.MeshStandardMaterial({ color: 0xf3ff, wireframe: false });
+
+        var torus = new THREE.Mesh( geometry, material );
+
+        scene.add( torus );
+        
+        alltorus.push(torus);
+
+
+        //
+        // The invisible plane
+        //
+        geometry = new THREE.PlaneGeometry( 10000, 10000 );
+        material = new THREE.MeshBasicMaterial( {
+          visible: false
+        });
+
+        var invisible_plane = new THREE.Mesh( geometry, material );
+
+        scene.add( invisible_plane );
+        //
+        //
+        //
+
+
+
+        // interaction
+        controls = new OrbitControls( camera, renderer.domElement );
+
+        // call animation/rendering loop
+        animate();
+        
+      };
+
+      function animate() {
+
+        requestAnimationFrame( animate );
+
+        if (FLICKERING){
+            for (let t of alltorus) {
+                t.material.opacity = Math.random();
+                t.material.transparent = true;
+                t.material.needsUpdate = true; 
+            }
+        }
+        controls.update();
+        renderer.render( scene, camera );
+        
+      };
+    </script>
+  </head>
+  <body></body>
+</html>
