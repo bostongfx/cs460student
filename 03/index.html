@@ -1,17 +1,14 @@
 <html>
   <head>
     <style>
-      html, body { 
+      html, body {
         background-color:#000;
-        margin: 0;
-        padding: 0;
-        height: 100%;
-        overflow: hidden !important;  
+        margin:0; padding:0; height:100%;
+        overflow:hidden !important;
       }
     </style>
-    
-    <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
 
+    <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
     <script type="importmap">
     {
       "imports": {
@@ -23,98 +20,173 @@
 
     <script type="module">
       import * as THREE from 'three';
-      import { OrbitControls } from 'three/addons/controls/OrbitControls.js';      
+      import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
+      // ---- globals / flags (your style) ----
       var renderer, controls, scene, camera;
+      var justplacedFlag = 0, FLICKERING = 0, wireFLAG = 0, LASTOBJECT;
+      var toruses = [];
+      var invisible_plane;
 
       window.onload = function() {
 
-        // Three.js code goes here
+        // scene + camera
         scene = new THREE.Scene();
-
-        // setup the camera
         var fov = 75;
         var ratio = window.innerWidth / window.innerHeight;
-        var zNear = 1;
-        var zFar = 10000;
-        camera = new THREE.PerspectiveCamera( fov, ratio, zNear, zFar );
+        var zNear = 1, zFar = 10000;
+        camera = new THREE.PerspectiveCamera(fov, ratio, zNear, zFar);
         camera.position.set(0, 0, 100);
 
-        // create renderer and setup the canvas
-        renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize( window.innerWidth, window.innerHeight );
-        document.body.appendChild( renderer.domElement );
+        // renderer
+        renderer = new THREE.WebGLRenderer({ antialias:true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.body.appendChild(renderer.domElement);
 
-        // click → move torus to mouse hit on invisible plane
-        renderer.domElement.onclick = function( e ){
-          var pixel_coords = new THREE.Vector2( e.clientX, e.clientY );
+        // lights
+        scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+        var light = new THREE.DirectionalLight(0xffffff, 5.0);
+        light.position.set(10, 100, 10);
+        scene.add(light);
 
-          var vp_coords = new THREE.Vector2( 
-            ( pixel_coords.x / window.innerWidth ) * 2 - 1,   // X
-            -( pixel_coords.y / window.innerHeight ) * 2 + 1  // Y
+        // invisible xy-plane at z=0 for ray hits
+        var geometry = new THREE.PlaneGeometry(10000, 10000);
+        var material = new THREE.MeshBasicMaterial({ visible:false });
+        invisible_plane = new THREE.Mesh(geometry, material);
+        scene.add(invisible_plane);
+
+        // initial torus *knot* (PINK + LOWER SEGMENTS)
+        geometry = new THREE.TorusKnotGeometry(
+          12,   // radius
+          3.5,  // tube thickness
+          60,   // tubularSegments 
+          20    // radialSegments  
+        );
+        material = new THREE.MeshStandardMaterial({
+          color: 0xFF69B4,                   // PINK
+          metalness: 0.2, roughness: 0.6,
+          transparent:true, opacity:1
+        });
+        var torus = new THREE.Mesh(geometry, material);
+        torus.rotation.set(Math.PI/6, 0.6, 0); // tilt so it reads 3D
+        scene.add(torus);
+        toruses.push(torus);
+
+        // orbit controls
+        controls = new OrbitControls(camera, renderer.domElement);
+
+        // ---- events ----
+
+        renderer.domElement.onmousedown = function(e){
+          // require SHIFT + left button to place
+          if (!e.shiftKey || e.button !== 0) return;
+
+          // screen → normalized device coords
+          var pixel_coords = new THREE.Vector2(e.clientX, e.clientY);
+          var vp_coords = new THREE.Vector2(
+            (pixel_coords.x / window.innerWidth) * 2 - 1,
+            -(pixel_coords.y / window.innerHeight) * 2 + 1
           );
+          var vp_coords_near = new THREE.Vector3(vp_coords.x, vp_coords.y, 0);
 
-          var vp_coords_near = new THREE.Vector3( vp_coords.x, vp_coords.y, 0 );
-
+          // raycast to plane
           var raycaster = new THREE.Raycaster();
           raycaster.setFromCamera(vp_coords_near, camera);
           var intersects = raycaster.intersectObject(invisible_plane);
 
-          if (intersects.length > 0) {
-            torus.position.set(
-              intersects[0].point.x,
-              intersects[0].point.y,
-              intersects[0].point.z
-            );
+          if (!intersects.length) return; // guard
+
+          // new torus *knot* at hit point (PINK + LOWER SEGMENTS)
+          var g = new THREE.TorusKnotGeometry(12, 3.5, 60, 20);
+          var m = new THREE.MeshStandardMaterial({
+            color: 0xFF69B4,                 // PINK
+            wireframe: !!wireFLAG,
+            metalness: 0.2, roughness: 0.6,
+            transparent:true, opacity:1
+          });
+          var new_torus = new THREE.Mesh(g, m);
+          new_torus.position.set(
+            intersects[0].point.x,
+            intersects[0].point.y,
+            intersects[0].point.z
+          );
+          new_torus.rotation.set(Math.PI/6, 0.6, 0); // same tilt
+          scene.add(new_torus);
+          toruses.push(new_torus);
+
+          LASTOBJECT = new_torus;
+          justplacedFlag = 1;
+          controls.enabled = false; // pause camera while scaling
+        };
+
+        renderer.domElement.onmousemove = function(e){
+          if (!justplacedFlag || !LASTOBJECT) return;
+
+          // uniform scale from vertical drag (drag up = grow)
+          var s = LASTOBJECT.scale.x + (-0.01 * e.movementY);
+          // clamp to keep it manageable (allow negative for “inside out”)
+          s = Math.max(-5, Math.min(5, s));
+          LASTOBJECT.scale.set(s, s, s);
+
+          // color flip based on sign
+          LASTOBJECT.material.color.set(s < 0 ? 0x7CFC00 : 0xFF69B4);
+        };
+
+        renderer.domElement.onmouseup = function(){
+          justplacedFlag = 0;
+          LASTOBJECT = null;
+          controls.enabled = true; // resume camera
+        };
+
+        window.onkeypress = function(e){
+          if (e.key === 'f' || e.key === 'F'){
+            FLICKERING = !FLICKERING;
+          }
+          if (e.key === 'w' || e.key === 'W'){
+            wireFLAG = !wireFLAG;
+            for (var i=0; i<toruses.length; i++){
+              toruses[i].material.wireframe = !!wireFLAG;
+              toruses[i].material.needsUpdate = true;
+            }
           }
         };
 
-        // setup lights
-        var ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-        scene.add( ambientLight );
-
-        var light = new THREE.DirectionalLight( 0xffffff, 5.0 );
-        light.position.set( 10, 100, 10 );
-        scene.add( light );
-
-        // --- replace cube with a solid torus (hot pink) ---
-        var geometry = new THREE.TorusGeometry(10, 3, 16, 100); // radius, tube, radialSeg, tubularSeg
-        var material = new THREE.MeshStandardMaterial({
-          color: 0xFF69B4,       // pick any color you like
-          metalness: 0.2,
-          roughness: 0.6,
-          wireframe: false       // solid
-        });
-
-        var torus = new THREE.Mesh( geometry, material );
-        scene.add( torus );
-
-        // The invisible plane
-        geometry = new THREE.PlaneGeometry( 10000, 10000 );
-        material = new THREE.MeshBasicMaterial({ visible: false });
-        var invisible_plane = new THREE.Mesh( geometry, material );
-        scene.add( invisible_plane );
-
-        // interaction
-        controls = new OrbitControls( camera, renderer.domElement );
-
-        // handle resize
+        // keep canvas sized
         window.onresize = function(){
           camera.aspect = window.innerWidth / window.innerHeight;
           camera.updateProjectionMatrix();
           renderer.setSize(window.innerWidth, window.innerHeight);
         };
 
-        // animation/rendering loop
+        // start loop
         animate();
       };
 
-      function animate() {
-        requestAnimationFrame( animate );
+      function animate(){
+        requestAnimationFrame(animate);
+
+        // flicker effect
+        if (FLICKERING){
+          for (var i=0; i<toruses.length; i++){
+            var mat = toruses[i].material;
+            mat.opacity = 0.3 + 0.7*Math.random();
+            mat.transparent = true;
+            mat.needsUpdate = true;
+          }
+        } else {
+          for (var j=0; j<toruses.length; j++){
+            var m = toruses[j].material;
+            if (m.opacity !== 1){ m.opacity = 1; m.needsUpdate = true; }
+          }
+        }
+
         controls.update();
-        renderer.render( scene, camera );
-      };
+        renderer.render(scene, camera);
+      }
     </script>
   </head>
   <body></body>
 </html>
+
+
