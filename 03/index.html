@@ -56,15 +56,15 @@
         invisible_plane = new THREE.Mesh(geometry, material);
         scene.add(invisible_plane);
 
-        // initial torus *knot* (PINK + LOWER SEGMENTS)
+        // initial torus *knot* — LIGHT PURPLE (stays purple)
         geometry = new THREE.TorusKnotGeometry(
           12,   // radius
           3.5,  // tube thickness
-          60,   // tubularSegments 
-          20    // radialSegments  
+          60,   // tubularSegments (lower = chunkier)
+          20    // radialSegments  (lower = chunkier)
         );
         material = new THREE.MeshStandardMaterial({
-          color: 0xFF69B4,                   // PINK
+          color: 0xC8A2C8,                 // light purple (lilac)
           metalness: 0.2, roughness: 0.6,
           transparent:true, opacity:1
         });
@@ -97,10 +97,10 @@
 
           if (!intersects.length) return; // guard
 
-          // new torus *knot* at hit point (PINK + LOWER SEGMENTS)
+          // NEW torus *knot* — starts PINK, can flip to GREEN while scaling
           var g = new THREE.TorusKnotGeometry(12, 3.5, 60, 20);
           var m = new THREE.MeshStandardMaterial({
-            color: 0xFF69B4,                 // PINK
+            color: 0xFF69B4,               // start PINK
             wireframe: !!wireFLAG,
             metalness: 0.2, roughness: 0.6,
             transparent:true, opacity:1
@@ -129,7 +129,7 @@
           s = Math.max(-5, Math.min(5, s));
           LASTOBJECT.scale.set(s, s, s);
 
-          // color flip based on sign
+          // for placed knots ONLY: pink (s>=0) vs green (s<0)
           LASTOBJECT.material.color.set(s < 0 ? 0x7CFC00 : 0xFF69B4);
         };
 
@@ -188,5 +188,6 @@
   </head>
   <body></body>
 </html>
+
 
 
