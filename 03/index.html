@@ -1,0 +1,193 @@
+<html>
+  <head>
+    <style>
+      html, body {
+        background-color:#000;
+        margin:0; padding:0; height:100%;
+        overflow:hidden !important;
+      }
+    </style>
+
+    <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@latest/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@latest/examples/jsm/"
+      }
+    }
+    </script>
+
+    <script type="module">
+      import * as THREE from 'three';
+      import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+      // ---- globals / flags (your style) ----
+      var renderer, controls, scene, camera;
+      var justplacedFlag = 0, FLICKERING = 0, wireFLAG = 0, LASTOBJECT;
+      var toruses = [];
+      var invisible_plane;
+
+      window.onload = function() {
+
+        // scene + camera
+        scene = new THREE.Scene();
+        var fov = 75;
+        var ratio = window.innerWidth / window.innerHeight;
+        var zNear = 1, zFar = 10000;
+        camera = new THREE.PerspectiveCamera(fov, ratio, zNear, zFar);
+        camera.position.set(0, 0, 100);
+
+        // renderer
+        renderer = new THREE.WebGLRenderer({ antialias:true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.body.appendChild(renderer.domElement);
+
+        // lights
+        scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+        var light = new THREE.DirectionalLight(0xffffff, 5.0);
+        light.position.set(10, 100, 10);
+        scene.add(light);
+
+        // invisible xy-plane at z=0 for ray hits
+        var geometry = new THREE.PlaneGeometry(10000, 10000);
+        var material = new THREE.MeshBasicMaterial({ visible:false });
+        invisible_plane = new THREE.Mesh(geometry, material);
+        scene.add(invisible_plane);
+
+        // initial torus *knot* — LIGHT PURPLE (stays purple)
+        geometry = new THREE.TorusKnotGeometry(
+          12,   // radius
+          3.5,  // tube thickness
+          60,   // tubularSegments (lower = chunkier)
+          20    // radialSegments  (lower = chunkier)
+        );
+        material = new THREE.MeshStandardMaterial({
+          color: 0xC8A2C8,                 // light purple (lilac)
+          metalness: 0.2, roughness: 0.6,
+          transparent:true, opacity:1
+        });
+        var torus = new THREE.Mesh(geometry, material);
+        torus.rotation.set(Math.PI/6, 0.6, 0); // tilt so it reads 3D
+        scene.add(torus);
+        toruses.push(torus);
+
+        // orbit controls
+        controls = new OrbitControls(camera, renderer.domElement);
+
+        // ---- events ----
+
+        renderer.domElement.onmousedown = function(e){
+          // require SHIFT + left button to place
+          if (!e.shiftKey || e.button !== 0) return;
+
+          // screen → normalized device coords
+          var pixel_coords = new THREE.Vector2(e.clientX, e.clientY);
+          var vp_coords = new THREE.Vector2(
+            (pixel_coords.x / window.innerWidth) * 2 - 1,
+            -(pixel_coords.y / window.innerHeight) * 2 + 1
+          );
+          var vp_coords_near = new THREE.Vector3(vp_coords.x, vp_coords.y, 0);
+
+          // raycast to plane
+          var raycaster = new THREE.Raycaster();
+          raycaster.setFromCamera(vp_coords_near, camera);
+          var intersects = raycaster.intersectObject(invisible_plane);
+
+          if (!intersects.length) return; // guard
+
+          // NEW torus *knot* — starts PINK, can flip to GREEN while scaling
+          var g = new THREE.TorusKnotGeometry(12, 3.5, 60, 20);
+          var m = new THREE.MeshStandardMaterial({
+            color: 0xFF69B4,               
+            wireframe: !!wireFLAG,
+            metalness: 0.2, roughness: 0.6,
+            transparent:true, opacity:1
+          });
+          var new_torus = new THREE.Mesh(g, m);
+          new_torus.position.set(
+            intersects[0].point.x,
+            intersects[0].point.y,
+            intersects[0].point.z
+          );
+          new_torus.rotation.set(Math.PI/6, 0.6, 0); // same tilt
+          scene.add(new_torus);
+          toruses.push(new_torus);
+
+          LASTOBJECT = new_torus;
+          justplacedFlag = 1;
+          controls.enabled = false; // pause camera while scaling
+        };
+
+        renderer.domElement.onmousemove = function(e){
+          if (!justplacedFlag || !LASTOBJECT) return;
+
+          // uniform scale from vertical drag (drag up = grow)
+          var s = LASTOBJECT.scale.x + (-0.01 * e.movementY);
+          // clamp to keep it manageable (allow negative for “inside out”)
+          s = Math.max(-5, Math.min(5, s));
+          LASTOBJECT.scale.set(s, s, s);
+
+          // for placed knots ONLY: pink (s>=0) vs green (s<0)
+          LASTOBJECT.material.color.set(s < 0 ? 0x7CFC00 : 0xFF69B4);
+        };
+
+        renderer.domElement.onmouseup = function(){
+          justplacedFlag = 0;
+          LASTOBJECT = null;
+          controls.enabled = true; // resume camera
+        };
+
+        window.onkeypress = function(e){
+          if (e.key === 'f' || e.key === 'F'){
+            FLICKERING = !FLICKERING;
+          }
+          if (e.key === 'w' || e.key === 'W'){
+            wireFLAG = !wireFLAG;
+            for (var i=0; i<toruses.length; i++){
+              toruses[i].material.wireframe = !!wireFLAG;
+              toruses[i].material.needsUpdate = true;
+            }
+          }
+        };
+
+        // keep canvas sized
+        window.onresize = function(){
+          camera.aspect = window.innerWidth / window.innerHeight;
+          camera.updateProjectionMatrix();
+          renderer.setSize(window.innerWidth, window.innerHeight);
+        };
+
+        // start loop
+        animate();
+      };
+
+      function animate(){
+        requestAnimationFrame(animate);
+
+        // flicker effect
+        if (FLICKERING){
+          for (var i=0; i<toruses.length; i++){
+            var mat = toruses[i].material;
+            mat.opacity = 0.3 + 0.7*Math.random();
+            mat.transparent = true;
+            mat.needsUpdate = true;
+          }
+        } else {
+          for (var j=0; j<toruses.length; j++){
+            var m = toruses[j].material;
+            if (m.opacity !== 1){ m.opacity = 1; m.needsUpdate = true; }
+          }
+        }
+
+        controls.update();
+        renderer.render(scene, camera);
+      }
+    </script>
+  </head>
+  <body></body>
+</html>
+
+
+
