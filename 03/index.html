@@ -1,0 +1,219 @@
+<html>
+  <head>
+    <style>
+      html, body { 
+        background-color:#000;
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden !important;  
+      }
+    </style>
+    
+    <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@latest/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@latest/examples/jsm/"
+      }
+    }
+    </script>
+
+    <script type="module">
+      const TK_RADIUS = 10;
+      const TK_TUBE = 3;
+      const TK_RADIAL = 16;
+      const TK_TUBULAR = 100;
+
+      const HOTPINK = 0xff69b4;  
+      const GRASSGREEN = 0x7cfc00;
+      const LIGHTBLUE = 0xADD8E6 
+
+      let LASTOBJECT = null;
+      let Placing = false;
+
+      const TORUSES = [];
+      let isFlickering = false
+
+      import * as THREE from 'three';
+      import { OrbitControls } from 'three/addons/controls/OrbitControls.js';      
+
+      var scene, camera, renderer, controls;
+
+      window.onload = function() {
+
+        window.THREE = THREE;
+
+
+        //
+        // THREE.js code goes here!
+        //
+        
+        // create the scene
+        scene = new THREE.Scene();
+
+        // setup the camera
+        var fov = 75;
+        var ratio = window.innerWidth / window.innerHeight;
+        var zNear = 1;
+        var zFar = 10000;
+
+        camera = new THREE.PerspectiveCamera( fov, ratio, zNear, zFar);
+        camera.position.set(0, 0, 100);
+
+        // create the renderer and add the canvas
+        renderer = new THREE.WebGLRenderer({antialias:true});
+        renderer.setSize( window.innerWidth, window.innerHeight );
+        document.body.appendChild( renderer.domElement );
+
+
+        renderer.domElement.onmousedown = function(e) {
+          if (!e.shiftKey || e.button !== 0) return;
+
+          controls.enabled = false
+
+          var pixel_coords = new THREE.Vector2(e.clientX, e.clientY);
+
+
+          console.log('Pixel', pixel_coords)
+
+          var vp_coords = new THREE.Vector2(
+
+              ( pixel_coords.x / window.innerWidth ) * 2 - 1, //X
+
+              - (pixel_coords.y / window.innerHeight ) * 2 + 1 //Y
+
+            );
+
+          console.log('VP', vp_coords)
+
+          var vp_coords_znear = new THREE.Vector3( vp_coords.x, vp_coords.y, 0);
+
+          var raycaster = new THREE.Raycaster();
+
+          raycaster.setFromCamera( vp_coords_znear, camera );
+
+          console.log(raycaster)
+
+
+          var intersects = raycaster.intersectObject( invisible_plane );
+
+          console.log('Ray to Plane', intersects[0].point )
+
+          const geometry = new THREE.TorusKnotGeometry(
+            TK_RADIUS, TK_TUBE, TK_TUBULAR, TK_RADIAL
+          );
+          const material = new THREE.MeshStandardMaterial({ color: HOTPINK });
+          const torusKnot = new THREE.Mesh(geometry, material);
+          torusKnot.position.copy(intersects[0].point);
+
+          scene.add(torusKnot);
+
+          TORUSES.push(torusKnot);
+
+          LASTOBJECT = torusKnot;
+          Placing = true;
+
+          SwitchSign = signOf(LASTOBJECT.scale.x);
+          
+
+
+        }
+
+
+        renderer.domElement.onmousemove = function (e) {
+        
+          if (!Placing || !LASTOBJECT) return;
+
+          const sensitivity = 0.01;
+          const delta = -e.movementY * sensitivity;
+          const oldS = LASTOBJECT.scale.x;       // uniform scale now
+          const newS = oldS + delta;
+
+          //   flip color when crossing zero
+          if (oldS * newS < 0) {
+          const current = LASTOBJECT.material.color.getHex();
+          LASTOBJECT.material.color.set(current === HOTPINK ? LIGHTBLUE : HOTPINK);
+          }
+
+          LASTOBJECT.scale.set(newS, newS, newS); // uniform scaling
+
+        };
+
+        window.onmouseup = function () {
+          Placing = false;
+          controls.enabled = true;
+        };
+
+        window.onkeypress = function (e) {
+          if (e.key === 'f') {
+            isFlickering = !isFlickering;
+          }
+        };
+
+
+
+        // .. setup lights
+        var ambientLight = new THREE.AmbientLight();
+        scene.add( ambientLight );
+
+        var light = new THREE.DirectionalLight( 0xffffff, 5.0 );
+        light.position.set( 10, 100, 10 );
+        scene.add( light );
+
+        // configure torusknot
+        var geometry = new THREE.TorusKnotGeometry(10, 3, 100, 16); 
+        var material = new THREE.MeshStandardMaterial({ color: HOTPINK }); // hotpink
+        var cube = new THREE.Mesh( geometry, material );scene.add( cube );
+
+
+        geometry = new THREE.PlaneGeometry( 10000, 10000 );
+        material = new THREE.MeshStandardMaterial({ visible: false });
+
+        var invisible_plane = new THREE.Mesh(geometry, material);
+
+        scene.add(invisible_plane);
+
+
+
+        // setup interaction
+        controls = new OrbitControls( camera, renderer.domElement );
+ 
+        // call animation/rendering loop
+        animate();
+        
+      };
+
+      function animate() {
+
+        requestAnimationFrame( animate );
+
+        // console.log('another frame');
+
+        if (isFlickering) {
+          for (const t of TORUSES) {
+            t.material.transparent = true;
+            t.material.opacity = Math.random();
+            t.material.needsUpdate = true;
+          }
+        } else {
+            for (const t of TORUSES) {
+              if (t.material.transparent || t.material.opacity !== 1) {
+                t.material.opacity = 1;
+                t.material.transparent = false;
+                t.material.needsUpdate = true;
+              }
+            }
+          }
+
+        // ... update renderer + controls
+        controls.update();
+        renderer.render( scene, camera );
+
+      };
+    </script>
+  </head>
+  <body></body>
+</html>
