@@ -1,2 +1,1285 @@
-Ready for assignment 2.
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CS460 - 3D Cube Tunnel Visualization (XTK)</title>
+  <style>
+    /* Reset & Base Setup */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #020206;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      color: #e2e8f0;
+    }
 
+    /* Ambient Space Vignette Background */
+    #bg-glow {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at 50% 50%, rgba(18, 24, 52, 0.75) 0%, rgba(5, 7, 18, 0.95) 70%, #020206 100%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Deep Space Subtle Starfield Canvas */
+    #stars-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1;
+      opacity: 0.65;
+    }
+
+    /* Fullscreen XTK WebGL Viewport */
+    #webgl-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 2;
+      outline: none;
+    }
+
+    /* Loading Screen Overlay */
+    #loader {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #020206;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      transition: opacity 0.5s ease-out;
+    }
+
+    .loader-ring {
+      width: 68px;
+      height: 68px;
+      border: 3px solid rgba(0, 242, 255, 0.15);
+      border-top-color: #00f2ff;
+      border-right-color: #a61aff;
+      border-radius: 50%;
+      animation: spinRing 1s cubic-bezier(0.68, -0.55, 0.27, 1.55) infinite;
+      box-shadow: 0 0 24px rgba(0, 242, 255, 0.4);
+    }
+
+    .loader-text {
+      margin-top: 22px;
+      font-size: 0.92rem;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #00f2ff;
+      text-shadow: 0 0 12px rgba(0, 242, 255, 0.6);
+    }
+
+    @keyframes spinRing {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Non-blocking HUD Overlay Layer */
+    .hud-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none; /* Mouse drags pass straight to XTK 3D canvas */
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 18px 24px;
+      transition: opacity 0.3s ease;
+    }
+
+    .interactive {
+      pointer-events: auto; /* Buttons & Sliders catch events */
+    }
+
+    /* Glassmorphism Panels */
+    .glass-card {
+      background: rgba(10, 14, 28, 0.72);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 14px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      color: #e2e8f0;
+    }
+
+    /* Header Bar */
+    .header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 22px;
+    }
+
+    .brand-section {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-badge {
+      width: 38px;
+      height: 38px;
+      background: linear-gradient(135deg, #00f2ff 0%, #1462ff 50%, #a61aff 100%);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: #ffffff;
+      box-shadow: 0 0 18px rgba(0, 242, 255, 0.45);
+    }
+
+    .brand-title {
+      font-size: 1.18rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      background: linear-gradient(90deg, #00f2ff, #7ca5ff, #e066ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin: 0;
+    }
+
+    .brand-subtitle {
+      font-size: 0.78rem;
+      color: #8da2be;
+      margin: 2px 0 0 0;
+      letter-spacing: 0.02em;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* Pill Badges & Buttons */
+    .pill-btn {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 9999px;
+      padding: 7px 15px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #cbd5e1;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .pill-btn:hover {
+      background: rgba(0, 242, 255, 0.14);
+      border-color: rgba(0, 242, 255, 0.45);
+      color: #00f2ff;
+      box-shadow: 0 0 14px rgba(0, 242, 255, 0.25);
+      transform: translateY(-1px);
+    }
+
+    .pill-btn.active {
+      background: linear-gradient(135deg, rgba(0, 242, 255, 0.25), rgba(166, 26, 255, 0.25));
+      border-color: #00f2ff;
+      color: #ffffff;
+      box-shadow: 0 0 16px rgba(0, 242, 255, 0.35);
+    }
+
+    .telemetry-chip {
+      background: rgba(2, 6, 23, 0.75);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 0.78rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      color: #94a3b8;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .telemetry-chip span.val {
+      font-weight: 700;
+      color: #00f2ff;
+    }
+
+    /* Main Floating Controls Sidebar */
+    .controls-container {
+      position: absolute;
+      right: 24px;
+      top: 90px;
+      width: 320px;
+      max-height: calc(100vh - 120px);
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 18px 20px;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(0, 242, 255, 0.3) transparent;
+    }
+
+    .controls-container::-webkit-scrollbar {
+      width: 5px;
+    }
+    .controls-container::-webkit-scrollbar-thumb {
+      background: rgba(0, 242, 255, 0.3);
+      border-radius: 4px;
+    }
+
+    .section-title {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #72849e;
+      margin: 16px 0 10px 0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .section-title:first-child {
+      margin-top: 0;
+    }
+
+    /* Mode Button Grids */
+    .btn-grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 7px;
+      margin-bottom: 12px;
+    }
+
+    .btn-grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 7px;
+      margin-bottom: 12px;
+    }
+
+    .mode-btn {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      border-radius: 9px;
+      padding: 9px 8px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #94a3b8;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .mode-btn:hover {
+      background: rgba(0, 242, 255, 0.1);
+      border-color: rgba(0, 242, 255, 0.35);
+      color: #e2e8f0;
+    }
+
+    .mode-btn.active {
+      background: linear-gradient(135deg, rgba(0, 242, 255, 0.22) 0%, rgba(166, 26, 255, 0.22) 100%);
+      border-color: #00f2ff;
+      color: #00f2ff;
+      box-shadow: 0 0 12px rgba(0, 242, 255, 0.3);
+    }
+
+    /* Slider Group */
+    .control-row {
+      margin-bottom: 14px;
+    }
+
+    .control-label-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.78rem;
+      color: #94a3b8;
+      margin-bottom: 6px;
+    }
+
+    .control-val {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      color: #00f2ff;
+      font-weight: 700;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 5px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+      outline: none;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: #00f2ff;
+      box-shadow: 0 0 8px #00f2ff;
+      cursor: pointer;
+      transition: transform 0.15s ease, background 0.15s ease;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.25);
+      background: #ffffff;
+      box-shadow: 0 0 12px #00f2ff;
+    }
+
+    /* Toggle Switch */
+    .toggle-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 0;
+      font-size: 0.8rem;
+      color: #cbd5e1;
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 38px;
+      height: 20px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider-switch {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(255, 255, 255, 0.15);
+      transition: .25s;
+      border-radius: 20px;
+    }
+
+    .slider-switch:before {
+      position: absolute;
+      content: "";
+      height: 14px;
+      width: 14px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .25s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider-switch {
+      background: linear-gradient(90deg, #00f2ff, #a61aff);
+      box-shadow: 0 0 10px rgba(0, 242, 255, 0.4);
+    }
+
+    input:checked + .slider-switch:before {
+      transform: translateX(18px);
+    }
+
+    /* Bottom Info Card */
+    .footer-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 20px;
+      font-size: 0.78rem;
+      color: #72849e;
+    }
+
+    .shortcuts-list {
+      display: flex;
+      gap: 16px;
+    }
+
+    .shortcut-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    kbd {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-size: 0.72rem;
+      font-family: inherit;
+      color: #00f2ff;
+    }
+
+    /* Toast Notification */
+    #toast {
+      position: absolute;
+      top: 86px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-20px);
+      background: rgba(10, 14, 28, 0.88);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(0, 242, 255, 0.4);
+      border-radius: 9999px;
+      padding: 8px 20px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #00f2ff;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), 0 0 18px rgba(0, 242, 255, 0.35);
+      opacity: 0;
+      pointer-events: none;
+      z-index: 200;
+      transition: all 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+    }
+
+    #toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 860px) {
+      .controls-container {
+        width: 270px;
+        right: 12px;
+      }
+      .brand-subtitle {
+        display: none;
+      }
+      .shortcuts-list {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Background Ambience -->
+  <div id="bg-glow"></div>
+  <canvas id="stars-canvas"></canvas>
+
+  <!-- 3D XTK WebGL Render Viewport -->
+  <div id="webgl-container"></div>
+
+  <!-- Loading State -->
+  <div id="loader">
+    <div class="loader-ring"></div>
+    <div class="loader-text">Initializing 3D Cube Tunnel...</div>
+  </div>
+
+  <!-- Interactive Toast Notification -->
+  <div id="toast">Ready</div>
+
+  <!-- HUD Interface -->
+  <div class="hud-layer" id="hud">
+
+    <!-- Top Header Navigation -->
+    <header class="glass-card header-bar interactive">
+      <div class="brand-section">
+        <div class="brand-badge">3D</div>
+        <div>
+          <h1 class="brand-title">Cube Tunnel Visualization</h1>
+          <p class="brand-subtitle">Nested Square Rings Perspective Engine • Powered by XTK</p>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <div class="telemetry-chip">
+          <span>FPS:</span> <span class="val" id="stat-fps">60</span>
+        </div>
+        <div class="telemetry-chip">
+          <span>RINGS:</span> <span class="val" id="stat-rings">12</span>
+        </div>
+        <div class="telemetry-chip">
+          <span>CUBES:</span> <span class="val" id="stat-cubes">240</span>
+        </div>
+        <button class="pill-btn" id="btn-reset-cam" title="Reset Camera looking directly into tunnel (R)">
+          🎯 Reset View
+        </button>
+        <button class="pill-btn" id="btn-pause" title="Play / Pause Animation (P / Space)">
+          <span id="pause-icon">⏸️</span> <span id="pause-label">Pause</span>
+        </button>
+        <button class="pill-btn" id="btn-toggle-hud" title="Hide/Show Controls (H)">
+          👁️ Hide HUD
+        </button>
+      </div>
+    </header>
+
+    <!-- Right Floating Controls Sidebar -->
+    <aside class="glass-card controls-container interactive" id="controls-panel">
+      <!-- Motion Style Preset -->
+      <div class="section-title">🚀 Tunnel Travel Dynamics</div>
+      <div class="btn-grid-3">
+        <button class="mode-btn active" data-motion="surge" title="Cubes move forward & backward along depth axis">Surge</button>
+        <button class="mode-btn" data-motion="wave" title="Cascading peristaltic depth wave">Wave</button>
+        <button class="mode-btn" data-motion="warp" title="Continuous hyperspace forward flight">Warp Loop</button>
+      </div>
+
+      <!-- Color Schemes -->
+      <div class="section-title">🎨 Color Gradients</div>
+      <div class="btn-grid-2">
+        <button class="mode-btn active" data-palette="tunnel-cool" title="Cyan (Outer) -> Blue -> Purple -> Magenta/Pink (Center)">Cool Gradient</button>
+        <button class="mode-btn" data-palette="cyberpunk" title="Cyberpunk Neon Spectrum">Cyberpunk</button>
+        <button class="mode-btn" data-palette="aurora" title="Glacial Emerald & Arctic Blue">Aurora</button>
+        <button class="mode-btn" data-palette="magma" title="Solar Flare Molten Lava">Solar Magma</button>
+      </div>
+
+      <!-- Magic Mode -->
+      <div style="margin-bottom: 14px;">
+        <button class="mode-btn" id="btn-magic" style="width: 100%; border-color: rgba(166, 26, 255, 0.4); color: #d977ff;" title="XTK Native Vertex Multi-Color Shader (M)">
+          ✨ XTK Magic Mode Shading [M]
+        </button>
+      </div>
+
+      <!-- Sliders Section -->
+      <div class="section-title">⚙️ Motion & Geometry Adjustments</div>
+
+      <!-- Tunnel Speed Slider -->
+      <div class="control-row">
+        <div class="control-label-bar">
+          <span>Animation Speed</span>
+          <span class="control-val" id="val-speed">1.0x</span>
+        </div>
+        <input type="range" id="slider-speed" min="0.1" max="2.5" step="0.1" value="1.0">
+      </div>
+
+      <!-- Axis Rotation Speed Slider -->
+      <div class="control-row">
+        <div class="control-label-bar">
+          <span>Center Axis Spin</span>
+          <span class="control-val" id="val-rotation">0.45</span>
+        </div>
+        <input type="range" id="slider-rotation" min="-1.5" max="1.5" step="0.05" value="0.45">
+      </div>
+
+      <!-- Depth Travel Amplitude -->
+      <div class="control-row">
+        <div class="control-label-bar">
+          <span>Depth Travel Amplitude</span>
+          <span class="control-val" id="val-amplitude">130</span>
+        </div>
+        <input type="range" id="slider-amplitude" min="0" max="240" step="5" value="130">
+      </div>
+
+      <!-- Tunnel Twist / Vortex Angle -->
+      <div class="control-row">
+        <div class="control-label-bar">
+          <span>Vortex Spiral Twist</span>
+          <span class="control-val" id="val-twist">0.00</span>
+        </div>
+        <input type="range" id="slider-twist" min="0" max="0.8" step="0.02" value="0.00">
+      </div>
+
+      <!-- Cube Geometry Scale -->
+      <div class="control-row">
+        <div class="control-label-bar">
+          <span>Cube Size Scale</span>
+          <span class="control-val" id="val-size">1.00x</span>
+        </div>
+        <input type="range" id="slider-size" min="0.4" max="2.0" step="0.05" value="1.0">
+      </div>
+
+      <!-- Toggles -->
+      <div class="section-title">🕹️ Camera & Audio</div>
+
+      <div class="toggle-row">
+        <span>Cinematic Auto-Orbit</span>
+        <label class="switch">
+          <input type="checkbox" id="toggle-orbit">
+          <span class="slider-switch"></span>
+        </label>
+      </div>
+
+      <div class="toggle-row">
+        <span>Ambient Synth Resonance</span>
+        <label class="switch">
+          <input type="checkbox" id="toggle-audio">
+          <span class="slider-switch"></span>
+        </label>
+      </div>
+    </aside>
+
+    <!-- Bottom Status & Keyboard Shortcuts Bar -->
+    <footer class="glass-card footer-bar interactive">
+      <div>
+        <span>Interactive XTK Viewport: </span>
+        <strong style="color: #00f2ff;">Left Drag</strong> Rotate • 
+        <strong style="color: #00f2ff;">Right Drag / Scroll</strong> Zoom • 
+        <strong style="color: #00f2ff;">Middle Drag</strong> Pan
+      </div>
+      <div class="shortcuts-list">
+        <div class="shortcut-item"><kbd>R</kbd> Reset View</div>
+        <div class="shortcut-item"><kbd>P</kbd> Pause</div>
+        <div class="shortcut-item"><kbd>M</kbd> Magic Mode</div>
+        <div class="shortcut-item"><kbd>C</kbd> Next Palette</div>
+        <div class="shortcut-item"><kbd>1-3</kbd> Motion Modes</div>
+        <div class="shortcut-item"><kbd>H</kbd> Toggle HUD</div>
+      </div>
+    </footer>
+
+  </div>
+
+  <!-- The X Toolkit (XTK) WebGL Library -->
+  <script type="text/javascript" src="https://get.goxtk.com/xtk_edge.js"></script>
+
+  <!-- Core Visualization Engine -->
+  <script type="text/javascript">
+    /**
+     * CS460 Computer Graphics - Assignment 2: Final Visualization
+     * 3D Nested Square Cube Tunnel Engine
+     * Built with The X Toolkit (XTK) WebGL Framework
+     * 
+     * Key Architectural Specifications:
+     * 1. 3D Nested Square Rings:
+     *    - 12 concentric square frames of cubes receding into perspective depth.
+     *    - Outermost square frame uses large cubes; each subsequent inner ring is
+     *      progressively smaller with smaller cubes to produce a dramatic receding tunnel.
+     *    - Cubes placed uniformly along the 4 edges (top, bottom, left, right) of each ring frame.
+     * 2. Palette:
+     *    - Vibrant Cool Colors: Cyan (outer) -> Blue -> Purple -> Magenta / Neon Pink (center).
+     * 3. Animation:
+     *    - Continuous rotation of the entire cube tunnel around its center axis.
+     *    - Smooth forward/backward travel along the depth axis (smooth sinusoidal looping).
+     * 4. Interaction:
+     *    - Native XTK 3D Camera interaction (Left click rotate, Right click zoom, Middle click pan).
+     * 5. Zero Garbage Collection:
+     *    - Direct Float32Array in-place matrix updates on cube.transform.matrix.
+     */
+
+    // --- Configuration Constants ---
+    const TUNNEL_CONFIG = {
+      RINGS: 12,              // 12 concentric square frames
+      CUBES_PER_SIDE: 5,      // 5 cubes per edge -> 20 cubes per ring -> 240 cubes total
+      TOTAL_CUBES: 12 * 20,   // 240 cubes
+      Z_FRONT: 80,            // Depth position of outer ring (close to viewer)
+      Z_BACK: -600,           // Depth position of center ring (far into distance)
+      L_OUTER: 230,           // Half-width of outermost square frame
+      L_INNER: 28,            // Half-width of innermost square frame
+      SCALE_OUTER: 1.45,      // Scale factor for outer cubes (large)
+      SCALE_INNER: 0.32,      // Scale factor for center cubes (small)
+      CAM_INITIAL_POS: [0, 0, 460],
+      CAM_INITIAL_FOCUS: [0, 0, -160]
+    };
+
+    // --- State Model ---
+    const state = {
+      speed: 1.0,
+      rotSpeed: 0.45,
+      travelAmp: 130,
+      travelFreq: 0.85,
+      twist: 0.0,
+      scaleMult: 1.0,
+      motionMode: 'surge',     // 'surge' | 'wave' | 'warp'
+      palette: 'tunnel-cool',  // 'tunnel-cool' | 'cyberpunk' | 'aurora' | 'magma'
+      magicMode: false,
+      autoOrbit: false,
+      orbitSpeed: 0.35,
+      orbitAngle: 0,
+      isPaused: false,
+      audioActive: false
+    };
+
+    // Global Collections & Handles
+    const cubes = [];
+    let renderer = null;
+    let globalTime = 0;
+    let lastTime = performance.now();
+    let frameCount = 0;
+    let lastFpsUpdate = performance.now();
+
+    // --- Ambient Starfield Background Animation ---
+    function initStarfield() {
+      const canvas = document.getElementById('stars-canvas');
+      const ctx = canvas.getContext('2d');
+      let stars = [];
+
+      function resizeStars() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        stars = [];
+        const count = Math.floor((canvas.width * canvas.height) / 5000);
+        for (let i = 0; i < count; i++) {
+          stars.push({
+            x: Math.random() * canvas.width,
+            y: Math.random() * canvas.height,
+            size: Math.random() * 1.5 + 0.5,
+            alpha: Math.random() * 0.7 + 0.2,
+            speed: Math.random() * 0.002 + 0.001
+          });
+        }
+      }
+
+      window.addEventListener('resize', resizeStars);
+      resizeStars();
+
+      function drawStars() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const time = performance.now();
+        for (let i = 0; i < stars.length; i++) {
+          const s = stars[i];
+          const flick = s.alpha * (0.7 + 0.3 * Math.sin(time * s.speed + i));
+          ctx.fillStyle = `rgba(180, 220, 255, ${flick})`;
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        requestAnimationFrame(drawStars);
+      }
+      requestAnimationFrame(drawStars);
+    }
+
+    // --- Web Audio Ambient Synthesizer (Zero Dependencies) ---
+    let audioCtx = null;
+    let audioInterval = null;
+    const tunnelNotes = [130.81, 164.81, 196.00, 220.00, 261.63, 329.63, 392.00];
+
+    function initAudioEngine() {
+      if (audioCtx) return;
+      try {
+        const AudioClass = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioClass();
+      } catch (err) {
+        console.warn('Web Audio API not supported:', err);
+      }
+    }
+
+    function playTunnelChime(freq, duration = 0.8) {
+      if (!audioCtx || audioCtx.state !== 'running') return;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+      gain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + duration);
+    }
+
+    function startAudio() {
+      initAudioEngine();
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      let step = 0;
+      audioInterval = setInterval(() => {
+        if (!state.audioActive || state.isPaused) return;
+        const note = tunnelNotes[step % tunnelNotes.length];
+        playTunnelChime(note, 0.9);
+        if (step % 4 === 0) {
+          playTunnelChime(65.41, 1.4); // Deep root bass
+        }
+        step++;
+      }, 260);
+    }
+
+    function stopAudio() {
+      if (audioInterval) {
+        clearInterval(audioInterval);
+        audioInterval = null;
+      }
+    }
+
+    // --- Color Grading & Palette Management ---
+    function lerpColorStops(stops, u) {
+      for (let i = 0; i < stops.length - 1; i++) {
+        if (u >= stops[i].pos && u <= stops[i + 1].pos) {
+          const f = (u - stops[i].pos) / (stops[i + 1].pos - stops[i].pos);
+          const t = f * f * (3 - 2 * f); // Hermite smoothstep
+          const c0 = stops[i].color;
+          const c1 = stops[i + 1].color;
+          return [
+            c0[0] + (c1[0] - c0[0]) * t,
+            c0[1] + (c1[1] - c0[1]) * t,
+            c0[2] + (c1[2] - c0[2]) * t
+          ];
+        }
+      }
+      return stops[stops.length - 1].color;
+    }
+
+    function getPaletteColor(palette, u) {
+      switch (palette) {
+        case 'tunnel-cool': {
+          // Assignment requirement:
+          // Cyan for outer cubes -> Blue for next layers -> Purple for deeper layers -> Magenta or Pink near center
+          const stops = [
+            { pos: 0.00, color: [0.00, 0.96, 1.00] }, // Pure Electric Cyan
+            { pos: 0.22, color: [0.04, 0.70, 1.00] }, // Bright Azure / Sky
+            { pos: 0.44, color: [0.10, 0.38, 1.00] }, // Deep Royal Blue
+            { pos: 0.66, color: [0.58, 0.12, 0.98] }, // Vivid Electric Violet / Purple
+            { pos: 0.85, color: [0.88, 0.06, 0.82] }, // Purple-Magenta
+            { pos: 1.00, color: [1.00, 0.08, 0.65] }  // Neon Magenta / Hot Pink
+          ];
+          return lerpColorStops(stops, u);
+        }
+        case 'cyberpunk': {
+          const stops = [
+            { pos: 0.00, color: [1.00, 0.78, 0.05] }, // Neon Gold
+            { pos: 0.33, color: [0.00, 0.95, 0.90] }, // Cyber Cyan
+            { pos: 0.66, color: [0.65, 0.05, 1.00] }, // Laser Violet
+            { pos: 1.00, color: [1.00, 0.05, 0.55] }  // Hot Pink
+          ];
+          return lerpColorStops(stops, u);
+        }
+        case 'aurora': {
+          const stops = [
+            { pos: 0.00, color: [0.05, 1.00, 0.60] }, // Neon Emerald
+            { pos: 0.35, color: [0.00, 0.90, 0.85] }, // Arctic Teal
+            { pos: 0.70, color: [0.05, 0.55, 1.00] }, // Ocean Cyan
+            { pos: 1.00, color: [0.15, 0.25, 0.95] }  // Deep Sea Blue
+          ];
+          return lerpColorStops(stops, u);
+        }
+        case 'magma': {
+          const stops = [
+            { pos: 0.00, color: [1.00, 0.88, 0.10] }, // Solar Flare Yellow
+            { pos: 0.33, color: [1.00, 0.45, 0.05] }, // Molten Orange
+            { pos: 0.66, color: [1.00, 0.08, 0.15] }, // Crimson Red
+            { pos: 1.00, color: [0.65, 0.02, 0.35] }  // Deep Wine
+          ];
+          return lerpColorStops(stops, u);
+        }
+        default:
+          return [0.0, 0.95, 1.0];
+      }
+    }
+
+    function applyPaletteToAllCubes() {
+      for (let i = 0; i < cubes.length; i++) {
+        const c = cubes[i];
+        const newColor = getPaletteColor(state.palette, c.u);
+        c.color = newColor;
+        c.mesh.color = newColor;
+      }
+    }
+
+    // --- Ultra-Fast Zero-Allocation Matrix Transformation Engine ---
+    // Sets 3D Position (x,y,z), 3D Orientation (rx,ry,rz), and Uniform Scale directly into Float32Array(16)
+    function setCubeTransform(cube, x, y, z, rx, ry, rz, scale) {
+      const cx = Math.cos(rx), sx = Math.sin(rx);
+      const cy = Math.cos(ry), sy = Math.sin(ry);
+      const cz = Math.cos(rz), sz = Math.sin(rz);
+
+      // Column 0
+      const c0x = cz * cy * scale;
+      const c0y = sz * cy * scale;
+      const c0z = -sy * scale;
+
+      // Column 1
+      const c1x = (cz * sy * sx - sz * cx) * scale;
+      const c1y = (sz * sy * sx + cz * cx) * scale;
+      const c1z = cy * sx * scale;
+
+      // Column 2
+      const c2x = (cz * sy * cx + sz * sx) * scale;
+      const c2y = (sz * sy * cx - cz * sx) * scale;
+      const c2z = cy * cx * scale;
+
+      const m = cube.transform.matrix;
+      m[0] = c0x; m[1] = c0y; m[2] = c0z; m[3] = 0;
+      m[4] = c1x; m[5] = c1y; m[6] = c1z; m[7] = 0;
+      m[8] = c2x; m[9] = c2y; m[10] = c2z; m[11] = 0;
+      m[12] = x;  m[13] = y;  m[14] = z;   m[15] = 1;
+
+      cube.transform.modified();
+    }
+
+    // --- Scene Geometry Initialization ---
+    function initXTKScene() {
+      try {
+        if (typeof X === 'undefined' || !X.renderer3D) {
+          throw new Error('XTK library failed to load from CDN. Please verify internet connection.');
+        }
+
+        // Create 3D XTK Renderer attached to container
+        renderer = new X.renderer3D();
+        renderer.container = 'webgl-container';
+        renderer.init();
+
+        // Position camera looking straight down the Z-axis into the center of the tunnel
+        renderer.camera.position = [TUNNEL_CONFIG.CAM_INITIAL_POS[0], TUNNEL_CONFIG.CAM_INITIAL_POS[1], TUNNEL_CONFIG.CAM_INITIAL_POS[2]];
+        renderer.camera.focus = [TUNNEL_CONFIG.CAM_INITIAL_FOCUS[0], TUNNEL_CONFIG.CAM_INITIAL_FOCUS[1], TUNNEL_CONFIG.CAM_INITIAL_FOCUS[2]];
+        renderer.camera.up = [0, 1, 0];
+
+        let cubeCounter = 0;
+
+        // Construct 12 Nested Square Rings of Cubes
+        for (let r = 0; r < TUNNEL_CONFIG.RINGS; r++) {
+          const u = r / (TUNNEL_CONFIG.RINGS - 1); // 0.0 (outermost) to 1.0 (innermost)
+
+          // 1. Perspective Ring Size: Outermost is large (230), center is small (28)
+          const L = TUNNEL_CONFIG.L_OUTER * Math.pow(1 - u, 0.88) + TUNNEL_CONFIG.L_INNER * u;
+
+          // 2. Base Depth: Outermost is close (+80), center is far into the distance (-600)
+          const baseZ = TUNNEL_CONFIG.Z_FRONT - u * (TUNNEL_CONFIG.Z_FRONT - TUNNEL_CONFIG.Z_BACK);
+
+          // 3. Cube Size: Outer cubes are large (1.45x), center cubes are smaller (0.32x)
+          const baseScale = TUNNEL_CONFIG.SCALE_OUTER * (1 - u) + TUNNEL_CONFIG.SCALE_INNER * u;
+
+          // 4. Color Gradient from Cyan/Blue on outside to Purple/Magenta in center
+          const color = getPaletteColor(state.palette, u);
+
+          const K = TUNNEL_CONFIG.CUBES_PER_SIDE;
+          const step = (2 * L) / K;
+
+          // Distribute cubes evenly along the 4 edges of the square frame
+          for (let side = 0; side < 4; side++) {
+            for (let k = 0; k < K; k++) {
+              let x0 = 0, y0 = 0;
+
+              if (side === 0) {
+                // Top edge: from (-L, +L) to (+L, +L)
+                x0 = -L + k * step;
+                y0 = +L;
+              } else if (side === 1) {
+                // Right edge: from (+L, +L) to (+L, -L)
+                x0 = +L;
+                y0 = +L - k * step;
+              } else if (side === 2) {
+                // Bottom edge: from (+L, -L) to (-L, -L)
+                x0 = +L - k * step;
+                y0 = -L;
+              } else if (side === 3) {
+                // Left edge: from (-L, -L) to (-L, +L)
+                x0 = -L;
+                y0 = -L + k * step;
+              }
+
+              // Create Native XTK Cube
+              const c = new X.cube();
+              c.color = color;
+              renderer.add(c);
+
+              cubes.push({
+                mesh: c,
+                index: cubeCounter++,
+                ring: r,
+                side: side,
+                k: k,
+                u: u,
+                baseL: L,
+                baseX: x0,
+                baseY: y0,
+                baseZ: baseZ,
+                baseScale: baseScale,
+                currX: x0,
+                currY: y0,
+                currZ: baseZ,
+                color: color
+              });
+            }
+          }
+        }
+
+        // Initial Render
+        renderer.render();
+
+        // Hook Continuous Animation Loop
+        renderer.onRender = function() {
+          tick();
+        };
+
+        // Smoothly dismiss loader
+        setTimeout(() => {
+          const loader = document.getElementById('loader');
+          if (loader) {
+            loader.style.opacity = '0';
+            setTimeout(() => loader.remove(), 550);
+          }
+        }, 300);
+
+        showToast('🌀 3D Cube Tunnel Initialized');
+
+      } catch (err) {
+        console.error('Initialization error:', err);
+        const loader = document.getElementById('loader');
+        if (loader) {
+          loader.innerHTML = `
+            <div style="font-size: 2.4rem; margin-bottom: 12px;">⚠️</div>
+            <div style="color: #ff3366; font-size: 1.1rem; font-weight: 700; margin-bottom: 8px;">WebGL Initialization Error</div>
+            <div style="color: #94a3b8; font-size: 0.85rem; max-width: 440px; text-align: center; line-height: 1.5;">${err.message || err}</div>
+            <button onclick="location.reload()" style="margin-top: 20px; padding: 10px 24px; border-radius: 8px; border: 1px solid #00f2ff; background: rgba(0,242,255,0.15); color: #00f2ff; font-weight: 700; cursor: pointer;">Retry</button>
+          `;
+        }
+      }
+    }
+
+    // --- Main Physics, Geometry, and Animation Loop ---
+    function tick() {
+      const now = performance.now();
+      let dt = (now - lastTime) * 0.001;
+      if (dt > 0.1) dt = 0.1; // Clamp frame spikes
+      lastTime = now;
+
+      // Update FPS Telemetry
+      frameCount++;
+      if (now - lastFpsUpdate >= 500) {
+        const fps = Math.round((frameCount * 1000) / (now - lastFpsUpdate));
+        document.getElementById('stat-fps').textContent = fps;
+        frameCount = 0;
+        lastFpsUpdate = now;
+      }
+
+      if (state.isPaused) return;
+
+      globalTime += dt * state.speed;
+
+      // Optional Cinematic Auto-Orbiting (Disabled by default so mouse control & direct tunnel view remain pure)
+      if (state.autoOrbit) {
+        state.orbitAngle += dt * state.orbitSpeed * 0.5;
+        const orbitRadius = 460;
+        const camX = Math.sin(state.orbitAngle) * orbitRadius;
+        const camZ = Math.cos(state.orbitAngle) * orbitRadius - 160;
+        renderer.camera.position = [camX, 60 * Math.sin(state.orbitAngle * 0.6), camZ];
+      }
+
+      // Center Axis Rotation angle
+      const baseRotationAngle = globalTime * state.rotSpeed;
+
+      // Update all 240 cubes in the tunnel
+      const totalDepthSpan = (TUNNEL_CONFIG.Z_FRONT - TUNNEL_CONFIG.Z_BACK);
+
+      for (let i = 0; i < cubes.length; i++) {
+        const c = cubes[i];
+        const u = c.u;
+
+        // 1. Center Axis Rotation (with optional subtle vortex spiral twist)
+        const theta = baseRotationAngle + (u * state.twist * Math.PI);
+        const cosT = Math.cos(theta);
+        const sinT = Math.sin(theta);
+
+        // 2. Depth Motion Dynamics
+        let zShift = 0;
+        let scaleDynamic = 1.0;
+
+        if (state.motionMode === 'surge') {
+          // Smooth forward and backward travel along the depth axis (sinusoidal continuous loop)
+          zShift = state.travelAmp * Math.sin(globalTime * state.travelFreq);
+          scaleDynamic = 1.0 + 0.1 * Math.sin(globalTime * state.travelFreq);
+        } else if (state.motionMode === 'wave') {
+          // Traveling wave cascading forward and backward through the tunnel rings
+          const wavePhase = -u * 2.2;
+          zShift = state.travelAmp * Math.sin(globalTime * state.travelFreq + wavePhase);
+          scaleDynamic = 1.0 + 0.12 * Math.sin(globalTime * state.travelFreq + wavePhase);
+        } else if (state.motionMode === 'warp') {
+          // Hyperspace continuous forward travel loop
+          const offset = (c.baseZ + globalTime * 200) % totalDepthSpan;
+          const adjustedOffset = offset < 0 ? offset + totalDepthSpan : offset;
+          c.currZ = TUNNEL_CONFIG.Z_FRONT - adjustedOffset;
+        }
+
+        if (state.motionMode !== 'warp') {
+          c.currZ = c.baseZ + zShift;
+        }
+
+        // 3. Rotated Ring Coordinates around center axis
+        c.currX = c.baseX * cosT - c.baseY * sinT;
+        c.currY = c.baseX * sinT + c.baseY * cosT;
+
+        // 4. Dynamic Scaled Size
+        const finalScale = c.baseScale * state.scaleMult * scaleDynamic;
+
+        // 5. Native XTK Magic Mode Shading Check
+        if (c.mesh.magicmode !== state.magicMode) {
+          c.mesh.magicmode = state.magicMode;
+        }
+
+        // 6. In-place Matrix Transformation (Zero GC Allocation)
+        // Rotating by theta around the Z-axis ensures each cube stays aligned with its square ring
+        setCubeTransform(c.mesh, c.currX, c.currY, c.currZ, 0, 0, theta, finalScale);
+      }
+    }
+
+    // --- Action Helpers ---
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.classList.add('show');
+      clearTimeout(toast._timer);
+      toast._timer = setTimeout(() => {
+        toast.classList.remove('show');
+      }, 1800);
+    }
+
+    function resetCamera() {
+      if (!renderer) return;
+      state.autoOrbit = false;
+      document.getElementById('toggle-orbit').checked = false;
+      renderer.camera.position = [TUNNEL_CONFIG.CAM_INITIAL_POS[0], TUNNEL_CONFIG.CAM_INITIAL_POS[1], TUNNEL_CONFIG.CAM_INITIAL_POS[2]];
+      renderer.camera.focus = [TUNNEL_CONFIG.CAM_INITIAL_FOCUS[0], TUNNEL_CONFIG.CAM_INITIAL_FOCUS[1], TUNNEL_CONFIG.CAM_INITIAL_FOCUS[2]];
+      renderer.camera.up = [0, 1, 0];
+      showToast('🎯 View Reset: Looking Directly into Tunnel');
+    }
+
+    function togglePause() {
+      state.isPaused = !state.isPaused;
+      document.getElementById('pause-icon').textContent = state.isPaused ? '▶️' : '⏸️';
+      document.getElementById('pause-label').textContent = state.isPaused ? 'Resume' : 'Pause';
+      document.getElementById('btn-pause').classList.toggle('active', state.isPaused);
+      showToast(state.isPaused ? '⏸️ Animation Paused' : '▶️ Animation Resumed');
+    }
+
+    function toggleMagicMode() {
+      state.magicMode = !state.magicMode;
+      document.getElementById('btn-magic').classList.toggle('active', state.magicMode);
+      showToast(`✨ XTK Magic Mode: ${state.magicMode ? 'ON' : 'OFF'}`);
+    }
+
+    // --- UI Controls & Event Listeners Binding ---
+    function setupUI() {
+      // 1. Motion Style Buttons
+      const motionBtns = document.querySelectorAll('[data-motion]');
+      motionBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          motionBtns.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          state.motionMode = btn.dataset.motion;
+          showToast(`Motion: ${btn.textContent.toUpperCase()}`);
+        });
+      });
+
+      // 2. Palette Buttons
+      const paletteBtns = document.querySelectorAll('[data-palette]');
+      paletteBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          paletteBtns.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          state.palette = btn.dataset.palette;
+          applyPaletteToAllCubes();
+          showToast(`Palette: ${btn.textContent}`);
+        });
+      });
+
+      // 3. Header Action Buttons
+      document.getElementById('btn-reset-cam').addEventListener('click', resetCamera);
+      document.getElementById('btn-pause').addEventListener('click', togglePause);
+      document.getElementById('btn-magic').addEventListener('click', toggleMagicMode);
+
+      // 4. Hide / Show HUD
+      let hudVisible = true;
+      const hudEl = document.getElementById('hud');
+      const toggleHudBtn = document.getElementById('btn-toggle-hud');
+      toggleHudBtn.addEventListener('click', () => {
+        hudVisible = !hudVisible;
+        document.getElementById('controls-panel').style.display = hudVisible ? 'block' : 'none';
+        document.querySelector('.footer-bar').style.display = hudVisible ? 'flex' : 'none';
+        toggleHudBtn.innerHTML = hudVisible ? '👁️ Hide HUD' : '👁️ Show HUD';
+        showToast(hudVisible ? 'HUD Shown' : 'HUD Hidden (Press H to restore)');
+      });
+
+      // 5. Interactive Sliders
+      const bindSlider = (id, labelId, key, format = (v) => v) => {
+        const slider = document.getElementById(id);
+        const label = document.getElementById(labelId);
+        slider.addEventListener('input', (e) => {
+          const val = parseFloat(e.target.value);
+          state[key] = val;
+          label.textContent = format(val);
+        });
+      };
+
+      bindSlider('slider-speed', 'val-speed', 'speed', v => v.toFixed(1) + 'x');
+      bindSlider('slider-rotation', 'val-rotation', 'rotSpeed', v => v.toFixed(2));
+      bindSlider('slider-amplitude', 'val-amplitude', 'travelAmp', v => Math.round(v));
+      bindSlider('slider-twist', 'val-twist', 'twist', v => v.toFixed(2));
+      bindSlider('slider-size', 'val-size', 'scaleMult', v => v.toFixed(2) + 'x');
+
+      // 6. Toggles
+      document.getElementById('toggle-orbit').addEventListener('change', (e) => {
+        state.autoOrbit = e.target.checked;
+        if (!state.autoOrbit) {
+          resetCamera();
+        } else {
+          showToast('Cinematic Auto-Orbit Activated');
+        }
+      });
+
+      document.getElementById('toggle-audio').addEventListener('change', (e) => {
+        state.audioActive = e.target.checked;
+        if (state.audioActive) {
+          startAudio();
+          showToast('Ambient Synth: ON 🔊');
+        } else {
+          stopAudio();
+          showToast('Ambient Synth: MUTED 🔇');
+        }
+      });
+
+      // 7. Keyboard Shortcuts
+      window.addEventListener('keydown', (e) => {
+        if (e.target.tagName === 'INPUT') return;
+        const key = e.key.toUpperCase();
+
+        if (key === ' ' || key === 'P') {
+          e.preventDefault();
+          togglePause();
+        } else if (key === 'R') {
+          resetCamera();
+        } else if (key === 'M') {
+          toggleMagicMode();
+        } else if (key === 'H') {
+          toggleHudBtn.click();
+        } else if (key === 'C') {
+          // Cycle through palettes
+          const palettes = ['tunnel-cool', 'cyberpunk', 'aurora', 'magma'];
+          const idx = (palettes.indexOf(state.palette) + 1) % palettes.length;
+          const nextPal = palettes[idx];
+          const btn = document.querySelector(`[data-palette="${nextPal}"]`);
+          if (btn) btn.click();
+        } else if (key === '1') {
+          document.querySelector('[data-motion="surge"]').click();
+        } else if (key === '2') {
+          document.querySelector('[data-motion="wave"]').click();
+        } else if (key === '3') {
+          document.querySelector('[data-motion="warp"]').click();
+        }
+      });
+    }
+
+    // --- Boot on Load ---
+    window.onload = function() {
+      initStarfield();
+      setupUI();
+      initXTKScene();
+    };
+  </script>
+</body>
+</html>

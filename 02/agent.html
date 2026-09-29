@@ -1,0 +1,1520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CS460 - XTK 3D Cube Art Visualization</title>
+  <style>
+    /* Reset & Base */
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    html, body {
+      background-color: #030308;
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      color: #e0e6ed;
+    }
+
+    /* Ambient background gradient behind WebGL canvas */
+    #bg-glow {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at 50% 50%, rgba(20, 25, 45, 0.6) 0%, rgba(3, 3, 8, 0.95) 100%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Fullscreen WebGL Container */
+    #webgl-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    /* Click shockwave overlay */
+    #click-effect {
+      position: absolute;
+      pointer-events: none;
+      border-radius: 50%;
+      border: 2px solid rgba(0, 240, 255, 0.8);
+      transform: translate(-50%, -50%) scale(0);
+      opacity: 1;
+      transition: transform 0.6s cubic-bezier(0.1, 0.8, 0.3, 1), opacity 0.6s ease-out;
+      z-index: 5;
+    }
+
+    /* HUD Overlay Layer */
+    .hud-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none; /* Let clicks pass to 3D canvas */
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 20px;
+      transition: opacity 0.3s ease;
+    }
+
+    .interactive {
+      pointer-events: auto; /* Enable controls interaction */
+    }
+
+    /* Glassmorphism Card Style */
+    .glass-panel {
+      background: rgba(12, 16, 28, 0.72);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 14px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      color: #e0e6ed;
+    }
+
+    /* Top Header */
+    .header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 22px;
+      margin-bottom: 12px;
+    }
+
+    .brand-title {
+      font-size: 1.15rem;
+      font-weight: 800;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      background: linear-gradient(135deg, #00f0ff 0%, #7928ca 50%, #ff007a 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .badge {
+      display: inline-block;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: rgba(0, 240, 255, 0.15);
+      color: #00f0ff;
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      vertical-align: middle;
+    }
+
+    .header-stats {
+      display: flex;
+      gap: 18px;
+      font-size: 0.8rem;
+      color: #8da2be;
+    }
+
+    .stat-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .stat-val {
+      color: #00f0ff;
+      font-weight: 700;
+      font-family: "SF Mono", Menlo, Consolas, monospace;
+    }
+
+    /* Main Dashboard Layout */
+    .dashboard-body {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      flex: 1;
+      gap: 20px;
+      overflow: hidden;
+    }
+
+    /* Left Sidebar: Formations & Colors */
+    .left-sidebar {
+      width: 280px;
+      max-height: calc(100vh - 170px);
+      overflow-y: auto;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .left-sidebar::-webkit-scrollbar {
+      width: 4px;
+    }
+    .left-sidebar::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 4px;
+    }
+
+    .panel-section-title {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: #6d84a3;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Button Grids */
+    .btn-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .btn-grid-1col {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 7px;
+    }
+
+    .hud-btn {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: #c4d1e2;
+      padding: 8px 12px;
+      border-radius: 9px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    .hud-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #ffffff;
+      border-color: rgba(255, 255, 255, 0.25);
+      transform: translateY(-1px);
+    }
+
+    .hud-btn:active {
+      transform: translateY(1px);
+    }
+
+    .hud-btn.active {
+      background: linear-gradient(135deg, rgba(0, 240, 255, 0.25), rgba(121, 40, 202, 0.25));
+      border-color: #00f0ff;
+      color: #ffffff;
+      box-shadow: 0 0 15px rgba(0, 240, 255, 0.3);
+    }
+
+    .hud-btn .key-hint {
+      font-size: 0.65rem;
+      color: #637794;
+      font-family: monospace;
+      padding: 1px 4px;
+      border-radius: 4px;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .hud-btn.active .key-hint {
+      color: #00f0ff;
+      border-color: rgba(0, 240, 255, 0.3);
+    }
+
+    /* Action Trigger Buttons */
+    .action-btn {
+      width: 100%;
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+    }
+
+    .btn-supernova {
+      background: linear-gradient(135deg, #ff007a, #ff5e3a);
+      color: #fff;
+      box-shadow: 0 4px 15px rgba(255, 0, 122, 0.35);
+    }
+    .btn-supernova:hover {
+      box-shadow: 0 6px 20px rgba(255, 0, 122, 0.6);
+      transform: translateY(-2px);
+    }
+
+    .btn-blackhole {
+      background: linear-gradient(135deg, #7928ca, #4a00e0);
+      color: #fff;
+      box-shadow: 0 4px 15px rgba(121, 40, 202, 0.35);
+    }
+    .btn-blackhole:hover {
+      box-shadow: 0 6px 20px rgba(121, 40, 202, 0.6);
+      transform: translateY(-2px);
+    }
+
+    .btn-magic {
+      background: linear-gradient(135deg, #00f0ff, #0070f3);
+      color: #fff;
+      box-shadow: 0 4px 15px rgba(0, 240, 255, 0.35);
+    }
+    .btn-magic:hover {
+      box-shadow: 0 6px 20px rgba(0, 240, 255, 0.6);
+      transform: translateY(-2px);
+    }
+
+    /* Right Sidebar: Sliders & Controls */
+    .right-sidebar {
+      width: 260px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .slider-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .slider-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.74rem;
+      color: #8da2be;
+      font-weight: 600;
+    }
+
+    .slider-val {
+      color: #00f0ff;
+      font-family: monospace;
+    }
+
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 5px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 5px;
+      outline: none;
+      transition: background 0.2s;
+    }
+
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: #00f0ff;
+      cursor: pointer;
+      box-shadow: 0 0 10px #00f0ff;
+      transition: transform 0.15s ease;
+    }
+
+    input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    /* Toggle switches */
+    .toggle-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 0;
+      font-size: 0.78rem;
+      color: #c4d1e2;
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 36px;
+      height: 20px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .switch-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(255, 255, 255, 0.12);
+      transition: .3s;
+      border-radius: 20px;
+    }
+
+    .switch-slider:before {
+      position: absolute;
+      content: "";
+      height: 14px;
+      width: 14px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .3s;
+      border-radius: 50%;
+    }
+
+    input:checked + .switch-slider {
+      background-color: #00f0ff;
+    }
+
+    input:checked + .switch-slider:before {
+      transform: translateX(16px);
+      background-color: #030308;
+    }
+
+    /* Bottom Bar */
+    .bottom-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 20px;
+      margin-top: 12px;
+      font-size: 0.75rem;
+      color: #7b91af;
+    }
+
+    .hint-text {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .hint-chip {
+      background: rgba(255, 255, 255, 0.08);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: #c4d1e2;
+      font-family: monospace;
+      font-size: 0.7rem;
+    }
+
+    .hud-toggle-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #8da2be;
+      padding: 5px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.72rem;
+      transition: all 0.2s;
+    }
+    .hud-toggle-btn:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    /* Mini notification toast */
+    #toast {
+      position: absolute;
+      top: 85px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-20px);
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid #00f0ff;
+      box-shadow: 0 10px 25px rgba(0, 240, 255, 0.3);
+      color: #fff;
+      padding: 8px 18px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.3s cubic-bezier(0.1, 0.8, 0.2, 1);
+      z-index: 20;
+    }
+    #toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+
+    /* Loading overlay */
+    #loader {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #030308;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      transition: opacity 0.6s ease;
+    }
+    .spinner {
+      width: 50px;
+      height: 50px;
+      border: 3px solid rgba(0, 240, 255, 0.15);
+      border-top-color: #00f0ff;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 16px;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .loader-text {
+      font-size: 0.9rem;
+      letter-spacing: 2px;
+      color: #8da2be;
+      text-transform: uppercase;
+    }
+  </style>
+
+  <!-- Load XTK WebGL Framework (Official CS460 Edge Distribution) -->
+  <script type="text/javascript" src="https://get.goxtk.com/xtk_edge.js"></script>
+</head>
+<body>
+
+  <!-- Background Ambient Glow -->
+  <div id="bg-glow"></div>
+
+  <!-- WebGL Render Canvas Container -->
+  <div id="webgl-container"></div>
+
+  <!-- Click Shockwave Animation Element -->
+  <div id="click-effect"></div>
+
+  <!-- HUD Notification Toast -->
+  <div id="toast">Formation Changed</div>
+
+  <!-- Initial Loading Screen -->
+  <div id="loader">
+    <div class="spinner"></div>
+    <div class="loader-text">Initializing XTK WebGL Engine...</div>
+  </div>
+
+  <!-- HUD Interface Overlay -->
+  <div class="hud-layer" id="hud">
+    
+    <!-- Top Header Bar -->
+    <header class="header-bar glass-panel interactive">
+      <div class="brand-title">
+        <span>XTK CUBE ART // 3D SYNAPSE</span>
+        <span class="badge">WEBGL</span>
+        <span class="badge" style="color: #ff007a; border-color: rgba(255,0,122,0.3); background: rgba(255,0,122,0.15);">CS460</span>
+      </div>
+      <div class="header-stats">
+        <div class="stat-item">
+          <span>FPS:</span>
+          <span class="stat-val" id="stat-fps">60</span>
+        </div>
+        <div class="stat-item">
+          <span>CUBES:</span>
+          <span class="stat-val" id="stat-cubes">216</span>
+        </div>
+        <div class="stat-item">
+          <span>MODE:</span>
+          <span class="stat-val" id="stat-mode">GALAXY</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Dashboard Controls -->
+    <main class="dashboard-body">
+      
+      <!-- Left Panel: Formations & Palettes & Triggers -->
+      <aside class="left-sidebar glass-panel interactive">
+        
+        <!-- Formations -->
+        <div>
+          <div class="panel-section-title">
+            <span>Formations</span>
+            <span style="font-size: 0.65rem;">[KEYS 1-6]</span>
+          </div>
+          <div class="btn-grid-1col">
+            <button class="hud-btn active" data-formation="galaxy">
+              <span>🌀 Galaxy Vortex</span>
+              <span class="key-hint">1</span>
+            </button>
+            <button class="hud-btn" data-formation="wave">
+              <span>🌊 Matrix Wave</span>
+              <span class="key-hint">2</span>
+            </button>
+            <button class="hud-btn" data-formation="warp">
+              <span>🚀 Warp Speed (Flying)</span>
+              <span class="key-hint">3</span>
+            </button>
+            <button class="hud-btn" data-formation="helix">
+              <span>🧬 DNA Double Helix</span>
+              <span class="key-hint">4</span>
+            </button>
+            <button class="hud-btn" data-formation="sphere">
+              <span>🔮 Quantum Sphere</span>
+              <span class="key-hint">5</span>
+            </button>
+            <button class="hud-btn" data-formation="rings">
+              <span>🪐 Saturn Orbital Rings</span>
+              <span class="key-hint">6</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Color Themes -->
+        <div>
+          <div class="panel-section-title">
+            <span>Color Palettes</span>
+            <span style="font-size: 0.65rem;">[KEY C]</span>
+          </div>
+          <div class="btn-grid">
+            <button class="hud-btn active" data-palette="rainbow">🌈 Chroma</button>
+            <button class="hud-btn" data-palette="cyberpunk">⚡ Neon</button>
+            <button class="hud-btn" data-palette="magma">🔥 Magma</button>
+            <button class="hud-btn" data-palette="aurora">🌌 Aurora</button>
+            <button class="hud-btn" data-palette="matrix">💻 Matrix</button>
+            <button class="hud-btn" data-palette="ice">❄️ Ice Star</button>
+          </div>
+        </div>
+
+        <!-- Dynamic Actions & Physics Triggers -->
+        <div>
+          <div class="panel-section-title">
+            <span>Physics Triggers</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <button class="action-btn btn-supernova" id="btn-supernova">
+              <span>💥 SUPERNOVA BLAST</span>
+              <span class="key-hint" style="background: rgba(0,0,0,0.3); color: #fff;">[SPACE]</span>
+            </button>
+            <button class="action-btn btn-blackhole" id="btn-blackhole">
+              <span>🌪️ GRAVITY VORTEX</span>
+              <span class="key-hint" style="background: rgba(0,0,0,0.3); color: #fff;">[B]</span>
+            </button>
+            <button class="action-btn btn-magic" id="btn-magic">
+              <span>✨ MAGIC MODE (XTK)</span>
+              <span class="key-hint" style="background: rgba(0,0,0,0.3); color: #fff;">[M]</span>
+            </button>
+          </div>
+        </div>
+
+      </aside>
+
+      <!-- Right Panel: Sliders & Settings -->
+      <aside class="right-sidebar glass-panel interactive">
+        
+        <div class="panel-section-title">
+          <span>Animation Controls</span>
+        </div>
+
+        <!-- Speed Slider -->
+        <div class="slider-group">
+          <div class="slider-label">
+            <span>Simulation Speed</span>
+            <span class="slider-val" id="val-speed">1.0x</span>
+          </div>
+          <input type="range" id="slider-speed" min="0.1" max="3.0" step="0.1" value="1.0">
+        </div>
+
+        <!-- Wave Amplitude / Turbulence Slider -->
+        <div class="slider-group">
+          <div class="slider-label">
+            <span>Wave Amplitude</span>
+            <span class="slider-val" id="val-amplitude">30</span>
+          </div>
+          <input type="range" id="slider-amplitude" min="5" max="80" step="1" value="30">
+        </div>
+
+        <!-- Cube Scale Slider -->
+        <div class="slider-group">
+          <div class="slider-label">
+            <span>Cube Geometry Size</span>
+            <span class="slider-val" id="val-size">1.0x</span>
+          </div>
+          <input type="range" id="slider-size" min="0.3" max="2.2" step="0.1" value="1.0">
+        </div>
+
+        <!-- Flying / Warp Velocity Slider -->
+        <div class="slider-group">
+          <div class="slider-label">
+            <span>Warp Flight Velocity</span>
+            <span class="slider-val" id="val-warp">180</span>
+          </div>
+          <input type="range" id="slider-warp" min="40" max="450" step="10" value="180">
+        </div>
+
+        <!-- Camera Auto-Orbit Speed Slider -->
+        <div class="slider-group">
+          <div class="slider-label">
+            <span>Camera Orbit Speed</span>
+            <span class="slider-val" id="val-orbit">0.5x</span>
+          </div>
+          <input type="range" id="slider-orbit" min="0.0" max="2.0" step="0.1" value="0.5">
+        </div>
+
+        <div class="panel-section-title" style="margin-top: 10px;">
+          <span>Toggles & Sound</span>
+        </div>
+
+        <!-- Camera Auto-Orbit Toggle -->
+        <div class="toggle-row">
+          <span>Auto-Orbit Camera</span>
+          <label class="switch">
+            <input type="checkbox" id="toggle-orbit" checked>
+            <span class="switch-slider"></span>
+          </label>
+        </div>
+
+        <!-- Audio Reactive Synth Toggle -->
+        <div class="toggle-row">
+          <span>Synth Audio Beat</span>
+          <label class="switch">
+            <input type="checkbox" id="toggle-audio">
+            <span class="switch-slider"></span>
+          </label>
+        </div>
+
+        <!-- Play / Pause & Randomize Buttons -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px;">
+          <button class="hud-btn" id="btn-pause" style="justify-content: center; font-weight: 700;">
+            <span id="label-pause">⏸️ Pause</span>
+          </button>
+          <button class="hud-btn" id="btn-random" style="justify-content: center; font-weight: 700;">
+            <span>🎲 Random</span>
+          </button>
+        </div>
+
+        <button class="hud-btn" id="btn-reset-cam" style="justify-content: center; font-weight: 700; margin-top: 4px;">
+          <span>🔄 Reset Camera [R]</span>
+        </button>
+
+      </aside>
+
+    </main>
+
+    <!-- Bottom Telemetry & Navigation Tips -->
+    <footer class="bottom-bar glass-panel interactive">
+      <div class="hint-text">
+        <span>🖱️ <b>Drag:</b> Orbit/Pan</span>
+        <span>•</span>
+        <span><b>Scroll:</b> Zoom</span>
+        <span>•</span>
+        <span><b>Click 3D Space:</b> Shockwave Burst</span>
+        <span>•</span>
+        <span><span class="hint-chip">1-6</span> Formations</span>
+        <span><span class="hint-chip">C</span> Color</span>
+        <span><span class="hint-chip">Space</span> Blast</span>
+        <span><span class="hint-chip">M</span> Magic</span>
+        <span><span class="hint-chip">P</span> Pause</span>
+      </div>
+      <div>
+        <button class="hud-toggle-btn" id="btn-toggle-hud">Hide HUD [H]</button>
+      </div>
+    </footer>
+
+  </div>
+
+  <!-- Main JavaScript Logic -->
+  <script type="text/javascript">
+    /**
+     * CS460 Computer Graphics - XTK WebGL Interactive Cube Art Engine
+     * Powered by The X Toolkit (XTK)
+     * Features:
+     * - 6 Geometric Formations (Galaxy Vortex, Matrix Wave, Warp Flight, DNA Helix, Quantum Sphere, Saturn Rings)
+     * - 6 Dynamic Color Schemes (Chroma Rainbow, Cyberpunk Neon, Magma Flare, Aurora, Matrix, Ice Star)
+     * - Native XTK Magic Mode vertex shading
+     * - Physics Simulation: Flying cubes, Velocity, Supernova explosion blast, Black hole gravity well
+     * - Click-to-Shockwave spatial explosion
+     * - Ambient Generative Web Audio API Synthesizer
+     * - Real-time matrix manipulation with zero GC allocation
+     */
+
+    // --- State & Settings ---
+    const TOTAL_CUBES = 216; // 6x6x6 grid count
+    const cubes = [];
+    let renderer = null;
+
+    const state = {
+      formation: 'galaxy',    // 'galaxy' | 'wave' | 'warp' | 'helix' | 'sphere' | 'rings'
+      palette: 'rainbow',     // 'rainbow' | 'cyberpunk' | 'magma' | 'aurora' | 'matrix' | 'ice'
+      speed: 1.0,
+      amplitude: 30.0,
+      cubeScale: 1.0,
+      warpSpeed: 180.0,
+      orbitSpeed: 0.5,
+      autoOrbit: true,
+      audioActive: false,
+      isPaused: false,
+      magicMode: false,
+      cameraAngle: 0,
+      cameraDistance: 450,
+      cameraElevation: 120
+    };
+
+    // Telemetry & Timing
+    let lastTime = performance.now();
+    let globalTime = 0;
+    let frameCount = 0;
+    let lastFpsUpdate = performance.now();
+    let shockwave = { active: false, x: 0, y: 0, z: 0, radius: 0, maxRadius: 350, strength: 0 };
+    let blackHoleActive = false;
+    let blackHoleTimer = 0;
+
+    // --- Web Audio Synthesizer (Zero External Dependencies) ---
+    let audioCtx = null;
+    let synthInterval = null;
+    let audioBeatPulse = 0;
+    const notes = [130.81, 164.81, 196.00, 246.94, 261.63, 329.63, 392.00, 493.88]; // Pentatonic space scale
+
+    function initAudio() {
+      if (audioCtx) return;
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContext();
+      } catch (e) {
+        console.warn('Web Audio not supported:', e);
+      }
+    }
+
+    function playSynthTone(freq, duration, type = 'sine') {
+      if (!audioCtx || audioCtx.state !== 'running') return;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+
+      gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      osc.start();
+      osc.stop(audioCtx.currentTime + duration);
+    }
+
+    function startSynthBeat() {
+      initAudio();
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      let step = 0;
+      synthInterval = setInterval(() => {
+        if (!state.audioActive || state.isPaused) return;
+        const note = notes[step % notes.length];
+        playSynthTone(note, 0.45, 'sine');
+        if (step % 4 === 0) {
+          playSynthTone(65.41, 0.7, 'triangle'); // Sub bass drop
+          audioBeatPulse = 1.0;
+        }
+        step++;
+      }, 220);
+    }
+
+    function stopSynthBeat() {
+      if (synthInterval) {
+        clearInterval(synthInterval);
+        synthInterval = null;
+      }
+      audioBeatPulse = 0;
+    }
+
+    // --- Color Algorithms ---
+    function hslToRgb(h, s, l) {
+      let r, g, b;
+      if (s === 0) {
+        r = g = b = l;
+      } else {
+        const hue2rgb = (p, q, t) => {
+          if (t < 0) t += 1;
+          if (t > 1) t -= 1;
+          if (t < 1/6) return p + (q - p) * 6 * t;
+          if (t < 1/2) return q;
+          if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+          return p;
+        };
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        const p = 2 * l - q;
+        r = hue2rgb(p, q, h + 1/3);
+        g = hue2rgb(p, q, h);
+        b = hue2rgb(p, q, h - 1/3);
+      }
+      return [r, g, b];
+    }
+
+    function getPaletteColor(palette, index, total, dist, time) {
+      const normIdx = index / total;
+      switch (palette) {
+        case 'rainbow': {
+          const hue = (time * 0.12 + dist * 0.002 + normIdx * 0.4) % 1.0;
+          return hslToRgb(hue, 0.95, 0.55);
+        }
+        case 'cyberpunk': {
+          // Neon Pink, Electric Cyan, Hot Violet, Laser Yellow
+          const t = Math.sin(time * 2.0 + normIdx * Math.PI * 2) * 0.5 + 0.5;
+          if (t < 0.33) {
+            return [1.0, 0.05, 0.6]; // Magenta pink
+          } else if (t < 0.66) {
+            return [0.0, 0.92, 1.0]; // Electric cyan
+          } else {
+            return [0.65, 0.1, 1.0]; // Violet purple
+          }
+        }
+        case 'magma': {
+          // Deep crimson, fiery orange, golden yellow
+          const heat = Math.sin(time * 2.5 - dist * 0.015) * 0.5 + 0.5;
+          return [
+            1.0,
+            0.15 + heat * 0.75,
+            heat > 0.8 ? (heat - 0.8) * 4.0 : 0.05
+          ];
+        }
+        case 'aurora': {
+          // Emerald green, arctic teal, vibrant lime
+          const wav = Math.sin(time * 1.5 + normIdx * 5.0) * 0.5 + 0.5;
+          return [0.0, 0.6 + wav * 0.4, 0.4 + (1 - wav) * 0.5];
+        }
+        case 'matrix': {
+          // Phosphor Matrix green, digital cyan highlights
+          const pulse = Math.sin(time * 4.0 + index) * 0.5 + 0.5;
+          return [0.05, 0.6 + pulse * 0.4, 0.2 + pulse * 0.3];
+        }
+        case 'ice': {
+          // Crystalline icy blues and stark silver
+          const sh = Math.cos(time * 1.8 + normIdx * 6.0) * 0.5 + 0.5;
+          return [0.6 + sh * 0.4, 0.8 + sh * 0.2, 1.0];
+        }
+        default:
+          return [1, 1, 1];
+      }
+    }
+
+    // --- Fast Matrix Transformation Math ---
+    // Sets position (x,y,z), orientation (rx,ry,rz) and scale directly into Float32Array(16)
+    function setCubeTransform(cube, x, y, z, rx, ry, rz, scale) {
+      const cx = Math.cos(rx), sx = Math.sin(rx);
+      const cy = Math.cos(ry), sy = Math.sin(ry);
+      const cz = Math.cos(rz), sz = Math.sin(rz);
+
+      // 3D Rotation matrix multiplied by uniform scale
+      const m00 = (cy * cz) * scale;
+      const m01 = (cx * sz + sx * sy * cz) * scale;
+      const m02 = (sx * sz - cx * sy * cz) * scale;
+
+      const m10 = (-cy * sz) * scale;
+      const m11 = (cx * cz - sx * sy * sz) * scale;
+      const m12 = (sx * cz + cx * sy * sz) * scale;
+
+      const m20 = sy * scale;
+      const m21 = (-sx * cy) * scale;
+      const m22 = (cx * cy) * scale;
+
+      const m = cube.transform.matrix;
+      m[0] = m00; m[1] = m01; m[2] = m02; m[3] = 0;
+      m[4] = m10; m[5] = m11; m[6] = m12; m[7] = 0;
+      m[8] = m20; m[9] = m21; m[10] = m22; m[11] = 0;
+      m[12] = x;  m[13] = y;  m[14] = z;  m[15] = 1;
+
+      cube.transform.modified();
+    }
+
+    // --- Geometric Formations Mathematics ---
+    function computeTargetPosition(idx, total, formation, time, amp) {
+      let x = 0, y = 0, z = 0;
+
+      switch (formation) {
+        case 'galaxy': {
+          // Multi-arm logarithmic spiral galaxy with galactic bulge
+          const numArms = 3;
+          const arm = idx % numArms;
+          const armAngle = (arm * 2 * Math.PI) / numArms;
+          const norm = idx / total;
+          const radius = 25 + Math.pow(norm, 0.65) * 190;
+          const spiralAngle = armAngle + Math.log(radius / 20 + 1) * 3.8 + time * 0.4;
+          
+          x = radius * Math.cos(spiralAngle);
+          z = radius * Math.sin(spiralAngle);
+          // Vertical disk thickness with undulating galactic wave
+          const wave = Math.sin(spiralAngle * 2 + time * 1.5) * (amp * 0.5);
+          y = ((idx % 7) - 3) * 6 * Math.exp(-radius / 100) + wave;
+          break;
+        }
+
+        case 'wave': {
+          // 3D Matrix Cube Grid (6x6x6) with harmonic ripple waves
+          const dim = 6;
+          const gx = (idx % dim) - (dim - 1) / 2;
+          const gy = (Math.floor(idx / dim) % dim) - (dim - 1) / 2;
+          const gz = Math.floor(idx / (dim * dim)) - (dim - 1) / 2;
+
+          const spacing = 34;
+          x = gx * spacing;
+          z = gz * spacing;
+          const distFromCenter = Math.sqrt(gx * gx + gz * gz);
+          // Wave undulation
+          const ripple = Math.sin(distFromCenter * 0.85 - time * 2.8) * amp;
+          const subRipple = Math.cos(gx * 0.6 + time * 1.6) * (amp * 0.4);
+          y = gy * spacing + ripple + subRipple;
+          break;
+        }
+
+        case 'warp': {
+          // Warp Speed Tunnel Starfield - Flying cubes with infinite tunnel recycle
+          // The dynamic position is driven in updateCubesPhysics, base returns tunnel bounds
+          const angle = (idx / total) * Math.PI * 2 * 5;
+          const r = 40 + (idx % 8) * 18;
+          x = r * Math.cos(angle);
+          y = r * Math.sin(angle);
+          z = ((idx * 37) % 700) - 350;
+          break;
+        }
+
+        case 'helix': {
+          // DNA Double Helix rotating vertically
+          const strand = idx % 2 === 0 ? 1 : -1;
+          const pairIdx = Math.floor(idx / 2);
+          const totalPairs = total / 2;
+          const height = (pairIdx / totalPairs - 0.5) * 380;
+          const helixAngle = (height / 380) * Math.PI * 6 + time * 1.2;
+          const radius = 80 + Math.sin(time * 2.0 + pairIdx * 0.1) * (amp * 0.2);
+
+          if (idx % 7 === 0) {
+            // Base pair horizontal bridge rung
+            const t = ((idx % 3) - 1) * 0.5;
+            x = radius * Math.cos(helixAngle) * t;
+            z = radius * Math.sin(helixAngle) * t;
+          } else {
+            // Outer double strands
+            x = radius * Math.cos(helixAngle + (strand > 0 ? 0 : Math.PI));
+            z = radius * Math.sin(helixAngle + (strand > 0 ? 0 : Math.PI));
+          }
+          y = height;
+          break;
+        }
+
+        case 'sphere': {
+          // Spherical Fibonacci Quantum Core with rhythmic breathing
+          const goldenRatio = (1 + Math.sqrt(5)) / 2;
+          const theta = 2 * Math.PI * idx / goldenRatio;
+          const phi = Math.acos(1 - 2 * (idx + 0.5) / total);
+          const breath = Math.sin(time * 2.4) * (amp * 0.6);
+          const sphereRadius = 125 + breath;
+
+          x = sphereRadius * Math.sin(phi) * Math.cos(theta);
+          y = sphereRadius * Math.sin(phi) * Math.sin(theta);
+          z = sphereRadius * Math.cos(phi);
+          break;
+        }
+
+        case 'rings': {
+          // Saturn Planetary Orbital Rings
+          const ringCount = 3;
+          const ringIdx = idx % ringCount;
+          const ringRadius = 80 + ringIdx * 50;
+          const ringAngle = (idx / total) * Math.PI * 2 * 3 + time * (0.8 / (ringIdx + 1));
+          
+          const rawX = ringRadius * Math.cos(ringAngle);
+          const rawZ = ringRadius * Math.sin(ringAngle);
+          const rawY = ((idx % 5) - 2) * 4;
+
+          // Tilt ring plane 28 degrees
+          const tilt = 28 * Math.PI / 180;
+          x = rawX;
+          y = rawY * Math.cos(tilt) - rawZ * Math.sin(tilt);
+          z = rawY * Math.sin(tilt) + rawZ * Math.cos(tilt);
+          break;
+        }
+      }
+
+      return { x, y, z };
+    }
+
+    // --- Initialization & Scene Setup ---
+    function initXTKScene() {
+      try {
+        if (typeof X === 'undefined' || !X.renderer3D) {
+          throw new Error('XTK library failed to load from CDN (https://get.goxtk.com/xtk_edge.js). Please ensure internet access is available.');
+        }
+
+        // Create XTK 3D Renderer
+        renderer = new X.renderer3D();
+        renderer.container = 'webgl-container';
+        renderer.init();
+
+        // Configure Camera
+        renderer.camera.position = [0, state.cameraElevation, state.cameraDistance];
+        renderer.camera.focus = [0, 0, 0];
+
+        // Spawn Cubes into the Scene
+        for (let i = 0; i < TOTAL_CUBES; i++) {
+          const c = new X.cube();
+          renderer.add(c);
+
+          // State tracker for this cube
+          cubes.push({
+            mesh: c,
+            index: i,
+            x: (Math.random() - 0.5) * 300,
+            y: (Math.random() - 0.5) * 300,
+            z: (Math.random() - 0.5) * 300,
+            targetX: 0,
+            targetY: 0,
+            targetZ: 0,
+            vx: 0,
+            vy: 0,
+            vz: (Math.random() * 0.5 + 0.8) * state.warpSpeed,
+            rotX: Math.random() * Math.PI * 2,
+            rotY: Math.random() * Math.PI * 2,
+            rotZ: Math.random() * Math.PI * 2,
+            rotSpeedX: (Math.random() - 0.5) * 2.5,
+            rotSpeedY: (Math.random() - 0.5) * 2.5,
+            rotSpeedZ: (Math.random() - 0.5) * 2.5,
+            scale: 1.0,
+            color: [1, 1, 1]
+          });
+        }
+
+        // Initial Render Call
+        renderer.render();
+
+        // Hook continuous render loop
+        renderer.onRender = function() {
+          tick();
+        };
+
+        // Hide Loader Overlay
+        setTimeout(() => {
+          const loader = document.getElementById('loader');
+          if (loader) {
+            loader.style.opacity = '0';
+            setTimeout(() => loader.remove(), 600);
+          }
+        }, 350);
+
+        // Start Watchdog Animation Loop (Guarantees uninterrupted 60FPS)
+        requestAnimationFrame(watchdogLoop);
+      } catch (err) {
+        console.error('XTK Initialization Error:', err);
+        const loader = document.getElementById('loader');
+        if (loader) {
+          loader.innerHTML = `
+            <div style="color: #ff007a; font-size: 2.5rem; margin-bottom: 12px;">⚠️</div>
+            <div style="color: #ff4570; font-weight: 700; font-size: 1.1rem; margin-bottom: 8px;">WebGL / XTK Initialization Error</div>
+            <div style="color: #8da2be; font-size: 0.85rem; max-width: 480px; text-align: center; line-height: 1.5;">${err.message || err}</div>
+            <button onclick="location.reload()" style="margin-top: 20px; padding: 10px 24px; border-radius: 8px; border: 1px solid #00f0ff; background: rgba(0,240,255,0.15); color: #00f0ff; font-weight: 700; cursor: pointer;">Retry</button>
+          `;
+        }
+      }
+    }
+
+    // --- Main Physics, Geometry, and Animation Loop ---
+    function tick() {
+      const now = performance.now();
+      let dt = (now - lastTime) * 0.001;
+      if (dt > 0.1) dt = 0.1; // Clamp large delta
+      lastTime = now;
+
+      // Update FPS Telemetry
+      frameCount++;
+      if (now - lastFpsUpdate >= 500) {
+        const fps = Math.round((frameCount * 1000) / (now - lastFpsUpdate));
+        document.getElementById('stat-fps').textContent = fps;
+        frameCount = 0;
+        lastFpsUpdate = now;
+      }
+
+      if (state.isPaused) return;
+
+      globalTime += dt * state.speed;
+
+      // Camera Auto-Orbiting
+      if (state.autoOrbit) {
+        state.cameraAngle += dt * state.orbitSpeed * 0.5;
+        const camX = Math.sin(state.cameraAngle) * state.cameraDistance;
+        const camZ = Math.cos(state.cameraAngle) * state.cameraDistance;
+        renderer.camera.position = [camX, state.cameraElevation, camZ];
+      }
+
+      // Decay audio beat pulse
+      audioBeatPulse = Math.max(0, audioBeatPulse - dt * 2.5);
+
+      // Update Shockwave Expansion
+      if (shockwave.active) {
+        shockwave.radius += dt * 500;
+        shockwave.strength = Math.max(0, 1 - shockwave.radius / shockwave.maxRadius);
+        if (shockwave.radius > shockwave.maxRadius) {
+          shockwave.active = false;
+        }
+      }
+
+      // Black Hole Vortex Timer
+      if (blackHoleActive) {
+        blackHoleTimer += dt;
+        if (blackHoleTimer > 2.5) {
+          blackHoleActive = false;
+          triggerSupernova(250); // Burst back out
+        }
+      }
+
+      // Effective Base Cube Geometry Scale
+      const baseScale = state.cubeScale * (1.0 + audioBeatPulse * 0.35);
+
+      // Update Every Cube
+      for (let i = 0; i < TOTAL_CUBES; i++) {
+        const c = cubes[i];
+
+        // 1. Calculate Target Formation Coordinates
+        const target = computeTargetPosition(i, TOTAL_CUBES, state.formation, globalTime, state.amplitude);
+        c.targetX = target.x;
+        c.targetY = target.y;
+        c.targetZ = target.z;
+
+        // 2. Physics & Motion Handling
+        if (state.formation === 'warp') {
+          // Flying Starfield Tunnel Physics
+          c.x += (c.targetX - c.x) * 0.08;
+          c.y += (c.targetY - c.y) * 0.08;
+          c.z += state.warpSpeed * state.speed * dt;
+
+          // Infinite warp recycling when cube passes front clipping plane
+          if (c.z > 350) {
+            c.z = -400;
+            const r = 30 + Math.random() * 160;
+            const th = Math.random() * Math.PI * 2;
+            c.x = r * Math.cos(th);
+            c.y = r * Math.sin(th);
+          }
+        } else if (blackHoleActive) {
+          // Black Hole Vortex: Pull toward singularity with tangential swirling
+          const dx = -c.x;
+          const dy = -c.y;
+          const dz = -c.z;
+          const dist = Math.sqrt(dx * dx + dy * dy + dz * dz) + 1.0;
+          const pull = Math.min(600, 30000 / (dist * dist + 100));
+
+          c.vx += (dx / dist) * pull * dt + (-c.z / dist) * 150 * dt;
+          c.vy += (dy / dist) * pull * dt;
+          c.vz += (dz / dist) * pull * dt + (c.x / dist) * 150 * dt;
+
+          c.vx *= 0.94; c.vy *= 0.94; c.vz *= 0.94;
+          c.x += c.vx * dt;
+          c.y += c.vy * dt;
+          c.z += c.vz * dt;
+        } else {
+          // Normal Formation: Spring-damper interpolation towards formation target
+          const lerpFactor = Math.min(1.0, dt * 4.5);
+          c.x += (c.targetX - c.x) * lerpFactor + c.vx * dt;
+          c.y += (c.targetY - c.y) * lerpFactor + c.vy * dt;
+          c.z += (c.targetZ - c.z) * lerpFactor + c.vz * dt;
+
+          // Dampen explosive velocities back towards rest
+          c.vx *= Math.max(0, 1.0 - dt * 2.8);
+          c.vy *= Math.max(0, 1.0 - dt * 2.8);
+          c.vz *= Math.max(0, 1.0 - dt * 2.8);
+        }
+
+        // 3. Shockwave impulse interaction
+        if (shockwave.active) {
+          const dx = c.x - shockwave.x;
+          const dy = c.y - shockwave.y;
+          const dz = c.z - shockwave.z;
+          const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+          const diff = Math.abs(dist - shockwave.radius);
+          if (diff < 60) {
+            const force = (1 - diff / 60) * shockwave.strength * 450;
+            const inv = 1.0 / (dist + 0.1);
+            c.vx += dx * inv * force;
+            c.vy += dy * inv * force;
+            c.vz += dz * inv * force;
+            c.rotSpeedX += (Math.random() - 0.5) * 8.0;
+            c.rotSpeedY += (Math.random() - 0.5) * 8.0;
+          }
+        }
+
+        // 4. Cube Rotations
+        c.rotX += c.rotSpeedX * dt * state.speed;
+        c.rotY += c.rotSpeedY * dt * state.speed;
+        c.rotZ += c.rotSpeedZ * dt * state.speed;
+
+        // 5. Dynamic Colors Calculation
+        const distFromCenter = Math.sqrt(c.x * c.x + c.y * c.y + c.z * c.z);
+        const rgb = getPaletteColor(state.palette, i, TOTAL_CUBES, distFromCenter, globalTime);
+        c.color = rgb;
+        c.mesh.color = rgb;
+
+        // 6. Native XTK Magic Mode Check
+        if (c.mesh.magicmode !== state.magicMode) {
+          c.mesh.magicmode = state.magicMode;
+        }
+
+        // 7. Apply Matrix Transformations In-Place (Zero Garbage Collection!)
+        setCubeTransform(c.mesh, c.x, c.y, c.z, c.rotX, c.rotY, c.rotZ, baseScale);
+      }
+    }
+
+    // Watchdog loop to trigger render in case browser idle-throttles
+    function watchdogLoop() {
+      requestAnimationFrame(watchdogLoop);
+      if (!state.isPaused && renderer) {
+        renderer.render();
+      }
+    }
+
+    // --- Action Triggers ---
+    function triggerSupernova(impulse = 420) {
+      showToast('💥 Supernova Blast Activated!');
+      for (let i = 0; i < TOTAL_CUBES; i++) {
+        const c = cubes[i];
+        // Random 3D spherical direction
+        const u = Math.random();
+        const v = Math.random();
+        const theta = u * 2.0 * Math.PI;
+        const phi = Math.acos(2.0 * v - 1.0);
+        const speed = impulse * (0.6 + Math.random() * 0.8);
+
+        c.vx = speed * Math.sin(phi) * Math.cos(theta);
+        c.vy = speed * Math.sin(phi) * Math.sin(theta);
+        c.vz = speed * Math.cos(phi);
+
+        c.rotSpeedX = (Math.random() - 0.5) * 10.0;
+        c.rotSpeedY = (Math.random() - 0.5) * 10.0;
+        c.rotSpeedZ = (Math.random() - 0.5) * 10.0;
+      }
+      if (state.audioActive) {
+        playSynthTone(110.0, 1.2, 'sawtooth');
+      }
+    }
+
+    function triggerBlackHole() {
+      showToast('🌪️ Gravity Singularity Collapsing...');
+      blackHoleActive = true;
+      blackHoleTimer = 0;
+      if (state.audioActive) {
+        playSynthTone(75.0, 2.0, 'triangle');
+      }
+    }
+
+    function triggerSpatialShockwave(screenX, screenY) {
+      // Unproject roughly to 3D center plane
+      const nx = (screenX / window.innerWidth) * 2 - 1;
+      const ny = -(screenY / window.innerHeight) * 2 + 1;
+      shockwave.x = nx * 180;
+      shockwave.y = ny * 180;
+      shockwave.z = 0;
+      shockwave.radius = 0;
+      shockwave.strength = 1.0;
+      shockwave.active = true;
+
+      // Animate shockwave visual ring
+      const ring = document.getElementById('click-effect');
+      ring.style.left = screenX + 'px';
+      ring.style.top = screenY + 'px';
+      ring.style.transform = 'translate(-50%, -50%) scale(0)';
+      ring.style.opacity = '1';
+      ring.style.borderColor = state.palette === 'magma' ? '#ff4500' : '#00f0ff';
+      ring.offsetHeight; // trigger reflow
+      ring.style.transform = 'translate(-50%, -50%) scale(6)';
+      ring.style.opacity = '0';
+
+      if (state.audioActive) {
+        playSynthTone(340.0, 0.3, 'sine');
+      }
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.classList.add('show');
+      clearTimeout(toast._timeout);
+      toast._timeout = setTimeout(() => {
+        toast.classList.remove('show');
+      }, 1800);
+    }
+
+    // --- UI Controls Binding ---
+    function setupUI() {
+      // 1. Formation buttons
+      const formationBtns = document.querySelectorAll('[data-formation]');
+      formationBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          formationBtns.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          state.formation = btn.dataset.formation;
+          document.getElementById('stat-mode').textContent = state.formation.toUpperCase();
+          showToast(`Formation: ${state.formation.toUpperCase()}`);
+        });
+      });
+
+      // 2. Palette buttons
+      const paletteBtns = document.querySelectorAll('[data-palette]');
+      paletteBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          paletteBtns.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          state.palette = btn.dataset.palette;
+          showToast(`Color Palette: ${state.palette.toUpperCase()}`);
+        });
+      });
+
+      // 3. Trigger buttons
+      document.getElementById('btn-supernova').addEventListener('click', () => triggerSupernova(450));
+      document.getElementById('btn-blackhole').addEventListener('click', triggerBlackHole);
+      document.getElementById('btn-magic').addEventListener('click', () => {
+        state.magicMode = !state.magicMode;
+        document.getElementById('btn-magic').classList.toggle('active', state.magicMode);
+        showToast(`XTK Magic Mode: ${state.magicMode ? 'ON ✨' : 'OFF'}`);
+      });
+
+      // 4. Sliders
+      const bindSlider = (id, valId, key, suffix = '') => {
+        const slider = document.getElementById(id);
+        const display = document.getElementById(valId);
+        slider.addEventListener('input', (e) => {
+          const val = parseFloat(e.target.value);
+          state[key] = val;
+          display.textContent = val + suffix;
+        });
+      };
+      bindSlider('slider-speed', 'val-speed', 'speed', 'x');
+      bindSlider('slider-amplitude', 'val-amplitude', 'amplitude', '');
+      bindSlider('slider-size', 'val-size', 'cubeScale', 'x');
+      bindSlider('slider-warp', 'val-warp', 'warpSpeed', '');
+      bindSlider('slider-orbit', 'val-orbit', 'orbitSpeed', 'x');
+
+      // 5. Toggles
+      document.getElementById('toggle-orbit').addEventListener('change', (e) => {
+        state.autoOrbit = e.target.checked;
+      });
+
+      document.getElementById('toggle-audio').addEventListener('change', (e) => {
+        state.audioActive = e.target.checked;
+        if (state.audioActive) {
+          startSynthBeat();
+          showToast('Audio Synth Reactive: ON 🔊');
+        } else {
+          stopSynthBeat();
+          showToast('Audio Synth: MUTED 🔇');
+        }
+      });
+
+      // 6. Play / Pause
+      const btnPause = document.getElementById('btn-pause');
+      const labelPause = document.getElementById('label-pause');
+      btnPause.addEventListener('click', () => {
+        state.isPaused = !state.isPaused;
+        labelPause.textContent = state.isPaused ? '▶️ Resume' : '⏸️ Pause';
+        btnPause.classList.toggle('active', state.isPaused);
+        showToast(state.isPaused ? 'Paused' : 'Resumed');
+      });
+
+      // 7. Randomizer
+      document.getElementById('btn-random').addEventListener('click', () => {
+        const forms = ['galaxy', 'wave', 'warp', 'helix', 'sphere', 'rings'];
+        const pals = ['rainbow', 'cyberpunk', 'magma', 'aurora', 'matrix', 'ice'];
+        const randomForm = forms[Math.floor(Math.random() * forms.length)];
+        const randomPal = pals[Math.floor(Math.random() * pals.length)];
+
+        document.querySelector(`[data-formation="${randomForm}"]`).click();
+        document.querySelector(`[data-palette="${randomPal}"]`).click();
+
+        document.getElementById('slider-speed').value = (Math.random() * 1.8 + 0.5).toFixed(1);
+        document.getElementById('slider-speed').dispatchEvent(new Event('input'));
+
+        document.getElementById('slider-amplitude').value = Math.floor(Math.random() * 50 + 15);
+        document.getElementById('slider-amplitude').dispatchEvent(new Event('input'));
+      });
+
+      // 8. Reset Camera
+      document.getElementById('btn-reset-cam').addEventListener('click', () => {
+        state.cameraAngle = 0;
+        renderer.camera.position = [0, state.cameraElevation, state.cameraDistance];
+        renderer.camera.focus = [0, 0, 0];
+        showToast('Camera Reset');
+      });
+
+      // 9. Hide / Show HUD
+      let hudVisible = true;
+      const hudEl = document.getElementById('hud');
+      const btnToggleHud = document.getElementById('btn-toggle-hud');
+      btnToggleHud.addEventListener('click', () => {
+        hudVisible = !hudVisible;
+        hudEl.style.opacity = hudVisible ? '1' : '0.15';
+        btnToggleHud.textContent = hudVisible ? 'Hide HUD [H]' : 'Show HUD [H]';
+      });
+
+      // 10. Click to trigger shockwave burst in 3D canvas
+      window.addEventListener('pointerdown', (e) => {
+        // Only trigger if click wasn't on an interactive HUD control
+        if (e.target.closest('.interactive')) return;
+        triggerSpatialShockwave(e.clientX, e.clientY);
+      });
+
+      // 11. Keyboard Shortcuts
+      window.addEventListener('keydown', (e) => {
+        if (e.target.tagName === 'INPUT') return;
+        const key = e.key.toUpperCase();
+
+        if (key >= '1' && key <= '6') {
+          const forms = ['galaxy', 'wave', 'warp', 'helix', 'sphere', 'rings'];
+          const targetForm = forms[parseInt(key) - 1];
+          const btn = document.querySelector(`[data-formation="${targetForm}"]`);
+          if (btn) btn.click();
+        } else if (key === 'C') {
+          // Cycle palettes
+          const pals = ['rainbow', 'cyberpunk', 'magma', 'aurora', 'matrix', 'ice'];
+          const nextIdx = (pals.indexOf(state.palette) + 1) % pals.length;
+          const btn = document.querySelector(`[data-palette="${pals[nextIdx]}"]`);
+          if (btn) btn.click();
+        } else if (e.code === 'Space') {
+          e.preventDefault();
+          triggerSupernova(450);
+        } else if (key === 'B') {
+          triggerBlackHole();
+        } else if (key === 'M') {
+          document.getElementById('btn-magic').click();
+        } else if (key === 'P') {
+          document.getElementById('btn-pause').click();
+        } else if (key === 'R') {
+          document.getElementById('btn-reset-cam').click();
+        } else if (key === 'H') {
+          btnToggleHud.click();
+        }
+      });
+    }
+
+    // --- Boot Application on Window Load ---
+    window.onload = function() {
+      setupUI();
+      initXTKScene();
+    };
+  </script>
+</body>
+</html>
