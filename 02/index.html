@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CS460 - XTK Exploding Orange Cube into Octahedrons</title>
+  <style>
+    :root {
+      --bg: #07090e;
+      --orange: #ff7700;
+      --orange-glow: rgba(255, 119, 0, 0.45);
+      --cyan: #00f0ff;
+      --panel-bg: rgba(13, 17, 27, 0.82);
+      --panel-border: rgba(255, 119, 0, 0.3);
+      --text: #f0f4f8;
+      --font-mono: 'JetBrains Mono', 'SF Mono', Consolas, 'Segoe UI Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      background-color: var(--bg);
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden !important;
+      font-family: var(--font-mono);
+      color: var(--text);
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    /* Fullscreen canvas overlay for seamless mouse rotation */
+    #interactionOverlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 5;
+      cursor: grab;
+    }
+
+    #interactionOverlay:active {
+      cursor: grabbing;
+    }
+
+    /* Glass Panels */
+    .glass-panel {
+      background: var(--panel-bg);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--panel-border);
+      border-radius: 12px;
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.6), 0 0 20px var(--orange-glow);
+      z-index: 10;
+      pointer-events: auto;
+      transition: all 0.25s ease;
+    }
+
+    /* Top Nav Header */
+    #topHeader {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      right: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 18px;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .title-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .title-group h1 {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 1.2px;
+      background: linear-gradient(135deg, #ff9900 0%, #ff4400 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-transform: uppercase;
+    }
+
+    .badge {
+      font-size: 10px;
+      padding: 2px 7px;
+      border-radius: 6px;
+      background: rgba(255, 119, 0, 0.15);
+      color: var(--orange);
+      border: 1px solid rgba(255, 119, 0, 0.4);
+    }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    /* Buttons */
+    .btn {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      color: var(--text);
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      text-decoration: none;
+      outline: none;
+    }
+
+    .btn:hover {
+      background: rgba(255, 119, 0, 0.2);
+      border-color: var(--orange);
+      color: #fff;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px var(--orange-glow);
+    }
+
+    .btn.active {
+      background: linear-gradient(135deg, rgba(255, 119, 0, 0.3), rgba(255, 68, 0, 0.3));
+      border-color: var(--orange);
+      color: #fff;
+      box-shadow: 0 0 12px var(--orange-glow);
+    }
+
+    .btn-cyan {
+      border-color: rgba(0, 240, 255, 0.4);
+      color: var(--cyan);
+    }
+    .btn-cyan:hover {
+      background: rgba(0, 240, 255, 0.2);
+      border-color: var(--cyan);
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.4);
+    }
+
+    /* Center Rotation Progress Display */
+    #progressMeter {
+      position: absolute;
+      top: 76px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 12px 24px;
+      gap: 6px;
+      min-width: 320px;
+      text-align: center;
+    }
+
+    .degree-display {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: 1px;
+      color: #ff9900;
+      text-shadow: 0 0 12px rgba(255, 119, 0, 0.6);
+      transition: color 0.3s;
+    }
+
+    .degree-display.popped {
+      color: var(--cyan);
+      text-shadow: 0 0 16px rgba(0, 240, 255, 0.7);
+    }
+
+    .progress-bar-container {
+      width: 100%;
+      height: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #ff7700 0%, #ffbb00 100%);
+      box-shadow: 0 0 10px #ff7700;
+      transition: width 0.1s linear, background 0.3s ease;
+      border-radius: 4px;
+    }
+
+    .progress-bar-fill.popped {
+      background: linear-gradient(90deg, #00f0ff 0%, #00ff88 100%);
+      box-shadow: 0 0 12px #00f0ff;
+    }
+
+    .status-text {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      color: #cbd5e1;
+      margin-top: 2px;
+    }
+
+    /* Bottom Control Bar & Sliders */
+    #bottomControls {
+      position: absolute;
+      bottom: 16px;
+      left: 16px;
+      right: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 18px;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .stats-group {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      font-size: 11px;
+    }
+
+    .stat-label {
+      color: #94a3b8;
+    }
+
+    .stat-val {
+      color: var(--orange);
+      font-weight: 700;
+    }
+
+    .stat-val.cyan {
+      color: var(--cyan);
+    }
+
+    .sliders-group {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .slider-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 10px;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100px;
+      height: 5px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.15);
+      outline: none;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      background: var(--orange);
+      box-shadow: 0 0 8px var(--orange);
+      cursor: pointer;
+    }
+
+    .kbd {
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      border-radius: 4px;
+      padding: 2px 5px;
+      font-size: 9px;
+      font-weight: 600;
+      color: #ff9900;
+    }
+
+    /* Pop shockwave flash */
+    #flashOverlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle, rgba(255, 255, 255, 0.85) 0%, rgba(255, 119, 0, 0.4) 40%, transparent 70%);
+      opacity: 0;
+      pointer-events: none;
+      z-index: 20;
+      transition: opacity 0.5s ease-out;
+    }
+
+    #flashOverlay.flash {
+      opacity: 1;
+      transition: none;
+    }
+
+    /* Floating Toast */
+    #toast {
+      position: absolute;
+      bottom: 76px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      padding: 9px 18px;
+      background: rgba(13, 17, 27, 0.94);
+      border: 1px solid var(--orange);
+      border-radius: 8px;
+      color: #fff;
+      font-size: 11px;
+      box-shadow: 0 0 16px var(--orange-glow);
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      z-index: 100;
+    }
+
+    #toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+  </style>
+  <!-- Load XTK (The X Toolkit) -->
+  <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+</head>
+<body>
+
+  <!-- Fullscreen transparent overlay to capture drag rotations without interference -->
+  <div id="interactionOverlay"></div>
+
+  <!-- Shockwave flash effect on explosion -->
+  <div id="flashOverlay"></div>
+
+  <!-- Top Navigation & Actions -->
+  <header id="topHeader" class="glass-panel">
+    <div class="title-group">
+      <span style="font-size: 20px;">💥</span>
+      <h1>Orange Cube ➔ Octahedron Pop</h1>
+      <span class="badge">XTK WebGL</span>
+    </div>
+
+    <div class="top-actions">
+      <button id="btnAutoRotate" class="btn active" onclick="toggleAutoRotate()">🔄 Auto-Rotate: ON</button>
+      <button id="btnManualPop" class="btn" onclick="triggerPopExplosion()">💥 Pop Now!</button>
+      <button id="btnReset" class="btn" onclick="resetToCube()">🔄 Reset Cube</button>
+      <button id="btnAudio" class="btn active" onclick="toggleAudio()">🔊 Sound: ON</button>
+      <a href="agent.html" class="btn btn-cyan" title="Open the advanced cube art gallery">🎨 Gallery (agent.html)</a>
+    </div>
+  </header>
+
+  <!-- Center Progress Meter -->
+  <div id="progressMeter" class="glass-panel">
+    <div id="degreeText" class="degree-display">0.0° / 360°</div>
+    <div class="progress-bar-container">
+      <div id="progressBar" class="progress-bar-fill"></div>
+    </div>
+    <div id="statusText" class="status-text">🔶 Drag mouse or press Arrow Keys to rotate the Orange Cube to 360°</div>
+  </div>
+
+  <!-- Bottom Stats & Control Bar -->
+  <footer id="bottomControls" class="glass-panel">
+    <div class="stats-group">
+      <div><span class="stat-label">OBJECT: </span><span id="statObject" class="stat-val">ORANGE CUBE</span></div>
+      <div><span class="stat-label">COUNT: </span><span id="statCount" class="stat-val">1 CUBE</span></div>
+      <div><span class="stat-label">ROTATION: </span><span id="statAngle" class="stat-val">0.0°</span></div>
+    </div>
+
+    <div class="sliders-group">
+      <div class="slider-item">
+        <span class="stat-label">Speed:</span>
+        <input type="range" id="sliderSpeed" min="0.2" max="3.0" step="0.1" value="1.0" oninput="updateSpeed(this.value)">
+        <span id="speedVal" class="stat-val">1.0x</span>
+      </div>
+      <div class="slider-item">
+        <span class="stat-label">Dispersion:</span>
+        <input type="range" id="sliderSpread" min="30" max="110" step="5" value="65" oninput="updateSpread(this.value)">
+        <span id="spreadVal" class="stat-val">65</span>
+      </div>
+    </div>
+
+    <div style="font-size: 10px; color: #94a3b8;">
+      <span class="kbd">Click & Drag</span> or <span class="kbd">Arrows / WASD</span> to rotate | <span class="kbd">Space</span> Auto-Rotate | <span class="kbd">R</span> Reset
+    </div>
+  </footer>
+
+  <!-- Toast Notification -->
+  <div id="toast"></div>
+
+  <!-- Main Application Script -->
+  <script>
+    // -------------------------------------------------------------
+    // GLOBAL STATE
+    // -------------------------------------------------------------
+    var r = null;                  // Primary XTK 3D Renderer
+    var orangeCube = null;         // The initial orange cube
+    var octahedrons = [];          // Array of octahedron objects after pop
+    var isPopped = false;          // Whether the cube has popped
+    var totalRotationDeg = 0;      // Accumulated rotation degrees
+    var autoRotate = true;         // Auto-rotation toggle
+    var rotationSpeed = 1.0;       // Rotation speed multiplier
+    var spreadDistance = 65;       // Distance octahedrons disperse
+    var audioEnabled = true;       // Audio sound toggle
+    var audioCtx = null;
+
+    // Current 3D orientation (Euler angles in radians)
+    var rotX = 0.2;
+    var rotY = 0.0;
+    var rotZ = 0.0;
+
+    // Mouse drag tracking
+    var isDragging = false;
+    var lastMouseX = 0;
+    var lastMouseY = 0;
+
+    // Animation time & clock
+    var lastFrameTime = performance.now();
+    var popTimestamp = 0;
+
+    // Palette of vibrant colors for the popped octahedrons
+    var OCTA_COLORS = [
+      [1.0, 0.85, 0.1],   // Gold
+      [0.0, 0.95, 1.0],   // Neon Cyan
+      [1.0, 0.10, 0.6],   // Hot Magenta
+      [0.2, 1.00, 0.4],   // Emerald Lime
+      [0.7, 0.20, 1.0],   // Electric Purple
+      [1.0, 0.45, 0.0],   // Sunset Orange
+      [1.0, 0.15, 0.2],   // Crimson
+      [0.1, 1.00, 0.8],   // Aquamarine
+      [1.0, 0.70, 0.1],   // Amber
+      [0.5, 0.00, 1.0],   // Deep Violet
+      [1.0, 0.30, 0.5],   // Bright Coral
+      [0.3, 0.75, 1.0]    // Electric Sky
+    ];
+
+    // -------------------------------------------------------------
+    // OCTAHEDRON GEOMETRY BUILDER (XTK X.mesh + X.triplets)
+    // -------------------------------------------------------------
+    /**
+     * Builds a regular 8-faced octahedron mesh centered at (0,0,0).
+     * Uses XTK's X.mesh and X.triplets for 3D rendering.
+     */
+    function createOctahedron(radius, color) {
+      radius = radius || 8;
+      var mesh = new X.mesh();
+      mesh.points = new X.triplets(24 * 3);
+      mesh.normals = new X.triplets(24 * 3);
+
+      var R = radius;
+      // 6 principal vertices
+      var v0 = [0, R, 0];   // top peak
+      var v1 = [0, -R, 0];  // bottom peak
+      var v2 = [R, 0, 0];   // right
+      var v3 = [0, 0, R];   // front
+      var v4 = [-R, 0, 0];  // left
+      var v5 = [0, 0, -R];  // back
+
+      // 8 triangular faces with outward counter-clockwise winding
+      var faces = [
+        [v0, v2, v3],
+        [v0, v3, v4],
+        [v0, v4, v5],
+        [v0, v5, v2],
+        [v1, v3, v2],
+        [v1, v4, v3],
+        [v1, v5, v4],
+        [v1, v2, v5]
+      ];
+
+      function cross(a, b) {
+        return [
+          a[1] * b[2] - a[2] * b[1],
+          a[2] * b[0] - a[0] * b[2],
+          a[0] * b[1] - a[1] * b[0]
+        ];
+      }
+
+      function normalize(v) {
+        var len = Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+        return len > 0 ? [v[0] / len, v[1] / len, v[2] / len] : [0, 1, 0];
+      }
+
+      for (var i = 0; i < faces.length; i++) {
+        var p0 = faces[i][0];
+        var p1 = faces[i][1];
+        var p2 = faces[i][2];
+
+        var d1 = [p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]];
+        var d2 = [p2[0] - p0[0], p2[1] - p0[1], p2[2] - p0[2]];
+        var n = normalize(cross(d1, d2));
+
+        mesh.points.add(p0[0], p0[1], p0[2]);
+        mesh.points.add(p1[0], p1[1], p1[2]);
+        mesh.points.add(p2[0], p2[1], p2[2]);
+
+        mesh.normals.add(n[0], n[1], n[2]);
+        mesh.normals.add(n[0], n[1], n[2]);
+        mesh.normals.add(n[0], n[1], n[2]);
+      }
+
+      mesh.color = color || [1, 0.5, 0];
+      return mesh;
+    }
+
+    /**
+     * Create standard 4x4 column-major transformation matrix with translation & Euler rotation
+     */
+    function createTRSMatrix(x, y, z, rx, ry, rz, s) {
+      var cx = Math.cos(rx || 0), sx = Math.sin(rx || 0);
+      var cy = Math.cos(ry || 0), sy = Math.sin(ry || 0);
+      var cz = Math.cos(rz || 0), sz = Math.sin(rz || 0);
+      s = s || 1.0;
+
+      // Rotation matrix = Rz * Ry * Rx, scaled by s
+      var m00 = (cy * cz) * s;
+      var m01 = (sx * sy * cz + cx * sz) * s;
+      var m02 = (-cx * sy * cz + sx * sz) * s;
+
+      var m10 = (-cy * sz) * s;
+      var m11 = (-sx * sy * sz + cx * cz) * s;
+      var m12 = (cx * sy * sz + sx * cz) * s;
+
+      var m20 = sy * s;
+      var m21 = -sx * cy * s;
+      var m22 = cx * cy * s;
+
+      return new Float32Array([
+        m00, m01, m02, 0,
+        m10, m11, m12, 0,
+        m20, m21, m22, 0,
+        x,   y,   z,   1
+      ]);
+    }
+
+    /**
+     * Rotate a 3D point around the origin (0,0,0) by Euler angles rx, ry, rz
+     */
+    function rotatePoint(p, rx, ry, rz) {
+      // Rotate X
+      var y1 = p[1] * Math.cos(rx) - p[2] * Math.sin(rx);
+      var z1 = p[1] * Math.sin(rx) + p[2] * Math.cos(rx);
+      var x1 = p[0];
+
+      // Rotate Y
+      var x2 = x1 * Math.cos(ry) + z1 * Math.sin(ry);
+      var z2 = -x1 * Math.sin(ry) + z1 * Math.cos(ry);
+      var y2 = y1;
+
+      // Rotate Z
+      var x3 = x2 * Math.cos(rz) - y2 * Math.sin(rz);
+      var y3 = x2 * Math.sin(rz) + y2 * Math.cos(rz);
+      var z3 = z2;
+
+      return [x3, y3, z3];
+    }
+
+    // -------------------------------------------------------------
+    // WEB AUDIO PROCEDURAL POP & SPARKLE SOUND
+    // -------------------------------------------------------------
+    function playPopSound() {
+      if (!audioEnabled) return;
+      try {
+        var AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        if (!audioCtx) audioCtx = new AudioCtx();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+
+        var t = audioCtx.currentTime;
+
+        // Balloon Pop pitch sweep
+        var osc = audioCtx.createOscillator();
+        var gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(750, t);
+        osc.frequency.exponentialRampToValueAtTime(70, t + 0.13);
+
+        gain.gain.setValueAtTime(0.6, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(t);
+        osc.stop(t + 0.16);
+
+        // Shimmering chime arpeggio
+        setTimeout(function() {
+          var freqs = [523.25, 659.25, 783.99, 1046.50, 1318.51];
+          freqs.forEach(function(f, i) {
+            var sOsc = audioCtx.createOscillator();
+            var sGain = audioCtx.createGain();
+            var st = audioCtx.currentTime + i * 0.035;
+            sOsc.type = 'triangle';
+            sOsc.frequency.setValueAtTime(f, st);
+            sGain.gain.setValueAtTime(0.12, st);
+            sGain.gain.exponentialRampToValueAtTime(0.001, st + 0.35);
+            sOsc.connect(sGain);
+            sGain.connect(audioCtx.destination);
+            sOsc.start(st);
+            sOsc.stop(st + 0.38);
+          });
+        }, 50);
+      } catch (err) {}
+    }
+
+    // -------------------------------------------------------------
+    // INITIALIZATION & SCENE SETUP
+    // -------------------------------------------------------------
+    window.onload = function() {
+      // 1. Initialize XTK 3D Renderer
+      r = new X.renderer3D();
+      r.init();
+
+      // Hook our frame logic into XTK's native onRender callback
+      r.onRender = function() {
+        updateFrame();
+      };
+
+      // 2. Set camera angle
+      if (r.camera) {
+        r.camera.position = [0, 0, 160];
+      }
+
+      // 3. Create the initial Orange Cube
+      buildOrangeCube();
+
+      // 4. Start the render loop
+      r.render();
+
+      // 5. Setup interaction listeners
+      setupInteractionListeners();
+
+      showToast('🚀 Orange Cube ready! Rotate it to 360° to trigger the pop.');
+    };
+
+    /**
+     * Create the primary orange cube
+     */
+    function buildOrangeCube() {
+      if (orangeCube) {
+        try { r.remove(orangeCube); } catch(e) {}
+      }
+
+      orangeCube = new X.cube();
+      orangeCube.lengthX = orangeCube.lengthY = orangeCube.lengthZ = 24;
+      orangeCube.center = [0, 0, 0];
+      // Radiant Orange color
+      orangeCube.color = [1.0, 0.50, 0.0];
+      r.add(orangeCube);
+
+      isPopped = false;
+      totalRotationDeg = 0;
+      updateUI();
+    }
+
+    /**
+     * Trigger the explosion / pop of the cube into Octahedrons
+     */
+    function triggerPopExplosion() {
+      if (isPopped) return;
+      isPopped = true;
+      popTimestamp = performance.now();
+
+      // 1. Trigger shockwave flash
+      var flash = document.getElementById('flashOverlay');
+      if (flash) {
+        flash.classList.add('flash');
+        setTimeout(function() { flash.classList.remove('flash'); }, 40);
+      }
+
+      // 2. Play audio POP
+      playPopSound();
+
+      // 3. Remove the orange cube
+      if (orangeCube) {
+        try { r.remove(orangeCube); } catch(e) {}
+        orangeCube = null;
+      }
+
+      // 4. Spawn 12 colorful 3D Octahedrons
+      octahedrons = [];
+      var numOcta = 12;
+
+      // Fibonacci sphere distribution for harmonious 3D explosion directions
+      var goldenRatio = (1 + Math.sqrt(5)) / 2;
+
+      for (var i = 0; i < numOcta; i++) {
+        var theta = 2 * Math.PI * i / goldenRatio;
+        var phi = Math.acos(1 - 2 * (i + 0.5) / numOcta);
+
+        var dirX = Math.cos(theta) * Math.sin(phi);
+        var dirY = Math.sin(theta) * Math.sin(phi);
+        var dirZ = Math.cos(phi);
+
+        var col = OCTA_COLORS[i % OCTA_COLORS.length];
+        var octMesh = createOctahedron(7.5, col);
+        r.add(octMesh);
+
+        var burstSpeed = 100 + Math.random() * 50;
+
+        octahedrons.push({
+          mesh: octMesh,
+          // Home / anchor direction on unit sphere
+          dir: [dirX, dirY, dirZ],
+          currPos: [0, 0, 0],
+          // Outward explosion velocity
+          vel: [dirX * burstSpeed, dirY * burstSpeed, dirZ * burstSpeed],
+          // Self-spin orientation & tumbling velocity
+          selfRotX: Math.random() * Math.PI * 2,
+          selfRotY: Math.random() * Math.PI * 2,
+          selfRotZ: Math.random() * Math.PI * 2,
+          spinSpeedX: (Math.random() - 0.5) * 3.5,
+          spinSpeedY: (Math.random() - 0.5) * 3.5,
+          spinSpeedZ: (Math.random() - 0.5) * 3.5,
+          color: col,
+          scale: 0.2
+        });
+      }
+
+      updateUI();
+      showToast('💥 POP! Orange Cube exploded into 12 Octahedrons!');
+    }
+
+    /**
+     * Reset everything back to the initial orange cube
+     */
+    function resetToCube() {
+      // Clean up all octahedrons
+      for (var i = 0; i < octahedrons.length; i++) {
+        try { r.remove(octahedrons[i].mesh); } catch(e) {}
+      }
+      octahedrons = [];
+
+      rotX = 0.2;
+      rotY = 0.0;
+      rotZ = 0.0;
+
+      buildOrangeCube();
+      showToast('🔄 Reset complete! Ready to rotate.');
+    }
+
+    // -------------------------------------------------------------
+    // FRAME UPDATE & DYNAMICS ENGINE (XTK onRender)
+    // -------------------------------------------------------------
+    function updateFrame() {
+      var now = performance.now();
+      var dt = Math.min((now - lastFrameTime) / 1000, 0.1);
+      lastFrameTime = now;
+
+      // Handle continuous auto-rotation if active
+      if (autoRotate) {
+        var autoDelta = 45 * rotationSpeed * dt; // 45 deg/sec at 1x
+        rotY += (autoDelta * Math.PI / 180);
+        rotX += (autoDelta * 0.4 * Math.PI / 180);
+
+        if (!isPopped) {
+          totalRotationDeg += autoDelta;
+          if (totalRotationDeg >= 360) {
+            triggerPopExplosion();
+          }
+        }
+      }
+
+      // ------------------------------------
+      // CASE 1: ORANGE CUBE ACTIVE
+      // ------------------------------------
+      if (!isPopped && orangeCube) {
+        // Subtle anticipation pulse as it nears 360°
+        var anticipation = Math.min(totalRotationDeg / 360, 1.0);
+        var pulse = 1.0 + Math.sin(now * 0.008) * (0.04 * anticipation);
+
+        // Update cube's 3D matrix
+        orangeCube.transform.matrix = createTRSMatrix(0, 0, 0, rotX, rotY, rotZ, pulse);
+        updateUI();
+      }
+
+      // ------------------------------------
+      // CASE 2: OCTAHEDRONS ACTIVE & ROTATABLE
+      // ------------------------------------
+      if (isPopped && octahedrons.length > 0) {
+        var elapsedSincePop = (now - popTimestamp) / 1000;
+
+        for (var i = 0; i < octahedrons.length; i++) {
+          var oct = octahedrons[i];
+
+          // 1. Individual self-spin rotation
+          oct.selfRotX += oct.spinSpeedX * dt * rotationSpeed;
+          oct.selfRotY += oct.spinSpeedY * dt * rotationSpeed;
+          oct.selfRotZ += oct.spinSpeedZ * dt * rotationSpeed;
+
+          // 2. Flying burst physics -> settle into orbital radius
+          var targetRadius = spreadDistance;
+          var basePt = [
+            oct.dir[0] * targetRadius,
+            oct.dir[1] * targetRadius,
+            oct.dir[2] * targetRadius
+          ];
+
+          if (elapsedSincePop < 1.4) {
+            // Explosive fling outward
+            oct.currPos[0] += oct.vel[0] * dt;
+            oct.currPos[1] += oct.vel[1] * dt;
+            oct.currPos[2] += oct.vel[2] * dt;
+            // Drag deceleration
+            oct.vel[0] *= 0.94;
+            oct.vel[1] *= 0.94;
+            oct.vel[2] *= 0.94;
+            oct.scale = Math.min(1.0, oct.scale + dt * 2.5);
+          } else {
+            // Smoothly ease / spring to anchor orbital distance
+            oct.currPos[0] += (basePt[0] - oct.currPos[0]) * 0.08;
+            oct.currPos[1] += (basePt[1] - oct.currPos[1]) * 0.08;
+            oct.currPos[2] += (basePt[2] - oct.currPos[2]) * 0.08;
+            oct.scale = 1.0;
+          }
+
+          // 3. GROUP ROTATION: Rotate the entire constellation according to (rotX, rotY, rotZ)!
+          var rotatedCenter = rotatePoint(oct.currPos, rotX, rotY, rotZ);
+
+          // 4. Update the octahedron's final transform matrix in XTK
+          oct.mesh.transform.matrix = createTRSMatrix(
+            rotatedCenter[0],
+            rotatedCenter[1],
+            rotatedCenter[2],
+            oct.selfRotX + rotX,
+            oct.selfRotY + rotY,
+            oct.selfRotZ + rotZ,
+            oct.scale
+          );
+        }
+        updateUI();
+      }
+    }
+
+    // -------------------------------------------------------------
+    // ROTATION & INTERACTION HANDLERS
+    // -------------------------------------------------------------
+    /**
+     * Apply delta rotation from user drag or keypress
+     */
+    function applyRotation(dxDeg, dyDeg) {
+      rotY += (dxDeg * Math.PI / 180);
+      rotX += (dyDeg * Math.PI / 180);
+
+      var deltaMag = Math.sqrt(dxDeg * dxDeg + dyDeg * dyDeg);
+
+      if (!isPopped) {
+        totalRotationDeg += deltaMag;
+        if (totalRotationDeg >= 360) {
+          triggerPopExplosion();
+        }
+      }
+      updateUI();
+    }
+
+    function setupInteractionListeners() {
+      var overlay = document.getElementById('interactionOverlay');
+
+      // Mouse drag rotation
+      overlay.addEventListener('mousedown', function(e) {
+        isDragging = true;
+        lastMouseX = e.clientX;
+        lastMouseY = e.clientY;
+      });
+
+      window.addEventListener('mousemove', function(e) {
+        if (!isDragging) return;
+        var dx = e.clientX - lastMouseX;
+        var dy = e.clientY - lastMouseY;
+        lastMouseX = e.clientX;
+        lastMouseY = e.clientY;
+
+        // Apply mouse drag rotation (scaled by sensitivity)
+        var factor = 0.5 * rotationSpeed;
+        applyRotation(dx * factor, dy * factor);
+      });
+
+      window.addEventListener('mouseup', function() {
+        isDragging = false;
+      });
+
+      // Touch drag support for mobile / tablets
+      overlay.addEventListener('touchstart', function(e) {
+        if (e.touches.length === 1) {
+          isDragging = true;
+          lastMouseX = e.touches[0].clientX;
+          lastMouseY = e.touches[0].clientY;
+        }
+      }, { passive: true });
+
+      window.addEventListener('touchmove', function(e) {
+        if (!isDragging || e.touches.length !== 1) return;
+        var dx = e.touches[0].clientX - lastMouseX;
+        var dy = e.touches[0].clientY - lastMouseY;
+        lastMouseX = e.touches[0].clientX;
+        lastMouseY = e.touches[0].clientY;
+        applyRotation(dx * 0.6 * rotationSpeed, dy * 0.6 * rotationSpeed);
+      }, { passive: true });
+
+      window.addEventListener('touchend', function() {
+        isDragging = false;
+      });
+
+      // Keyboard navigation (Arrow keys / WASD / QE / Space / R)
+      window.addEventListener('keydown', function(e) {
+        if (e.target.tagName === 'INPUT') return;
+        var step = 8 * rotationSpeed;
+
+        switch (e.code) {
+          case 'ArrowLeft':
+          case 'KeyA':
+            applyRotation(-step, 0);
+            break;
+          case 'ArrowRight':
+          case 'KeyD':
+            applyRotation(step, 0);
+            break;
+          case 'ArrowUp':
+          case 'KeyW':
+            applyRotation(0, -step);
+            break;
+          case 'ArrowDown':
+          case 'KeyS':
+            applyRotation(0, step);
+            break;
+          case 'KeyQ':
+            rotZ -= (step * Math.PI / 180);
+            if (!isPopped) totalRotationDeg += step;
+            break;
+          case 'KeyE':
+            rotZ += (step * Math.PI / 180);
+            if (!isPopped) totalRotationDeg += step;
+            break;
+          case 'Space':
+            e.preventDefault();
+            toggleAutoRotate();
+            break;
+          case 'KeyR':
+            resetToCube();
+            break;
+        }
+      });
+    }
+
+    // -------------------------------------------------------------
+    // UI UPDATES & CONTROLS
+    // -------------------------------------------------------------
+    function updateUI() {
+      var degElem = document.getElementById('degreeText');
+      var barElem = document.getElementById('progressBar');
+      var statusElem = document.getElementById('statusText');
+      var statObj = document.getElementById('statObject');
+      var statCnt = document.getElementById('statCount');
+      var statAng = document.getElementById('statAngle');
+
+      if (!isPopped) {
+        var pct = Math.min(100, (totalRotationDeg / 360) * 100);
+        degElem.textContent = totalRotationDeg.toFixed(1) + '° / 360°';
+        degElem.classList.remove('popped');
+        barElem.style.width = pct + '%';
+        barElem.classList.remove('popped');
+
+        if (totalRotationDeg < 280) {
+          statusElem.textContent = '🔶 Drag or use Arrow Keys to rotate the Orange Cube to 360°';
+        } else {
+          statusElem.textContent = '⚠️ CRITICAL ROTATION! Nearing 360° explosion threshold!';
+        }
+
+        statObj.textContent = 'ORANGE CUBE';
+        statObj.className = 'stat-val';
+        statCnt.textContent = '1 CUBE';
+        statAng.textContent = totalRotationDeg.toFixed(1) + '°';
+      } else {
+        degElem.textContent = 'POPPED! 💥 360°';
+        degElem.classList.add('popped');
+        barElem.style.width = '100%';
+        barElem.classList.add('popped');
+        statusElem.textContent = '✨ BOOM! Pop complete! 12 Octahedrons are now rotatable in 3D!';
+
+        statObj.textContent = '12 OCTAHEDRONS';
+        statObj.className = 'stat-val cyan';
+        statCnt.textContent = '12 MESHES';
+        var currentYaw = ((rotY * 180 / Math.PI) % 360 + 360) % 360;
+        statAng.textContent = currentYaw.toFixed(1) + '° Yaw';
+      }
+    }
+
+    function toggleAutoRotate() {
+      autoRotate = !autoRotate;
+      var btn = document.getElementById('btnAutoRotate');
+      if (btn) {
+        btn.classList.toggle('active', autoRotate);
+        btn.textContent = autoRotate ? '🔄 Auto-Rotate: ON' : '🔄 Auto-Rotate: OFF';
+      }
+      showToast(autoRotate ? 'Auto-Rotate ON' : 'Auto-Rotate OFF');
+    }
+
+    function toggleAudio() {
+      audioEnabled = !audioEnabled;
+      var btn = document.getElementById('btnAudio');
+      if (btn) {
+        btn.classList.toggle('active', audioEnabled);
+        btn.textContent = audioEnabled ? '🔊 Sound: ON' : '🔇 Sound: OFF';
+      }
+      showToast(audioEnabled ? 'Sound Effects Enabled' : 'Sound Muted');
+    }
+
+    function updateSpeed(val) {
+      rotationSpeed = parseFloat(val);
+      document.getElementById('speedVal').textContent = rotationSpeed.toFixed(1) + 'x';
+    }
+
+    function updateSpread(val) {
+      spreadDistance = parseFloat(val);
+      document.getElementById('spreadVal').textContent = spreadDistance;
+    }
+
+    function showToast(msg) {
+      var toast = document.getElementById('toast');
+      if (!toast) return;
+      toast.textContent = msg;
+      toast.classList.add('show');
+      clearTimeout(window._toastTimer);
+      window._toastTimer = setTimeout(function() {
+        toast.classList.remove('show');
+      }, 2400);
+    }
+  </script>
+</body>
+</html>

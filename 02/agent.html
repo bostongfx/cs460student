@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CS460 - Advanced XTK Cube Art Visualization</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- XTK (The X Toolkit) WebGL Engine -->
+  <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+</head>
+<body>
+
+  <!-- Top Action & Navigation Bar -->
+  <header id="topControlBar" class="glass-panel">
+    <div class="app-title-group">
+      <span class="app-logo">🧊</span>
+      <span class="app-title">XTK Cube Art</span>
+      <span class="app-badge">CS460</span>
+    </div>
+
+    <div class="top-actions">
+      <button id="btnShatter" class="btn btn-pink" onclick="window.APP.toggleShatter()" title="Hotkey: Spacebar">💥 Shatter / Fly</button>
+      <button id="btnOrbit" class="btn btn-cyan active" onclick="window.APP.toggleAutoOrbit()">🎥 Auto Orbit: ON</button>
+      <button id="btnAudio" class="btn btn-gold" onclick="window.APP.toggleAudio()" title="Hotkey: B">🎵 Audio Beat: OFF</button>
+      <button id="btnPause" class="btn" onclick="window.APP.togglePause()" title="Hotkey: P">⏸️ Pause</button>
+      <button class="btn" onclick="download()" title="Save scene.json (Hotkey: O)">💾 Save JSON</button>
+      <button class="btn" onclick="upload()" title="Load scene.json (Hotkey: L)">📂 Load JSON</button>
+      <button class="btn" onclick="window.APP.toggleUI()" title="Toggle HUD (Hotkey: H)">👁️ Hide HUD</button>
+    </div>
+  </header>
+
+  <!-- Left Sidebar Controls -->
+  <aside id="sidebarPanel" class="glass-panel">
+    
+    <!-- Art Sculpture Modes -->
+    <div class="control-section">
+      <div class="section-title">
+        <span>Art & Animation Mode</span>
+        <span class="kbd">M</span>
+      </div>
+      <div class="mode-grid">
+        <button class="btn mode-btn active" data-mode="wave">🌊 Cosmic Wave</button>
+        <button class="btn mode-btn" data-mode="swarm">🌌 Flying Swarm</button>
+        <button class="btn mode-btn" data-mode="helix">🧬 DNA Helix</button>
+        <button class="btn mode-btn" data-mode="monument">🏛️ Monument</button>
+        <button class="btn mode-btn" data-mode="supernova">🎆 Supernova</button>
+        <button class="btn mode-btn" data-mode="builder">🛠️ Sculptor</button>
+      </div>
+    </div>
+
+    <!-- Color Palettes -->
+    <div class="control-section">
+      <div class="section-title">
+        <span>Color Palettes</span>
+        <span class="kbd">C</span>
+      </div>
+      <div class="palette-row">
+        <button class="btn palette-btn active" data-pal="cyber">⚡ Cyber</button>
+        <button class="btn palette-btn" data-pal="rainbow">🌈 Rainbow</button>
+        <button class="btn palette-btn" data-pal="magma">🔥 Magma</button>
+        <button class="btn palette-btn" data-pal="ocean">🌊 Ocean</button>
+        <button class="btn palette-btn" data-pal="synth">🌆 Synth</button>
+        <button class="btn palette-btn" data-pal="matrix">💻 Matrix</button>
+      </div>
+    </div>
+
+    <!-- CS460 Voxel Builder Palette -->
+    <div class="control-section">
+      <div class="section-title">
+        <span>Builder Colors (0 - 9)</span>
+        <span class="kbd">0-9</span>
+      </div>
+      <div class="builder-colors">
+        <div class="color-dot" style="background:#000;" data-color-index="0" title="0: Black"></div>
+        <div class="color-dot active" style="background:#fff;" data-color-index="1" title="1: White"></div>
+        <div class="color-dot" style="background:#ff2222;" data-color-index="2" title="2: Red"></div>
+        <div class="color-dot" style="background:#00e640;" data-color-index="3" title="3: Green"></div>
+        <div class="color-dot" style="background:#1e56ff;" data-color-index="4" title="4: Blue"></div>
+        <div class="color-dot" style="background:#ffea00;" data-color-index="5" title="5: Yellow"></div>
+        <div class="color-dot" style="background:#ff1493;" data-color-index="6" title="6: Pink"></div>
+        <div class="color-dot" style="background:#00f0ff;" data-color-index="7" title="7: Cyan"></div>
+        <div class="color-dot" style="background:#ff8c00;" data-color-index="8" title="8: Orange"></div>
+        <div class="color-dot" style="background:#a84d42;" data-color-index="9" title="9: Brick"></div>
+      </div>
+    </div>
+
+    <!-- Sliders -->
+    <div class="control-section">
+      <div class="section-title"><span>Dynamics</span></div>
+      
+      <div class="slider-group">
+        <div class="slider-label">
+          <span>Animation Speed</span>
+          <span id="valSpeed">1.0x</span>
+        </div>
+        <input type="range" id="sliderSpeed" min="0.2" max="3.0" step="0.1" value="1.0">
+      </div>
+
+      <div class="slider-group" style="margin-top:6px;">
+        <div class="slider-label">
+          <span>Wave / Pulse Amplitude</span>
+          <span id="valAmplitude">24</span>
+        </div>
+        <input type="range" id="sliderAmplitude" min="6" max="60" step="2" value="24">
+      </div>
+    </div>
+
+    <!-- Camera Presets -->
+    <div class="control-section">
+      <div class="section-title"><span>Camera Views</span></div>
+      <div class="mode-grid">
+        <button class="btn" onclick="window.APP.setCameraPreset('iso')">📐 Isometric</button>
+        <button class="btn" onclick="window.APP.setCameraPreset('top')">⬇️ Top-Down</button>
+        <button class="btn" onclick="window.APP.setCameraPreset('hero')">🎬 Hero Angle</button>
+        <button class="btn" onclick="window.APP.switchMode(window.APP.activeMode)">🔄 Reset Art</button>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- Bottom Left: Stats & Hotkey Legend -->
+  <div id="statsAndLegend">
+    <!-- Stats Badge -->
+    <div id="statsBadge" class="glass-panel">
+      <div class="stat-item">
+        <span class="stat-key">MODE:</span>
+        <span id="statMode" class="stat-val">WAVE</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-key">CUBES:</span>
+        <span id="statCubes" class="stat-val">256</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-key">FPS:</span>
+        <span id="statFps" class="stat-val">60</span>
+      </div>
+    </div>
+
+    <!-- Key Shortcuts Cheat Sheet -->
+    <div id="legendPanel" class="glass-panel">
+      <div class="legend-col">
+        <div><span class="kbd">Space</span> Explode / Place</div>
+        <div><span class="kbd">W A S D</span> Move (X / Z)</div>
+        <div><span class="kbd">Q E</span> Move (Y Depth)</div>
+        <div><span class="kbd">0 - 9</span> Select Color</div>
+      </div>
+      <div class="legend-col">
+        <div><span class="kbd">M</span> Cycle Modes</div>
+        <div><span class="kbd">B</span> Audio Beat</div>
+        <div><span class="kbd">C</span> Record Cam</div>
+        <div><span class="kbd">V</span> Cam Loop</div>
+        <div><span class="kbd">O / L</span> Save / Load</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hidden file upload input -->
+  <input type="file" id="fileInput" accept=".json">
+
+  <!-- Floating Toast Notification -->
+  <div id="toastMessage"></div>
+
+  <!-- CS460 & XTK Application Logic -->
+  <script src="loader.js"></script>
+  <script src="app.js"></script>
+
+</body>
+</html>
