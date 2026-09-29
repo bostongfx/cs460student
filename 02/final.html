@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Colorful Cube Tornado</title>
+
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: #000;
+        }
+
+        #render {
+            width: 100vw;
+            height: 100vh;
+        }
+    </style>
+
+    <script type="text/javascript"
+            src="https://get.goXTK.com/xtk_edge.js"></script>
+</head>
+
+<body>
+
+<div id="render"></div>
+
+<script>
+
+const renderer = new X.renderer3D();
+renderer.container = "render";
+renderer.init();
+
+const cubes = [];
+const cubeCount = 150;
+
+for (let i = 0; i < cubeCount; i++) {
+
+    const cube = new X.cube();
+
+    cube.lengthX = 3;
+    cube.lengthY = 3;
+    cube.lengthZ = 3;
+
+    const height = (i / cubeCount) * 120 - 60;
+    const radius = 8 + (i / cubeCount) * 45;
+    const angle = i * 0.35;
+
+    cube.center = [
+        Math.cos(angle) * radius,
+        height,
+        Math.sin(angle) * radius
+    ];
+
+    cube.color = [
+        Math.random(),
+        Math.random(),
+        Math.random()
+    ];
+
+    renderer.add(cube);
+
+    cubes.push({
+        cube: cube,
+        angle: angle,
+        radius: radius,
+        height: height
+    });
+}
+
+renderer.render();
+
+let tornadoTime = 0;
+
+function animateTornado() {
+    tornadoTime += 0.03;
+
+    for (let i = 0; i < cubes.length; i++) {
+        const obj = cubes[i];
+
+        obj.angle += 0.035;
+
+        // Automatically move forward toward the camera
+        obj.radius += 2.0;
+
+        // When a cube gets too far out, send it back inside
+        if (obj.radius > 70) {
+            obj.radius = 6;
+        }
+
+        const x = Math.cos(obj.angle) * obj.radius;
+        const z = Math.sin(obj.angle) * obj.radius;
+
+        // Also move up and down slightly
+        const y = obj.height +
+            Math.sin(tornadoTime * 2 + i * 0.15) * 8;
+
+        obj.cube.center = [x, y, z];
+
+        // Automatically changing colors
+        const colors = [
+            [0.1, 0.4, 1.0],   // blue
+            [0.0, 1.0, 1.0],   // cyan
+            [0.6, 0.1, 1.0],   // purple
+            [1.0, 0.1, 0.6],   // pink
+            [0.1, 1.0, 0.4]    // green
+        ];
+
+const colorIndex = Math.floor(tornadoTime * 1 + i / 30) % colors.length;
+obj.cube.color = colors[colorIndex];
+    }
+
+    renderer.render();
+    requestAnimationFrame(animateTornado);
+}
+
+animateTornado();
+
+</script>
+
+</body>
+</html>
