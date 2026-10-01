@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interactive 3D Clear Cube</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background: radial-gradient(circle at center, #1e2638 0%, #0b0e14 100%);
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: #e2e8f0;
+    }
+
+    #canvas-container {
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: grab;
+    }
+
+    #canvas-container:active {
+      cursor: grabbing;
+    }
+
+    /* Floating control bar */
+    .controls-overlay {
+      position: absolute;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 9999px;
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+      z-index: 10;
+    }
+
+    .btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      color: #f8fafc;
+      padding: 8px 16px;
+      border-radius: 9999px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+      border-color: rgba(255, 255, 255, 0.35);
+      transform: translateY(-1px);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+    }
+
+    .control-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: #cbd5e1;
+    }
+
+    input[type="range"] {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 90px;
+      height: 5px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 5px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #38bdf8;
+      box-shadow: 0 0 8px rgba(56, 189, 248, 0.8);
+      cursor: pointer;
+    }
+
+    /* Header instructions */
+    .header-tip {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.7);
+      text-shadow: 0 2px 4px rgba(0,0,0,0.6);
+      pointer-events: none;
+      letter-spacing: 0.5px;
+    }
+  </style>
+
+  <!-- Three.js and OrbitControls -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+  <div class="header-tip">Click and drag to rotate • Scroll to zoom</div>
+  <div id="canvas-container"></div>
+
+  <div class="controls-overlay">
+    <button id="toggle-spin" class="btn">Pause Spin</button>
+    <div class="control-group">
+      <label for="opacity-slider">Opacity</label>
+      <input type="range" id="opacity-slider" min="0.1" max="1" step="0.05" value="0.65">
+    </div>
+    <button id="reset-view" class="btn">Reset View</button>
+  </div>
+
+  <script>
+    // --- Helper to create dice face canvas textures with dots ---
+    function createDiceFaceTexture(number, dotColor = '#111827', faceColor = 'rgba(255, 255, 255, 0.95)') {
+      const size = 512;
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+
+      // Rounded rectangle face background
+      const radius = 64;
+      const pad = 16;
+      const w = size - pad * 2;
+      const h = size - pad * 2;
+
+      ctx.clearRect(0, 0, size, size);
+      ctx.fillStyle = faceColor;
+      ctx.beginPath();
+      ctx.moveTo(pad + radius, pad);
+      ctx.arcTo(pad + w, pad, pad + w, pad + h, radius);
+      ctx.arcTo(pad + w, pad + h, pad, pad + h, radius);
+      ctx.arcTo(pad, pad + h, pad, pad, radius);
+      ctx.arcTo(pad, pad, pad + w, pad, radius);
+      ctx.closePath();
+      ctx.fill();
+
+      // Delicate inner border
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.08)';
+      ctx.lineWidth = 6;
+      ctx.stroke();
+
+      // Dot drawing helper
+      function drawDot(x, y) {
+        const dotRadius = 36;
+        ctx.fillStyle = dotColor;
+        ctx.beginPath();
+        ctx.arc(x, y, dotRadius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Subtle specular highlight on dots for 3D depth
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+        ctx.beginPath();
+        ctx.arc(x - 9, y - 9, dotRadius * 0.32, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      const c = size / 2;
+      const l = size * 0.28;
+      const r = size * 0.72;
+      const t = size * 0.28;
+      const b = size * 0.72;
+
+      switch(number) {
+        case 1:
+          // Center dot (classic large red or vibrant accent)
+          drawDot(c, c);
+          break;
+        case 2:
+          drawDot(l, t);
+          drawDot(r, b);
+          break;
+        case 3:
+          drawDot(l, t);
+          drawDot(c, c);
+          drawDot(r, b);
+          break;
+        case 4:
+          drawDot(l, t);
+          drawDot(r, t);
+          drawDot(l, b);
+          drawDot(r, b);
+          break;
+        case 5:
+          drawDot(l, t);
+          drawDot(r, t);
+          drawDot(c, c);
+          drawDot(l, b);
+          drawDot(r, b);
+          break;
+        case 6:
+          drawDot(l, t);
+          drawDot(r, t);
+          drawDot(l, c);
+          drawDot(r, c);
+          drawDot(l, b);
+          drawDot(r, b);
+          break;
+      }
+
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.needsUpdate = true;
+      return texture;
+    }
+
+    // --- Scene Setup ---
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(4, 3, 5);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    container.appendChild(renderer.domElement);
+
+    // Orbit Controls
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.minDistance = 2.5;
+    controls.maxDistance = 12;
+
+    // Lighting
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
+    scene.add(ambientLight);
+
+    const keyLight = new THREE.DirectionalLight(0xffffff, 0.85);
+    keyLight.position.set(6, 8, 5);
+    keyLight.castShadow = true;
+    scene.add(keyLight);
+
+    const fillLight = new THREE.DirectionalLight(0x60a5fa, 0.45);
+    fillLight.position.set(-6, -4, -5);
+    scene.add(fillLight);
+
+    // Subtle floor shadow receiver
+    const shadowGeo = new THREE.PlaneGeometry(8, 8);
+    const shadowMat = new THREE.ShadowMaterial({ opacity: 0.25 });
+    const shadowPlane = new THREE.Mesh(shadowGeo, shadowMat);
+    shadowPlane.rotation.x = -Math.PI / 2;
+    shadowPlane.position.y = -1.6;
+    shadowPlane.receiveShadow = true;
+    scene.add(shadowPlane);
+
+    // --- Build Clear 3D Cube with Dots ---
+    // Standard dice arrangement: opposite sides sum to 7
+    // Order in Three.js BoxGeometry materials: [+X, -X, +Y, -Y, +Z, -Z]
+    // 1 opposite 6, 2 opposite 5, 3 opposite 4
+    const diceNumbers = [
+      1, // +X right
+      6, // -X left
+      2, // +Y top
+      5, // -Y bottom
+      3, // +Z front
+      4  // -Z back
+    ];
+
+    const initialOpacity = 0.65;
+    const materials = diceNumbers.map(num => {
+      // 1 dot in vibrant crimson, other dots dark slate
+      const dotColor = (num === 1) ? '#e11d48' : '#1e293b';
+      return new THREE.MeshPhysicalMaterial({
+        map: createDiceFaceTexture(num, dotColor, 'rgba(255, 255, 255, 0.92)'),
+        transparent: true,
+        opacity: initialOpacity,
+        roughness: 0.15,
+        metalness: 0.1,
+        transmission: 0.5,
+        clearcoat: 0.8,
+        clearcoatRoughness: 0.1,
+        reflectivity: 0.6,
+        depthWrite: false, // Ensures inner translucent faces render smoothly
+        side: THREE.DoubleSide
+      });
+    });
+
+    const geometry = new THREE.BoxGeometry(2, 2, 2);
+    const cube = new THREE.Mesh(geometry, materials);
+    cube.castShadow = true;
+    scene.add(cube);
+
+    // Inner glowing core accent to emphasize transparency
+    const coreGeo = new THREE.BoxGeometry(1.9, 1.9, 1.9);
+    const coreMat = new THREE.MeshBasicMaterial({
+      color: 0x38bdf8,
+      transparent: true,
+      opacity: 0.08,
+      wireframe: true
+    });
+    const innerWire = new THREE.Mesh(coreGeo, coreMat);
+    cube.add(innerWire);
+
+    // --- UI Controls Interaction ---
+    let autoSpin = true;
+    const spinBtn = document.getElementById('toggle-spin');
+    const opacitySlider = document.getElementById('opacity-slider');
+    const resetBtn = document.getElementById('reset-view');
+
+    spinBtn.addEventListener('click', () => {
+      autoSpin = !autoSpin;
+      spinBtn.textContent = autoSpin ? 'Pause Spin' : 'Resume Spin';
+    });
+
+    opacitySlider.addEventListener('input', (e) => {
+      const val = parseFloat(e.target.value);
+      materials.forEach(mat => {
+        mat.opacity = val;
+        mat.transmission = Math.max(0, 0.9 - val * 0.4);
+      });
+    });
+
+    resetBtn.addEventListener('click', () => {
+      camera.position.set(4, 3, 5);
+      controls.target.set(0, 0, 0);
+      controls.update();
+      cube.rotation.set(0, 0, 0);
+    });
+
+    // Window Resize Handler
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // --- Animation Loop ---
+    function animate() {
+      requestAnimationFrame(animate);
+
+      if (autoSpin) {
+        cube.rotation.x += 0.005;
+        cube.rotation.y += 0.008;
+      }
+
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    animate();
+  </script>
+</body>
+</html>
