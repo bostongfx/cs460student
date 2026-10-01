@@ -1,2 +1,815 @@
-Ready for assignment 2.
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>CS460 - Assignment 2: XTK Solar System</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+    }
 
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #000000;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: #ffffff;
+    }
+
+    /* Ambient Background Starfield Canvas */
+    #bgCanvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    /* XTK WebGL Canvas Container */
+    canvas:not(#bgCanvas) {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 2;
+      display: block;
+      cursor: grab;
+    }
+
+    canvas:not(#bgCanvas):active {
+      cursor: grabbing;
+    }
+
+    /* Minimal UI Overlay */
+    #hud {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 10;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 16px 20px;
+    }
+
+    .interactive {
+      pointer-events: auto;
+    }
+
+    .glass-pill {
+      background: rgba(15, 20, 35, 0.75);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 24px;
+      padding: 8px 16px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 13px;
+    }
+
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .title-box {
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+
+    .title-box span.amber-dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #ffbf00;
+      box-shadow: 0 0 10px #ffbf00;
+      margin-right: 6px;
+    }
+
+    .speed-btn {
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s ease;
+      color: #94a3b8;
+    }
+
+    .speed-btn.fast {
+      color: #00f0ff;
+      border-color: rgba(0, 240, 255, 0.5);
+      box-shadow: 0 0 15px rgba(0, 240, 255, 0.3);
+    }
+
+    .speed-btn:hover {
+      background: rgba(30, 40, 70, 0.85);
+    }
+
+    .bottom-bar {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .legend-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 16px;
+      background: rgba(20, 25, 45, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 12px;
+    }
+
+    .color-swatch {
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+    }
+  </style>
+
+  <!-- Load XTK Edge Library -->
+  <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+  <!-- Load CS460 Scene Loader -->
+  <script type="text/javascript" src="loader.js"></script>
+</head>
+<body>
+
+  <!-- Ambient Starfield & Orbit Guide Canvas -->
+  <canvas id="bgCanvas"></canvas>
+
+  <!-- Minimal HUD Layer -->
+  <div id="hud">
+    <div class="top-bar">
+      <div class="glass-pill interactive title-box">
+        <span class="amber-dot"></span>
+        <span>XTK Solar System</span>
+      </div>
+
+      <div class="glass-pill interactive speed-btn" id="speedToggleBtn">
+        <span>⚡ Space Bar:</span>
+        <span id="speedLabel" style="color:#ffffff;">Speed 1.0x</span>
+      </div>
+    </div>
+
+    <div class="bottom-bar">
+      <div class="glass-pill interactive">
+        <div class="legend-chip">
+          <div class="color-swatch" style="background:#ffbf00;"></div>
+          <span>Sun (Spins)</span>
+        </div>
+        <div class="legend-chip">
+          <div class="color-swatch" style="background:#ff3333;"></div>
+          <span>Planet 1 (Red w/ Moon)</span>
+        </div>
+        <div class="legend-chip">
+          <div class="color-swatch" style="background:#ff69b4;"></div>
+          <span>Planet 2 (Pink, Fastest)</span>
+        </div>
+        <div class="legend-chip">
+          <div class="color-swatch" style="background:#aa44ff;"></div>
+          <span>Planet 3 (Purple, Slowest)</span>
+        </div>
+        <span style="color:#64748b; margin-left: 8px;">| 🎯 Click planet to jump &amp; change color</span>
+      </div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    // --- MATRIX MATH IN-PLACE UTILITY FOR XTK CUBES ---
+    function updateCubeMatrix(cube, x, y, z, rx, ry, rz, sx, sy, sz) {
+      if (sx === undefined) sx = 1;
+      if (sy === undefined) sy = 1;
+      if (sz === undefined) sz = 1;
+      if (rx === undefined) rx = 0;
+      if (ry === undefined) ry = 0;
+      if (rz === undefined) rz = 0;
+
+      var m = cube.transform.matrix;
+      var cx = Math.cos(rx), sx_a = Math.sin(rx);
+      var cy = Math.cos(ry), sy_a = Math.sin(ry);
+      var cz = Math.cos(rz), sz_a = Math.sin(rz);
+
+      // Col 0
+      m[0] = (cy * cz) * sx;
+      m[1] = (cy * sz_a) * sx;
+      m[2] = (-sy_a) * sx;
+      m[3] = 0;
+
+      // Col 1
+      m[4] = (sx_a * sy_a * cz - cx * sz_a) * sy;
+      m[5] = (sx_a * sy_a * sz_a + cx * cz) * sy;
+      m[6] = (sx_a * cy) * sy;
+      m[7] = 0;
+
+      // Col 2
+      m[8]  = (cx * sy_a * cz + sx_a * sz_a) * sz;
+      m[9]  = (cx * sy_a * sz_a - sx_a * cz) * sz;
+      m[10] = (cx * cy) * sz;
+      m[11] = 0;
+
+      // Col 3: Translation
+      m[12] = x;
+      m[13] = y;
+      m[14] = z;
+      m[15] = 1;
+
+      cube.transform.modified();
+    }
+
+    // --- GLOBAL VARIABLES ---
+    var r = null; // XTK 3D Renderer (exposed globally for loader.js)
+    var sun = null;
+    var planet1 = null;
+    var moon = null;
+    var planet2 = null;
+    var planet3 = null;
+
+    var speedMultiplier = 1.0;
+    var isFast = false;
+
+    // Simulation time and rotation state
+    var sunSpinAngle = 0;
+    var theta1 = Math.PI;       // Planet 1 initially on left (~9 o'clock as in sketch)
+    var thetaMoon = 0;          // Moon orbiting Planet 1
+    var theta2 = 5.25;          // Planet 2 initially at bottom-right (~5 o'clock as in sketch)
+    var theta3 = 0.95;          // Planet 3 initially at top-right (~1 o'clock as in sketch)
+
+    // Orbital Radii
+    var R1 = 110;
+    var R_moon = 22;
+    var R2 = 78;
+    var R3 = 146;
+
+    // Base Speeds (Planet 2 fastest, Planet 3 slowest)
+    var SPEED_SUN = 0.007;
+    var SPEED_P1 = 0.018;       // Planet 1 medium
+    var SPEED_MOON = 0.065;     // Moon fast orbit around Planet 1
+    var SPEED_P2 = 0.035;       // Planet 2 fastest!
+    var SPEED_P3 = 0.009;       // Planet 3 slowest!
+
+    // List of celestial bodies for easy iteration
+    var celestialBodies = [];
+
+    // Distinct vibrant color palette for jumping color changes
+    var VIBRANT_COLORS = [
+      [1.0, 0.15, 0.15], // Bright Red
+      [1.0, 0.35, 0.75], // Hot Pink
+      [0.65, 0.2, 0.95], // Electric Purple
+      [0.0, 0.9, 1.0],   // Cyan
+      [0.2, 1.0, 0.35],  // Neon Lime
+      [1.0, 0.85, 0.0],  // Golden Amber
+      [1.0, 0.5, 0.0],   // Orange
+      [0.3, 0.5, 1.0],   // Sky Blue
+      [1.0, 0.1, 0.45],  // Neon Crimson
+      [0.1, 1.0, 0.75]   // Mint Aqua
+    ];
+
+    // Background Starfield
+    var bgCanvas = document.getElementById('bgCanvas');
+    var bgCtx = bgCanvas.getContext('2d');
+    var stars = [];
+    var sketchedStars = [];
+
+    function initStarfield() {
+      bgCanvas.width = window.innerWidth;
+      bgCanvas.height = window.innerHeight;
+      stars = [];
+      sketchedStars = [];
+
+      // Generate regular twinkling background stars
+      var numStars = Math.floor((bgCanvas.width * bgCanvas.height) / 4500);
+      for (var i = 0; i < numStars; i++) {
+        stars.push({
+          x: Math.random() * bgCanvas.width,
+          y: Math.random() * bgCanvas.height,
+          radius: Math.random() * 1.5 + 0.4,
+          alpha: Math.random() * 0.7 + 0.3,
+          twinkleSpeed: Math.random() * 0.03 + 0.01,
+          phase: Math.random() * Math.PI * 2,
+          color: Math.random() > 0.25 ? '#ffffff' : (Math.random() > 0.5 ? '#bcdcff' : '#ffeebb')
+        });
+      }
+
+      // Generate hand-drawn style 4-point and 5-point stars as in the sketch
+      var numSketched = 10;
+      for (var s = 0; s < numSketched; s++) {
+        sketchedStars.push({
+          x: (0.1 + 0.8 * Math.random()) * bgCanvas.width,
+          y: (0.1 + 0.8 * Math.random()) * bgCanvas.height,
+          size: Math.random() * 5 + 6,
+          points: Math.random() > 0.5 ? 4 : 5,
+          alpha: Math.random() * 0.5 + 0.5,
+          rot: Math.random() * Math.PI,
+          twinkleSpeed: Math.random() * 0.02 + 0.01,
+          phase: Math.random() * Math.PI * 2
+        });
+      }
+    }
+
+    function drawStarShape(ctx, cx, cy, spikes, outerRadius, innerRadius, rot) {
+      var step = Math.PI / spikes;
+      ctx.beginPath();
+      for (var i = 0; i < 2 * spikes; i++) {
+        var r = (i % 2 === 0) ? outerRadius : innerRadius;
+        var a = i * step + rot;
+        var x = cx + Math.cos(a) * r;
+        var y = cy + Math.sin(a) * r;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.stroke();
+    }
+
+    function renderStarfield() {
+      // Black background
+      bgCtx.fillStyle = '#000000';
+      bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
+
+      var time = performance.now() * 0.001;
+
+      // Render regular stars
+      for (var i = 0; i < stars.length; i++) {
+        var s = stars[i];
+        var flicker = 0.5 + 0.5 * Math.sin(time * s.twinkleSpeed * 100 + s.phase);
+        bgCtx.fillStyle = s.color;
+        bgCtx.globalAlpha = s.alpha * flicker;
+        bgCtx.beginPath();
+        bgCtx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
+        bgCtx.fill();
+      }
+
+      // Render sketch-style hand-drawn stars
+      bgCtx.strokeStyle = '#ffffff';
+      bgCtx.lineWidth = 1.2;
+      for (var j = 0; j < sketchedStars.length; j++) {
+        var ss = sketchedStars[j];
+        var sflicker = 0.4 + 0.6 * Math.sin(time * ss.twinkleSpeed * 100 + ss.phase);
+        bgCtx.globalAlpha = ss.alpha * sflicker;
+        drawStarShape(bgCtx, ss.x, ss.y, ss.points, ss.size, ss.size * 0.38, ss.rot);
+      }
+
+      // Render subtle 3D-projected orbit guide circles and direction arrow
+      renderOrbitGuides();
+
+      bgCtx.globalAlpha = 1.0;
+    }
+
+    // Project 3D point (x, y, z) into 2D canvas pixel coordinates
+    function project3D(x, y, z) {
+      if (!r || !r.camera || !r.camera.view) return null;
+      var v = r.camera.view;
+      var p = r.camera.ae; // Camera 3D projection matrix (pg.prototype.ae)
+      if (!p) return null;
+
+      // 1. View transform
+      var xc = v[0] * x + v[4] * y + v[8] * z + v[12];
+      var yc = v[1] * x + v[5] * y + v[9] * z + v[13];
+      var zc = v[2] * x + v[6] * y + v[10] * z + v[14];
+      var wc = v[3] * x + v[7] * y + v[11] * z + v[15];
+
+      // 2. Projection transform
+      var xp = p[0] * xc + p[4] * yc + p[8] * zc + p[12] * wc;
+      var yp = p[1] * xc + p[5] * yc + p[9] * zc + p[13] * wc;
+      var zp = p[2] * xc + p[6] * yc + p[10] * zc + p[14] * wc;
+      var wp = p[3] * xc + p[7] * yc + p[11] * zc + p[15] * wc;
+
+      if (wp <= 0.001) return null; // Behind camera
+
+      var ndcX = xp / wp;
+      var ndcY = yp / wp;
+
+      return {
+        x: (ndcX * 0.5 + 0.5) * bgCanvas.width,
+        y: (-ndcY * 0.5 + 0.5) * bgCanvas.height
+      };
+    }
+
+    // Draw faint orbit tracks and directional arrow on the background canvas
+    function renderOrbitGuides() {
+      var orbits = [
+        { radius: R2, color: 'rgba(255, 105, 180, 0.18)' },
+        { radius: R1, color: 'rgba(255, 60, 60, 0.22)' },
+        { radius: R3, color: 'rgba(170, 68, 255, 0.18)' }
+      ];
+
+      for (var o = 0; o < orbits.length; o++) {
+        var rad = orbits[o].radius;
+        bgCtx.strokeStyle = orbits[o].color;
+        bgCtx.lineWidth = 1;
+        bgCtx.setLineDash([4, 6]);
+        bgCtx.beginPath();
+        var first = true;
+        for (var a = 0; a <= Math.PI * 2 + 0.1; a += 0.1) {
+          var pt = project3D(rad * Math.cos(a), rad * Math.sin(a), 0);
+          if (pt) {
+            if (first) {
+              bgCtx.moveTo(pt.x, pt.y);
+              first = false;
+            } else {
+              bgCtx.lineTo(pt.x, pt.y);
+            }
+          }
+        }
+        bgCtx.stroke();
+      }
+      bgCtx.setLineDash([]); // Reset line dash
+
+      // Direction of travel arrow indicator on Planet 1's orbit at ~7 o'clock (as sketched)
+      var arrowAngle = 3.7; // ~212 degrees (between 9 o'clock and 6 o'clock)
+      var pStart = project3D(R1 * Math.cos(arrowAngle - 0.12), R1 * Math.sin(arrowAngle - 0.12), 0);
+      var pEnd   = project3D(R1 * Math.cos(arrowAngle + 0.12), R1 * Math.sin(arrowAngle + 0.12), 0);
+      if (pStart && pEnd) {
+        var dx = pEnd.x - pStart.x;
+        var dy = pEnd.y - pStart.y;
+        var angle = Math.atan2(dy, dx);
+        var headLen = 8;
+
+        bgCtx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+        bgCtx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+        bgCtx.lineWidth = 1.5;
+
+        // Draw arrow tip
+        bgCtx.beginPath();
+        bgCtx.moveTo(pEnd.x, pEnd.y);
+        bgCtx.lineTo(pEnd.x - headLen * Math.cos(angle - Math.PI / 6), pEnd.y - headLen * Math.sin(angle - Math.PI / 6));
+        bgCtx.lineTo(pEnd.x - headLen * Math.cos(angle + Math.PI / 6), pEnd.y - headLen * Math.sin(angle + Math.PI / 6));
+        bgCtx.closePath();
+        bgCtx.fill();
+      }
+    }
+
+    // Trigger jump animation and color change on a celestial cube
+    function triggerJumpAndColor(cube) {
+      if (!cube) return;
+
+      // Initiate jump animation
+      cube._jumping = true;
+      cube._jumpTime = 0;
+      cube._jumpDuration = 0.55; // seconds
+      cube._jumpHeight = 36;     // leap height in Z
+
+      // Pick a new distinct color
+      var currentR = cube.color[0];
+      var currentG = cube.color[1];
+      var currentB = cube.color[2];
+
+      var newCol = VIBRANT_COLORS[Math.floor(Math.random() * VIBRANT_COLORS.length)];
+      // Ensure different color
+      for (var attempt = 0; attempt < 5; attempt++) {
+        var dist = Math.abs(currentR - newCol[0]) + Math.abs(currentG - newCol[1]) + Math.abs(currentB - newCol[2]);
+        if (dist > 0.4) break;
+        newCol = VIBRANT_COLORS[Math.floor(Math.random() * VIBRANT_COLORS.length)];
+      }
+      cube.color = [newCol[0], newCol[1], newCol[2]];
+
+      // Spin boost
+      cube._rotSpeed = [
+        (Math.random() * 2 - 1) * 8,
+        (Math.random() * 2 - 1) * 8,
+        (Math.random() * 2 - 1) * 8
+      ];
+    }
+
+    // Toggle simulation speed (Space bar)
+    function toggleSpeed() {
+      isFast = !isFast;
+      speedMultiplier = isFast ? 3.5 : 1.0;
+
+      var btn = document.getElementById('speedToggleBtn');
+      var label = document.getElementById('speedLabel');
+      if (isFast) {
+        btn.classList.add('fast');
+        label.textContent = 'Speed 3.5x [FAST]';
+      } else {
+        btn.classList.remove('fast');
+        label.textContent = 'Speed 1.0x';
+      }
+    }
+
+    // --- MAIN INITIALIZATION ---
+    window.onload = function() {
+      initStarfield();
+
+      // 1. Initialize XTK 3D Renderer
+      r = new X.renderer3D();
+      r.init();
+
+      // Camera: a bit above looking down at the origin
+      r.camera.position = [0, -290, 160];
+      r.camera.focus = [0, 0, 0];
+      r.camera.up = [0, 0, 1];
+
+      // 2. SUN: Big amber cube in the center that spins slowly
+      sun = new X.cube();
+      sun.lengthX = 36;
+      sun.lengthY = 36;
+      sun.lengthZ = 36;
+      sun.color = [1.0, 0.72, 0.0]; // Amber
+      sun._name = "Sun";
+      sun._pos = [0, 0, 0];
+      sun._rot = [0, 0, 0];
+      sun._rotSpeed = [0, 0, 0];
+      sun._jumping = false;
+      sun._jumpZ = 0;
+      sun._scale = 1.0;
+      r.add(sun);
+      celestialBodies.push(sun);
+
+      // 3. PLANET 1: Red cube with small moon cube orbiting it
+      planet1 = new X.cube();
+      planet1.lengthX = 16;
+      planet1.lengthY = 16;
+      planet1.lengthZ = 16;
+      planet1.color = [1.0, 0.12, 0.12]; // Red
+      planet1._name = "Planet 1";
+      planet1._pos = [-R1, 0, 0];
+      planet1._rot = [0, 0, 0];
+      planet1._rotSpeed = [0, 0, 0];
+      planet1._jumping = false;
+      planet1._jumpZ = 0;
+      planet1._scale = 1.0;
+      r.add(planet1);
+      celestialBodies.push(planet1);
+
+      // MOON: Small cube orbiting Planet 1
+      moon = new X.cube();
+      moon.lengthX = 6;
+      moon.lengthY = 6;
+      moon.lengthZ = 6;
+      moon.color = [0.85, 0.88, 0.95]; // Silvery white
+      moon._name = "Moon";
+      moon._pos = [-R1 + R_moon, 0, 0];
+      moon._rot = [0, 0, 0];
+      moon._rotSpeed = [0, 0, 0];
+      moon._jumping = false;
+      moon._jumpZ = 0;
+      moon._scale = 1.0;
+      r.add(moon);
+      celestialBodies.push(moon);
+
+      // 4. PLANET 2: Pink cube and the fastest
+      planet2 = new X.cube();
+      planet2.lengthX = 14;
+      planet2.lengthY = 14;
+      planet2.lengthZ = 14;
+      planet2.color = [1.0, 0.4, 0.72]; // Pink
+      planet2._name = "Planet 2";
+      planet2._pos = [R2 * Math.cos(theta2), R2 * Math.sin(theta2), 0];
+      planet2._rot = [0, 0, 0];
+      planet2._rotSpeed = [0, 0, 0];
+      planet2._jumping = false;
+      planet2._jumpZ = 0;
+      planet2._scale = 1.0;
+      r.add(planet2);
+      celestialBodies.push(planet2);
+
+      // 5. PLANET 3: Purple cube and the slowest
+      planet3 = new X.cube();
+      planet3.lengthX = 19;
+      planet3.lengthY = 19;
+      planet3.lengthZ = 19;
+      planet3.color = [0.65, 0.2, 0.9]; // Purple
+      planet3._name = "Planet 3";
+      planet3._pos = [R3 * Math.cos(theta3), R3 * Math.sin(theta3), 0];
+      planet3._rot = [0, 0, 0];
+      planet3._rotSpeed = [0, 0, 0];
+      planet3._jumping = false;
+      planet3._jumpZ = 0;
+      planet3._scale = 1.0;
+      r.add(planet3);
+      celestialBodies.push(planet3);
+
+      // 6. Animation Heartbeat Hooked to XTK's onRender
+      var lastTimestamp = performance.now();
+
+      r.onRender = function() {
+        var now = performance.now();
+        var dt = (now - lastTimestamp) / 1000;
+        if (dt > 0.1) dt = 0.1;
+        lastTimestamp = now;
+
+        // Render ambient background stars and projected orbit paths
+        renderStarfield();
+
+        // --- UPDATE JUMP PHYSICS FOR BODIES ---
+        for (var b = 0; b < celestialBodies.length; b++) {
+          var body = celestialBodies[b];
+          if (body._jumping) {
+            body._jumpTime += dt * speedMultiplier;
+            var tNorm = body._jumpTime / body._jumpDuration;
+            if (tNorm >= 1.0) {
+              body._jumping = false;
+              body._jumpZ = 0;
+              body._scale = 1.0;
+            } else {
+              // Smooth sine jump arc
+              body._jumpZ = body._jumpHeight * Math.sin(tNorm * Math.PI);
+              // Scale bounce during jump
+              body._scale = 1.0 + 0.35 * Math.sin(tNorm * Math.PI);
+            }
+          } else {
+            body._jumpZ = 0;
+            body._scale = 1.0;
+          }
+
+          // Damped tumble rotation from jump
+          if (body._rotSpeed) {
+            body._rot[0] += body._rotSpeed[0] * dt * speedMultiplier;
+            body._rot[1] += body._rotSpeed[1] * dt * speedMultiplier;
+            body._rot[2] += body._rotSpeed[2] * dt * speedMultiplier;
+            body._rotSpeed[0] *= 0.94;
+            body._rotSpeed[1] *= 0.94;
+            body._rotSpeed[2] *= 0.94;
+          }
+        }
+
+        // --- 1. SUN: Spins slowly in place ---
+        sunSpinAngle += SPEED_SUN * speedMultiplier;
+        updateCubeMatrix(
+          sun,
+          0, 0, sun._jumpZ,
+          sun._rot[0], sun._rot[1], sunSpinAngle + sun._rot[2],
+          sun._scale, sun._scale, sun._scale
+        );
+        sun._pos[0] = 0; sun._pos[1] = 0; sun._pos[2] = sun._jumpZ;
+
+        // --- 2. PLANET 1: Red cube with Moon ---
+        theta1 += SPEED_P1 * speedMultiplier; // Orbits counter-clockwise (direction of arrow)
+        var p1x = R1 * Math.cos(theta1);
+        var p1y = R1 * Math.sin(theta1);
+        var p1z = planet1._jumpZ;
+        planet1._pos[0] = p1x; planet1._pos[1] = p1y; planet1._pos[2] = p1z;
+
+        updateCubeMatrix(
+          planet1,
+          p1x, p1y, p1z,
+          planet1._rot[0], planet1._rot[1], theta1 * 1.5 + planet1._rot[2],
+          planet1._scale, planet1._scale, planet1._scale
+        );
+
+        // --- MOON: Orbits around Planet 1 ---
+        thetaMoon += SPEED_MOON * speedMultiplier;
+        var moonX = p1x + R_moon * Math.cos(thetaMoon);
+        var moonY = p1y + R_moon * Math.sin(thetaMoon);
+        var moonZ = p1z + moon._jumpZ + 2.5 * Math.sin(thetaMoon); // Moon follows planet 1's jump height!
+        moon._pos[0] = moonX; moon._pos[1] = moonY; moon._pos[2] = moonZ;
+
+        updateCubeMatrix(
+          moon,
+          moonX, moonY, moonZ,
+          moon._rot[0], moon._rot[1], thetaMoon * 2.0 + moon._rot[2],
+          moon._scale, moon._scale, moon._scale
+        );
+
+        // --- 3. PLANET 2: Pink, fastest ---
+        theta2 += SPEED_P2 * speedMultiplier; // Fastest orbit!
+        var p2x = R2 * Math.cos(theta2);
+        var p2y = R2 * Math.sin(theta2);
+        var p2z = planet2._jumpZ;
+        planet2._pos[0] = p2x; planet2._pos[1] = p2y; planet2._pos[2] = p2z;
+
+        updateCubeMatrix(
+          planet2,
+          p2x, p2y, p2z,
+          planet2._rot[0], planet2._rot[1], theta2 * 2.5 + planet2._rot[2],
+          planet2._scale, planet2._scale, planet2._scale
+        );
+
+        // --- 4. PLANET 3: Purple, slowest ---
+        theta3 += SPEED_P3 * speedMultiplier; // Slowest orbit!
+        var p3x = R3 * Math.cos(theta3);
+        var p3y = R3 * Math.sin(theta3);
+        var p3z = planet3._jumpZ;
+        planet3._pos[0] = p3x; planet3._pos[1] = p3y; planet3._pos[2] = p3z;
+
+        updateCubeMatrix(
+          planet3,
+          p3x, p3y, p3z,
+          planet3._rot[0], planet3._rot[1], theta3 * 0.8 + planet3._rot[2],
+          planet3._scale, planet3._scale, planet3._scale
+        );
+      };
+
+      // 7. Start XTK Rendering
+      r.render();
+
+      // Ensure camera values remain set after initial render
+      r.camera.position = [0, -290, 160];
+      r.camera.focus = [0, 0, 0];
+      r.camera.up = [0, 0, 1];
+
+      // --- USER INTERACTIONS ---
+
+      // Space bar speeds up everything
+      window.addEventListener('keydown', function(e) {
+        if (e.code === 'Space' || e.keyCode === 32) {
+          e.preventDefault();
+          if (!e.repeat) {
+            toggleSpeed();
+          }
+        }
+      });
+
+      document.getElementById('speedToggleBtn').addEventListener('click', function() {
+        toggleSpeed();
+      });
+
+      // Mouse click tracking for picking
+      var mouseDownPos = { x: 0, y: 0, time: 0 };
+
+      window.addEventListener('mousedown', function(e) {
+        mouseDownPos.x = e.clientX;
+        mouseDownPos.y = e.clientY;
+        mouseDownPos.time = performance.now();
+      }, true);
+
+      window.addEventListener('mouseup', function(e) {
+        var dx = e.clientX - mouseDownPos.x;
+        var dy = e.clientY - mouseDownPos.y;
+        var dist = Math.sqrt(dx * dx + dy * dy);
+        var duration = performance.now() - mouseDownPos.time;
+
+        // Ignore drag interactions (orbit/pan)
+        if (dist > 7 || duration > 450) {
+          return;
+        }
+
+        // Ignore clicks on UI elements
+        if (e.target.closest('#hud')) {
+          return;
+        }
+
+        var canvas = document.querySelector('canvas:not(#bgCanvas)');
+        if (!canvas) canvas = document.querySelector('canvas');
+        var clientX = e.clientX;
+        var clientY = e.clientY;
+        var pickX = clientX;
+        var pickY = clientY;
+
+        if (canvas) {
+          var rect = canvas.getBoundingClientRect();
+          pickX = (clientX - rect.left) * (canvas.width / rect.width);
+          pickY = (clientY - rect.top) * (canvas.height / rect.height);
+        }
+
+        var targetObject = null;
+
+        // Method 1: Built-in XTK WebGL Pick
+        if (r && typeof r.pick === 'function') {
+          var pickId = r.pick(pickX, pickY);
+          if (pickId > 0) {
+            var obj = r.get(pickId);
+            if (obj) {
+              targetObject = obj;
+            }
+          }
+        }
+
+        // Method 2: Projected Proximity Check (fallback for high-DPI screens)
+        if (!targetObject) {
+          var bestDist = 32; // pixel radius tolerance
+          for (var i = 0; i < celestialBodies.length; i++) {
+            var b = celestialBodies[i];
+            var pt = project3D(b._pos[0], b._pos[1], b._pos[2]);
+            if (pt) {
+              var sDist = Math.sqrt((pt.x - clientX) * (pt.x - clientX) + (pt.y - clientY) * (pt.y - clientY));
+              if (sDist < bestDist) {
+                bestDist = sDist;
+                targetObject = b;
+              }
+            }
+          }
+        }
+
+        // Execute jump and color change if a planet/body was clicked
+        if (targetObject) {
+          triggerJumpAndColor(targetObject);
+        }
+      }, true);
+
+      // Handle window resize
+      window.addEventListener('resize', function() {
+        initStarfield();
+      });
+    };
+  </script>
+</body>
+</html>
