@@ -1,0 +1,1668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>XTK Hyperspace - Kinetic 3D Cube Art Visualization</title>
+  <style>
+    :root {
+      --bg-dark: #050814;
+      --accent-cyan: #00f0ff;
+      --accent-magenta: #ff0077;
+      --accent-gold: #ffbe0b;
+      --accent-purple: #8b5cf6;
+      --panel-bg: rgba(10, 16, 32, 0.76);
+      --panel-border: rgba(255, 255, 255, 0.12);
+      --panel-glow: rgba(0, 240, 255, 0.15);
+      --text-main: #f1f5f9;
+      --text-dim: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: var(--bg-dark);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      color: var(--text-main);
+    }
+
+    /* Ambient Background Starfield Canvas */
+    #bgCanvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    /* XTK WebGL Canvas Container */
+    canvas:not(#bgCanvas) {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 2;
+      display: block;
+      cursor: grab;
+    }
+    canvas:not(#bgCanvas):active {
+      cursor: grabbing;
+    }
+
+    /* Glassmorphic UI HUD Layer */
+    #hud {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 10;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 20px 24px;
+      transition: opacity 0.35s ease, transform 0.35s ease;
+    }
+
+    #hud.hidden {
+      opacity: 0;
+      transform: scale(0.98);
+      pointer-events: none !important;
+    }
+
+    .interactive {
+      pointer-events: auto;
+    }
+
+    /* Glass Panels */
+    .glass-panel {
+      background: var(--panel-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--panel-border);
+      border-radius: 14px;
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    }
+
+    /* Top Bar */
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      max-width: 1400px;
+      margin: 0 auto;
+      gap: 16px;
+    }
+
+    .brand-box {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 10px 18px;
+    }
+
+    .brand-icon {
+      width: 28px;
+      height: 28px;
+      background: linear-gradient(135deg, var(--accent-cyan), var(--accent-magenta));
+      border-radius: 7px;
+      box-shadow: 0 0 16px var(--accent-cyan);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: pulseGlow 3s infinite alternate;
+    }
+
+    @keyframes pulseGlow {
+      0% { box-shadow: 0 0 10px var(--accent-cyan); transform: rotate(0deg); }
+      100% { box-shadow: 0 0 22px var(--accent-magenta); transform: rotate(180deg); }
+    }
+
+    .brand-titles h1 {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      background: linear-gradient(90deg, #ffffff, #94a3b8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand-titles p {
+      margin: 2px 0 0 0;
+      font-size: 11px;
+      color: var(--accent-cyan);
+      letter-spacing: 0.5px;
+      font-weight: 500;
+    }
+
+    .telemetry-bar {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 8px 16px;
+      font-size: 12px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    .telemetry-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .telemetry-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 8px #10b981;
+      animation: blink 2s infinite ease-in-out;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .telemetry-val {
+      font-weight: 700;
+      color: #fff;
+    }
+
+    /* Main Deck (Left Floating Controls) */
+    .controls-deck {
+      position: absolute;
+      top: 86px;
+      left: 24px;
+      width: 320px;
+      max-height: calc(100vh - 165px);
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* Custom Scrollbar */
+    .controls-deck::-webkit-scrollbar {
+      width: 5px;
+    }
+    .controls-deck::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 4px;
+    }
+
+    .section-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-dim);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .badge-count {
+      background: rgba(0, 240, 255, 0.15);
+      color: var(--accent-cyan);
+      padding: 2px 7px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 600;
+    }
+
+    /* Grid of Buttons */
+    .btn-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 7px;
+    }
+
+    .hud-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--text-main);
+      padding: 8px 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .hud-btn:hover {
+      background: rgba(0, 240, 255, 0.12);
+      border-color: rgba(0, 240, 255, 0.4);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 240, 255, 0.15);
+    }
+
+    .hud-btn:active {
+      transform: translateY(0);
+    }
+
+    .hud-btn.active {
+      background: linear-gradient(135deg, rgba(0, 240, 255, 0.25), rgba(139, 92, 246, 0.25));
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 16px rgba(0, 240, 255, 0.3);
+      color: #fff;
+      font-weight: 600;
+    }
+
+    .key-hint {
+      font-size: 10px;
+      opacity: 0.6;
+      background: rgba(0, 0, 0, 0.35);
+      padding: 2px 5px;
+      border-radius: 4px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      font-family: ui-monospace, SFMono-Regular, monospace;
+    }
+
+    /* Color Palette Pills */
+    .color-palette-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+    }
+
+    .color-btn {
+      height: 34px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 600;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.2s ease;
+      color: #fff;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+    }
+
+    .color-btn.active {
+      border: 2px solid #ffffff;
+      box-shadow: 0 0 14px rgba(255, 255, 255, 0.6);
+      transform: scale(1.03);
+    }
+
+    /* Action Trigger Buttons */
+    .action-btn {
+      width: 100%;
+      padding: 10px 14px;
+      border-radius: 9px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      transition: all 0.2s ease;
+    }
+
+    .action-btn.blast {
+      background: linear-gradient(135deg, #ff0077, #ff6b00);
+      color: #fff;
+      box-shadow: 0 4px 18px rgba(255, 0, 119, 0.35);
+      border: none;
+    }
+    .action-btn.blast:hover {
+      box-shadow: 0 6px 24px rgba(255, 0, 119, 0.6);
+      transform: translateY(-1px);
+    }
+
+    .action-btn.comet {
+      background: linear-gradient(135deg, #00f0ff, #3b82f6);
+      color: #050814;
+      font-weight: 700;
+      box-shadow: 0 4px 18px rgba(0, 240, 255, 0.3);
+      border: none;
+    }
+    .action-btn.comet:hover {
+      box-shadow: 0 6px 24px rgba(0, 240, 255, 0.55);
+      transform: translateY(-1px);
+    }
+
+    /* Slider Row */
+    .slider-row {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.03);
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .slider-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 5px;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 4px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: var(--accent-cyan);
+      box-shadow: 0 0 8px var(--accent-cyan);
+      cursor: pointer;
+    }
+
+    /* Bottom Info & Shortcuts Overlay */
+    .bottom-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      max-width: 1400px;
+      margin: 0 auto;
+      gap: 16px;
+    }
+
+    .guide-chip {
+      padding: 8px 16px;
+      font-size: 11px;
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .guide-chip span b {
+      color: #fff;
+    }
+
+    .toggle-hud-btn {
+      position: fixed;
+      bottom: 20px;
+      right: 24px;
+      z-index: 100;
+      background: var(--panel-bg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--panel-border);
+      color: var(--text-main);
+      padding: 8px 14px;
+      border-radius: 20px;
+      font-size: 11px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      pointer-events: auto;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    }
+    .toggle-hud-btn:hover {
+      background: rgba(0, 240, 255, 0.15);
+      border-color: var(--accent-cyan);
+    }
+
+    /* Click Ripple Effect */
+    .click-ripple {
+      position: absolute;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      border: 2px solid var(--accent-cyan);
+      box-shadow: 0 0 16px var(--accent-cyan);
+      pointer-events: none;
+      transform: translate(-50%, -50%) scale(1);
+      animation: rippleAnim 0.7s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+      z-index: 99;
+    }
+
+    @keyframes rippleAnim {
+      0% {
+        transform: translate(-50%, -50%) scale(0.4);
+        opacity: 1;
+      }
+      100% {
+        transform: translate(-50%, -50%) scale(4.5);
+        opacity: 0;
+      }
+    }
+  </style>
+
+  <!-- Load XTK Edge Library -->
+  <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+</head>
+<body>
+
+  <!-- Ambient Starfield Canvas -->
+  <canvas id="bgCanvas"></canvas>
+
+  <!-- HUD Interface -->
+  <div id="hud">
+    <!-- Top Bar -->
+    <div class="top-bar">
+      <div class="glass-panel brand-box interactive">
+        <div class="brand-icon"></div>
+        <div class="brand-titles">
+          <h1>XTK Kinetic Cube Matrix</h1>
+          <p>WebGL Procedural Art & Flying Swarm</p>
+        </div>
+      </div>
+
+      <div class="glass-panel telemetry-bar interactive">
+        <div class="telemetry-item">
+          <div class="telemetry-dot"></div>
+          <span>FPS: <span id="fpsVal" class="telemetry-val">60</span></span>
+        </div>
+        <div class="telemetry-item">
+          <span>Cubes: <span id="cubeCountVal" class="telemetry-val">128</span></span>
+        </div>
+        <div class="telemetry-item">
+          <span>Formation: <span id="formationNameVal" class="telemetry-val" style="color:var(--accent-cyan)">Vortex</span></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Left Controls Deck -->
+    <div class="glass-panel controls-deck interactive">
+      <!-- Formations -->
+      <div>
+        <div class="section-title">
+          <span>Formations</span>
+          <span class="badge-count">Keys 1-6</span>
+        </div>
+        <div class="btn-grid">
+          <button class="hud-btn active" data-form="0">
+            <span>🌌 Vortex</span><span class="key-hint">1</span>
+          </button>
+          <button class="hud-btn" data-form="1">
+            <span>💠 Matrix</span><span class="key-hint">2</span>
+          </button>
+          <button class="hud-btn" data-form="2">
+            <span>🧬 Helix</span><span class="key-hint">3</span>
+          </button>
+          <button class="hud-btn" data-form="3">
+            <span>🌊 Wave</span><span class="key-hint">4</span>
+          </button>
+          <button class="hud-btn" data-form="4">
+            <span>💥 Pulsar</span><span class="key-hint">5</span>
+          </button>
+          <button class="hud-btn" data-form="5">
+            <span>🪐 Saturn</span><span class="key-hint">6</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Color Palettes -->
+      <div>
+        <div class="section-title">
+          <span>Color Themes</span>
+          <span class="badge-count">Key C</span>
+        </div>
+        <div class="color-palette-grid">
+          <div class="color-btn active" data-theme="0" style="background: linear-gradient(135deg, #00f0ff, #ff0077);">Cyber</div>
+          <div class="color-btn" data-theme="1" style="background: linear-gradient(135deg, #ffbe0b, #ff0055);">Solar</div>
+          <div class="color-btn" data-theme="2" style="background: linear-gradient(135deg, #00ff88, #00bbff);">Aurora</div>
+          <div class="color-btn" data-theme="3" style="background: linear-gradient(135deg, #ff00aa, #3a0ca3);">Synth</div>
+          <div class="color-btn" data-theme="4" style="background: linear-gradient(135deg, #ff0000, #00ff00, #0000ff);">Rainbow</div>
+          <div class="color-btn" data-theme="5" style="background: linear-gradient(135deg, #dbeafe, #3b82f6, #0f172a);">Crystal</div>
+        </div>
+      </div>
+
+      <!-- Flying Cubes Behavior -->
+      <div>
+        <div class="section-title">
+          <span>Flying Cubes (32)</span>
+          <span class="badge-count">Key F</span>
+        </div>
+        <div class="btn-grid">
+          <button class="hud-btn active" data-flight="0">
+            <span>☄️ Meteors</span>
+          </button>
+          <button class="hud-btn" data-flight="1">
+            <span>🪐 Orbit</span>
+          </button>
+          <button class="hud-btn" data-flight="2">
+            <span>🌀 Warp</span>
+          </button>
+          <button class="hud-btn" data-flight="3">
+            <span>⚡ Chaotic</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Speed Slider -->
+      <div class="slider-row">
+        <div class="slider-label">
+          <span>Simulation Speed</span>
+          <span id="speedValText">1.0x</span>
+        </div>
+        <input type="range" id="speedSlider" min="0.2" max="3.0" step="0.1" value="1.0">
+      </div>
+
+      <!-- Kinetic Action Triggers -->
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <button class="action-btn blast" id="btnShockwave">
+          <span>💥 Kinetic Shockwave</span>
+          <span class="key-hint" style="background:rgba(0,0,0,0.3)">Space</span>
+        </button>
+        <button class="action-btn comet" id="btnLaunchComet">
+          <span>🚀 Launch High-Speed Comet</span>
+          <span class="key-hint" style="background:rgba(0,0,0,0.3)">B</span>
+        </button>
+      </div>
+
+      <!-- Aux Toggles -->
+      <div class="btn-grid">
+        <button class="hud-btn active" id="btnAutoCam">
+          <span>🎥 Auto-Cam</span><span class="key-hint">A</span>
+        </button>
+        <button class="hud-btn" id="btnAudioToggle">
+          <span>🔇 Sound Off</span><span class="key-hint">M</span>
+        </button>
+      </div>
+
+      <button class="hud-btn" id="btnResetCam" style="justify-content:center;">
+        <span>🔄 Reset Camera View</span><span class="key-hint">R</span>
+      </button>
+    </div>
+
+    <!-- Bottom Bar -->
+    <div class="bottom-bar">
+      <div class="glass-panel guide-chip interactive">
+        <span>🖱️ <b>Left Drag:</b> Orbit</span>
+        <span>🖱️ <b>Right Drag:</b> Pan</span>
+        <span>🖱️ <b>Scroll:</b> Zoom</span>
+        <span>🎯 <b>Click Cube:</b> Detonate & Pulse</span>
+        <span>⌨️ <b>Space:</b> Shockwave</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Persistent Floating HUD Toggle Button -->
+  <button class="toggle-hud-btn" id="btnToggleHud">
+    <span>👁️</span><span id="hudToggleText">Hide HUD [H]</span>
+  </button>
+
+  <script type="text/javascript">
+    // --- SYNTHESIZER (Web Audio API) ---
+    var audioCtx = null;
+    var audioEnabled = false;
+
+    function initAudio() {
+      if (!audioCtx) {
+        var AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (AudioContext) {
+          audioCtx = new AudioContext();
+        }
+      }
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    function playTone(freq, type, duration, gainLevel) {
+      if (!audioEnabled || !audioCtx) return;
+      try {
+        var osc = audioCtx.createOscillator();
+        var gain = audioCtx.createGain();
+        osc.type = type || 'sine';
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(gainLevel || 0.15, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch (e) {}
+    }
+
+    function playChord(frequencies, duration) {
+      if (!audioEnabled || !audioCtx) return;
+      frequencies.forEach(function(f, idx) {
+        setTimeout(function() {
+          playTone(f, 'triangle', duration || 0.8, 0.08);
+        }, idx * 45);
+      });
+    }
+
+    function playShockwaveSound() {
+      if (!audioEnabled || !audioCtx) return;
+      try {
+        // Deep bass sweep
+        var osc = audioCtx.createOscillator();
+        var gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(140, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(32, audioCtx.currentTime + 0.6);
+        gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.6);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.6);
+
+        // High shimmer ping
+        playTone(1320, 'sine', 0.5, 0.1);
+      } catch(e) {}
+    }
+
+    function playPickSound() {
+      if (!audioEnabled || !audioCtx) return;
+      var notes = [523.25, 659.25, 783.99, 1046.50];
+      var n = notes[Math.floor(Math.random() * notes.length)];
+      playTone(n, 'sine', 0.4, 0.15);
+    }
+
+    // --- COLOR MATH & PALETTES ---
+    function hslToRgb(h, s, l) {
+      var r, g, b;
+      if (s === 0) {
+        r = g = b = l;
+      } else {
+        function hue2rgb(p, q, t) {
+          if (t < 0) t += 1;
+          if (t > 1) t -= 1;
+          if (t < 1/6) return p + (q - p) * 6 * t;
+          if (t < 1/2) return q;
+          if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+          return p;
+        }
+        var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        var p = 2 * l - q;
+        r = hue2rgb(p, q, h + 1/3);
+        g = hue2rgb(p, q, h);
+        b = hue2rgb(p, q, h - 1/3);
+      }
+      return [r, g, b];
+    }
+
+    function lerpColor(c1, c2, t) {
+      return [
+        c1[0] + (c2[0] - c1[0]) * t,
+        c1[1] + (c2[1] - c1[1]) * t,
+        c1[2] + (c2[2] - c1[2]) * t
+      ];
+    }
+
+    var THEMES = [
+      // 0: Cyberpunk
+      {
+        name: "Cyberpunk",
+        palette: [
+          [0.0, 0.95, 1.0],   // Cyan
+          [1.0, 0.05, 0.65],  // Magenta
+          [0.55, 0.1, 1.0],   // Violet
+          [0.95, 1.0, 0.15]   // Neon Lemon
+        ]
+      },
+      // 1: Solar Flare
+      {
+        name: "Solar Flare",
+        palette: [
+          [1.0, 0.8, 0.1],    // Gold
+          [1.0, 0.35, 0.0],   // Solar Orange
+          [0.9, 0.1, 0.2],    // Crimson
+          [1.0, 0.95, 0.85]   // Incandescent White
+        ]
+      },
+      // 2: Aurora Borealis
+      {
+        name: "Aurora Borealis",
+        palette: [
+          [0.05, 0.95, 0.55], // Emerald
+          [0.1, 0.85, 0.95],  // Turquoise
+          [0.2, 0.4, 1.0],    // Polar Blue
+          [0.85, 0.2, 0.8]    // Violet-Pink
+        ]
+      },
+      // 3: Synthwave Sunset
+      {
+        name: "Synthwave",
+        palette: [
+          [1.0, 0.15, 0.6],   // Hot Pink
+          [0.45, 0.05, 0.85], // Purple
+          [1.0, 0.55, 0.1],   // Sunset Amber
+          [0.1, 0.8, 1.0]     // Cyan
+        ]
+      },
+      // 4: Chroma Rainbow
+      {
+        name: "Rainbow",
+        rainbow: true
+      },
+      // 5: Crystal Obsidian
+      {
+        name: "Crystal",
+        palette: [
+          [0.85, 0.92, 1.0],  // Platinum Ice
+          [0.25, 0.65, 1.0],  // Blue Ice
+          [0.15, 0.25, 0.4],  // Obsidian Slate
+          [0.98, 0.99, 1.0]   // Diamond
+        ]
+      }
+    ];
+
+    var currentThemeIdx = 0;
+
+    function getThemeColor(themeIdx, factor, phase) {
+      var th = THEMES[themeIdx];
+      if (th.rainbow) {
+        var h = (factor + phase) % 1.0;
+        if (h < 0) h += 1.0;
+        return hslToRgb(h, 0.95, 0.55);
+      }
+      var pal = th.palette;
+      var n = pal.length;
+      var f = (factor + phase) % 1.0;
+      if (f < 0) f += 1.0;
+      var idxFloat = f * (n - 1);
+      var i0 = Math.floor(idxFloat);
+      var i1 = Math.min(i0 + 1, n - 1);
+      var frac = idxFloat - i0;
+      return lerpColor(pal[i0], pal[i1], frac);
+    }
+
+    // --- STARFIELD BACKGROUND PARTICLES ---
+    var bgCanvas = document.getElementById('bgCanvas');
+    var bgCtx = bgCanvas.getContext('2d');
+    var bgStars = [];
+    var bgNebulaTime = 0;
+
+    function initStarfield() {
+      bgCanvas.width = window.innerWidth;
+      bgCanvas.height = window.innerHeight;
+      bgStars = [];
+      var count = Math.floor((bgCanvas.width * bgCanvas.height) / 7000);
+      for (var i = 0; i < count; i++) {
+        bgStars.push({
+          x: Math.random() * bgCanvas.width,
+          y: Math.random() * bgCanvas.height,
+          radius: Math.random() * 1.5 + 0.4,
+          alpha: Math.random() * 0.7 + 0.2,
+          speed: Math.random() * 0.2 + 0.05,
+          color: Math.random() > 0.4 ? '#00f0ff' : '#ff0077'
+        });
+      }
+    }
+
+    function renderStarfield() {
+      bgCtx.fillStyle = '#050814';
+      bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
+
+      // Subtle ambient glowing nebula gradient
+      bgNebulaTime += 0.005;
+      var gradX = bgCanvas.width * (0.5 + 0.25 * Math.sin(bgNebulaTime));
+      var gradY = bgCanvas.height * (0.5 + 0.25 * Math.cos(bgNebulaTime * 0.7));
+      var radGrad = bgCtx.createRadialGradient(gradX, gradY, 20, gradX, gradY, bgCanvas.width * 0.75);
+      radGrad.addColorStop(0, 'rgba(13, 28, 64, 0.4)');
+      radGrad.addColorStop(0.5, 'rgba(40, 10, 50, 0.15)');
+      radGrad.addColorStop(1, 'rgba(5, 8, 20, 0)');
+      bgCtx.fillStyle = radGrad;
+      bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
+
+      // Stars
+      for (var i = 0; i < bgStars.length; i++) {
+        var s = bgStars[i];
+        s.y -= s.speed;
+        if (s.y < 0) {
+          s.y = bgCanvas.height;
+          s.x = Math.random() * bgCanvas.width;
+        }
+        var flicker = 0.8 + 0.2 * Math.sin(bgNebulaTime * 4.0 + i);
+        bgCtx.fillStyle = s.color;
+        bgCtx.globalAlpha = s.alpha * flicker;
+        bgCtx.beginPath();
+        bgCtx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
+        bgCtx.fill();
+      }
+      bgCtx.globalAlpha = 1.0;
+    }
+
+    window.addEventListener('resize', function() {
+      initStarfield();
+    });
+
+    // --- IN-PLACE MATRIX MATH FOR XTK OBJECTS ---
+    // Efficiently updates XTK's 4x4 transform matrix column-major in-place
+    function updateCubeMatrix(cube, x, y, z, rx, ry, rz, sx, sy, sz) {
+      var m = cube.transform.matrix;
+      var cx = Math.cos(rx), sx_a = Math.sin(rx);
+      var cy = Math.cos(ry), sy_a = Math.sin(ry);
+      var cz = Math.cos(rz), sz_a = Math.sin(rz);
+
+      // Col 0
+      m[0] = (cy * cz) * sx;
+      m[1] = (cy * sz_a) * sx;
+      m[2] = (-sy_a) * sx;
+      m[3] = 0;
+
+      // Col 1
+      m[4] = (sx_a * sy_a * cz - cx * sz_a) * sy;
+      m[5] = (sx_a * sy_a * sz_a + cx * cz) * sy;
+      m[6] = (sx_a * cy) * sy;
+      m[7] = 0;
+
+      // Col 2
+      m[8]  = (cx * sy_a * cz + sx_a * sz_a) * sz;
+      m[9]  = (cx * sy_a * sz_a - sx_a * cz) * sz;
+      m[10] = (cx * cy) * sz;
+      m[11] = 0;
+
+      // Col 3: Translation
+      m[12] = x;
+      m[13] = y;
+      m[14] = z;
+      m[15] = 1;
+
+      cube.transform.modified();
+    }
+
+    // --- VISUALIZATION GLOBALS ---
+    var r = null; // XTK 3D Renderer
+    var CORE_COUNT = 96;
+    var FLYING_COUNT = 32;
+    var TOTAL_COUNT = CORE_COUNT + FLYING_COUNT;
+
+    var coreCubes = [];
+    var flyingCubes = [];
+    var allCubes = [];
+
+    var currentFormation = 0;
+    var currentFlightMode = 0;
+    var speedMultiplier = 1.0;
+    var autoCamera = true;
+    var simTime = 0;
+    var isUserDragging = false;
+    var lastInteractionTime = 0;
+
+    // Mouse down tracking for click vs drag separation
+    var mouseDownPos = { x: 0, y: 0, time: 0 };
+
+    // Shockwave State
+    var shockwaveActive = false;
+    var shockwaveOrigin = [0, 0, 0];
+    var shockwaveRadius = 0;
+    var shockwaveMaxRadius = 380;
+    var shockwaveSpeed = 320;
+
+    // FPS Telemetry
+    var frameCount = 0;
+    var lastFpsUpdate = 0;
+    var fpsDisplay = document.getElementById('fpsVal');
+
+    // --- FORMATION GEOMETRIES (96 Core Cubes) ---
+    var FORMATIONS = [
+      {
+        name: "Cosmic Vortex",
+        calc: function(i, t) {
+          // 4 spiral arms
+          var arm = i % 4;
+          var step = Math.floor(i / 4); // 0..23
+          var radius = 16 + step * 5.8;
+          var angle = (arm * Math.PI * 0.5) + (step * 0.28) + (t * 0.6);
+          var z = 24 * Math.sin(0.08 * radius - t * 2.5);
+          var x = radius * Math.cos(angle);
+          var y = radius * Math.sin(angle);
+          return {
+            x: x, y: y, z: z,
+            rx: t * 1.5 + step * 0.1,
+            ry: angle,
+            rz: t * 0.8
+          };
+        }
+      },
+      {
+        name: "Hypercube Matrix",
+        calc: function(i, t) {
+          // 4x4x4 lattice = 64 cubes + 32 outer orbital satellites
+          if (i < 64) {
+            var ix = (i % 4) - 1.5;
+            var iy = (Math.floor(i / 4) % 4) - 1.5;
+            var iz = Math.floor(i / 16) - 1.5;
+            var spacing = 28 + 6 * Math.sin(t * 1.5);
+            // Twisting slices
+            var twistAngle = Math.sin(t * 1.2 + iz * 0.8) * 0.6;
+            var cosT = Math.cos(twistAngle), sinT = Math.sin(twistAngle);
+            var px = (ix * cosT - iy * sinT) * spacing;
+            var py = (ix * sinT + iy * cosT) * spacing;
+            var pz = iz * spacing;
+            return {
+              x: px, y: py, z: pz,
+              rx: twistAngle,
+              ry: t * 0.5,
+              rz: twistAngle * 0.5
+            };
+          } else {
+            // 32 satellite perimeter cubes orbiting on bounding corners
+            var satIdx = i - 64;
+            var theta = (satIdx / 32) * Math.PI * 2 + t * 0.8;
+            var satR = 95 + 12 * Math.sin(t * 2 + satIdx);
+            var satZ = 75 * Math.sin(theta * 2);
+            return {
+              x: satR * Math.cos(theta),
+              y: satR * Math.sin(theta),
+              z: satZ,
+              rx: t * 2.0, ry: t * 1.8, rz: theta
+            };
+          }
+        }
+      },
+      {
+        name: "Quantum Helix",
+        calc: function(i, t) {
+          // Double helix with connecting rungs
+          if (i < 72) {
+            var strand = i % 2; // 0 or 1
+            var k = Math.floor(i / 2); // 0..35
+            var z = (k - 17.5) * 6.8;
+            var theta = k * 0.35 + t * 1.4 + strand * Math.PI;
+            var rHel = 48 + 8 * Math.cos(k * 0.15 + t * 2.0);
+            return {
+              x: rHel * Math.cos(theta),
+              y: rHel * Math.sin(theta),
+              z: z,
+              rx: t * 1.2, ry: theta, rz: t * 0.9
+            };
+          } else {
+            // 24 base-pair rung cubes bridging strands
+            var rung = i - 72; // 0..23
+            var kRung = rung * 1.5;
+            var zRung = (kRung - 17.5) * 6.8;
+            var thetaRung = kRung * 0.35 + t * 1.4;
+            var frac = ((rung % 3) - 1) * 0.5; // -0.5, 0, 0.5
+            var rRung = 48 * frac;
+            return {
+              x: rRung * Math.cos(thetaRung),
+              y: rRung * Math.sin(thetaRung),
+              z: zRung,
+              rx: thetaRung, ry: t * 2.0, rz: 0
+            };
+          }
+        }
+      },
+      {
+        name: "Wave Field",
+        calc: function(i, t) {
+          // Concentric ripple rings (8 rings of 12 cubes)
+          var ring = Math.floor(i / 12) + 1; // 1..8
+          var col = i % 12;
+          var radius = ring * 16;
+          var theta = (col / 12) * Math.PI * 2 + ring * 0.22 + t * 0.3;
+          var x = radius * Math.cos(theta);
+          var y = radius * Math.sin(theta);
+          var z = 28 * Math.sin(0.06 * radius - t * 3.0) * Math.cos(3 * theta + t * 1.2) +
+                  12 * Math.sin(0.12 * radius - t * 4.2);
+          return {
+            x: x, y: y, z: z,
+            rx: 0.05 * z, ry: 0.05 * z, rz: theta
+          };
+        }
+      },
+      {
+        name: "Supernova Pulsar",
+        calc: function(i, t) {
+          // Spherical Fibonacci lattice with explosive pulsating breathing
+          var phi = Math.acos(1 - 2 * (i + 0.5) / CORE_COUNT);
+          var theta = Math.PI * (1 + Math.sqrt(5)) * i;
+          var pulseCycle = (t * 1.8 + i * 0.04) % (Math.PI * 2);
+          var pulse = Math.pow(Math.abs(Math.sin(pulseCycle)), 3.5);
+          var rShell = 38 + 95 * pulse;
+          return {
+            x: rShell * Math.sin(phi) * Math.cos(theta + t * 0.4),
+            y: rShell * Math.sin(phi) * Math.sin(theta + t * 0.4),
+            z: rShell * Math.cos(phi),
+            rx: t * 2.0 + i, ry: t * 1.5, rz: theta
+          };
+        }
+      },
+      {
+        name: "Saturn Rings",
+        calc: function(i, t) {
+          // 16 dense core cubes + 40 inner ring cubes + 40 outer ring cubes tilted at 28 deg
+          var tilt = 0.48; // ~28 degrees
+          var x0, y0, z0;
+          if (i < 16) {
+            // Inner Core
+            var angleC = (i / 16) * Math.PI * 2 + t * 1.2;
+            var rC = 18 + 6 * Math.sin(t * 3 + i);
+            x0 = rC * Math.cos(angleC);
+            y0 = rC * Math.sin(angleC);
+            z0 = 12 * Math.sin(angleC * 2);
+          } else if (i < 56) {
+            // Inner Ring (40 cubes)
+            var idxRing1 = i - 16;
+            var angleR1 = (idxRing1 / 40) * Math.PI * 2 + t * 0.7;
+            var rR1 = 58 + 8 * Math.sin(idxRing1 * 0.5);
+            x0 = rR1 * Math.cos(angleR1);
+            y0 = rR1 * Math.sin(angleR1);
+            z0 = 4 * Math.sin(angleR1 * 4 + t * 2);
+          } else {
+            // Outer Ring (40 cubes, counter-rotating)
+            var idxRing2 = i - 56;
+            var angleR2 = (idxRing2 / 40) * Math.PI * 2 - t * 0.45;
+            var rR2 = 98 + 14 * Math.cos(idxRing2 * 0.3);
+            x0 = rR2 * Math.cos(angleR2);
+            y0 = rR2 * Math.sin(angleR2);
+            z0 = 6 * Math.sin(angleR2 * 3 - t * 2);
+          }
+
+          // Apply orbital plane tilt (rotate around X axis)
+          var yTilted = y0 * Math.cos(tilt) - z0 * Math.sin(tilt);
+          var zTilted = y0 * Math.sin(tilt) + z0 * Math.cos(tilt);
+          return {
+            x: x0, y: yTilted, z: zTilted,
+            rx: tilt, ry: t * 1.1, rz: t * 0.8
+          };
+        }
+      }
+    ];
+
+    // --- MAIN INITIALIZATION ---
+    window.onload = function() {
+      initStarfield();
+
+      // 1. Initialize XTK 3D Renderer
+      r = new X.renderer3D();
+      r.init();
+
+      // Set initial camera view
+      r.camera.position = [0, -320, 160];
+      r.camera.focus = [0, 0, 0];
+      r.camera.up = [0, 0, 1];
+
+      // 2. Instantiate Core Kinetic Sculpture Cubes
+      for (var i = 0; i < CORE_COUNT; i++) {
+        var cube = new X.cube();
+        cube.lengthX = 14;
+        cube.lengthY = 14;
+        cube.lengthZ = 14;
+
+        // Visual State
+        cube._isCore = true;
+        cube._idx = i;
+        cube._pos = [0, 0, 0];
+        cube._vel = [0, 0, 0];
+        cube._rot = [0, 0, 0];
+        cube._rotSpeed = [Math.random() * 2 - 1, Math.random() * 2 - 1, Math.random() * 2 - 1];
+        cube._flash = 0;
+        cube._scale = 1.0;
+
+        cube.color = [0.0, 0.95, 1.0];
+        r.add(cube);
+        coreCubes.push(cube);
+        allCubes.push(cube);
+      }
+
+      // 3. Instantiate Flying Cubes Fleet (Meteors & Orbiters)
+      for (var j = 0; j < FLYING_COUNT; j++) {
+        var fc = new X.cube();
+        var sz = 8 + Math.random() * 10;
+        fc.lengthX = sz;
+        fc.lengthY = sz;
+        fc.lengthZ = sz;
+
+        fc._isCore = false;
+        fc._idx = j;
+        // Random initial position in bounding sphere
+        var phi = Math.random() * Math.PI * 2;
+        var costheta = Math.random() * 2 - 1;
+        var u = Math.random();
+        var theta = Math.acos(costheta);
+        var rad = 100 + u * 150;
+
+        fc._pos = [
+          rad * Math.sin(theta) * Math.cos(phi),
+          rad * Math.sin(theta) * Math.sin(phi),
+          rad * Math.cos(theta)
+        ];
+
+        // Random velocities
+        var vSpeed = 2.0 + Math.random() * 3.5;
+        fc._vel = [
+          (Math.random() * 2 - 1) * vSpeed,
+          (Math.random() * 2 - 1) * vSpeed,
+          (Math.random() * 2 - 1) * vSpeed
+        ];
+
+        fc._rot = [Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI];
+        fc._rotVel = [(Math.random() * 2 - 1) * 3, (Math.random() * 2 - 1) * 3, (Math.random() * 2 - 1) * 3];
+        fc._flash = 0;
+        fc._scale = 1.0;
+        fc._speed = vSpeed;
+        fc._phase = Math.random() * Math.PI * 2;
+
+        fc.color = [1.0, 0.2, 0.5];
+        r.add(fc);
+        flyingCubes.push(fc);
+        allCubes.push(fc);
+      }
+
+      // 4. Attach Animation Heartbeat to XTK's onRender loop
+      var lastTimestamp = performance.now();
+
+      r.onRender = function() {
+        var now = performance.now();
+        var dt = (now - lastTimestamp) / 1000;
+        if (dt > 0.1) dt = 0.1; // Clamp frame step
+        lastTimestamp = now;
+
+        simTime += dt * speedMultiplier;
+
+        // Render ambient starfield canvas
+        renderStarfield();
+
+        // Update Shockwave Propagation
+        if (shockwaveActive) {
+          shockwaveRadius += dt * shockwaveSpeed * speedMultiplier;
+          if (shockwaveRadius > shockwaveMaxRadius) {
+            shockwaveActive = false;
+          }
+        }
+
+        // --- UPDATE CORE SCULPTURE CUBES ---
+        var formCalc = FORMATIONS[currentFormation].calc;
+        for (var i = 0; i < CORE_COUNT; i++) {
+          var c = coreCubes[i];
+          var target = formCalc(i, simTime);
+
+          // Shockwave impulse interaction
+          if (shockwaveActive) {
+            var dx = c._pos[0] - shockwaveOrigin[0];
+            var dy = c._pos[1] - shockwaveOrigin[1];
+            var dz = c._pos[2] - shockwaveOrigin[2];
+            var dist = Math.sqrt(dx * dx + dy * dy + dz * dz) + 0.001;
+            var waveDiff = Math.abs(dist - shockwaveRadius);
+            if (waveDiff < 26) {
+              var push = (1.0 - waveDiff / 26) * 16.0;
+              c._vel[0] += (dx / dist) * push;
+              c._vel[1] += (dy / dist) * push;
+              c._vel[2] += (dz / dist) * push;
+              c._flash = 1.0;
+              c._scale = 1.45;
+            }
+          }
+
+          // Smooth Spring-Lerp towards formation target + physics damping
+          var lerpRate = 0.08 * (speedMultiplier >= 1 ? speedMultiplier : 1.0);
+          c._pos[0] += (target.x - c._pos[0]) * lerpRate + c._vel[0] * dt;
+          c._pos[1] += (target.y - c._pos[1]) * lerpRate + c._vel[1] * dt;
+          c._pos[2] += (target.z - c._pos[2]) * lerpRate + c._vel[2] * dt;
+
+          c._vel[0] *= 0.91;
+          c._vel[1] *= 0.91;
+          c._vel[2] *= 0.91;
+
+          // Rotation lerp
+          c._rot[0] += (target.rx - c._rot[0]) * 0.12 + c._rotSpeed[0] * dt;
+          c._rot[1] += (target.ry - c._rot[1]) * 0.12 + c._rotSpeed[1] * dt;
+          c._rot[2] += (target.rz - c._rot[2]) * 0.12 + c._rotSpeed[2] * dt;
+
+          // Decay flash and scale
+          c._flash *= 0.92;
+          c._scale += (1.0 - c._scale) * 0.1;
+
+          // Compute Dynamic Color
+          var distCenter = Math.sqrt(c._pos[0] * c._pos[0] + c._pos[1] * c._pos[1] + c._pos[2] * c._pos[2]);
+          var colFactor = (distCenter * 0.006 + (i / CORE_COUNT) * 0.6) % 1.0;
+          var baseCol = getThemeColor(currentThemeIdx, colFactor, simTime * 0.1);
+
+          // Apply Flash if hit by blast or clicked
+          if (c._flash > 0.02) {
+            c.color = [
+              baseCol[0] * (1 - c._flash) + 1.0 * c._flash,
+              baseCol[1] * (1 - c._flash) + 1.0 * c._flash,
+              baseCol[2] * (1 - c._flash) + 1.0 * c._flash
+            ];
+          } else {
+            c.color = baseCol;
+          }
+
+          // Update transform matrix
+          updateCubeMatrix(c, c._pos[0], c._pos[1], c._pos[2], c._rot[0], c._rot[1], c._rot[2], c._scale, c._scale, c._scale);
+        }
+
+        // --- UPDATE FLYING CUBES SWARM ---
+        var bound = 220;
+        for (var j = 0; j < FLYING_COUNT; j++) {
+          var fc = flyingCubes[j];
+
+          if (currentFlightMode === 0) {
+            // Mode 0: METEORS (Hypersonic streaks across space, wrapping at boundaries)
+            fc._pos[0] += fc._vel[0] * speedMultiplier;
+            fc._pos[1] += fc._vel[1] * speedMultiplier;
+            fc._pos[2] += fc._vel[2] * speedMultiplier;
+
+            // Boundary Wrap
+            if (fc._pos[0] > bound) fc._pos[0] = -bound;
+            if (fc._pos[0] < -bound) fc._pos[0] = bound;
+            if (fc._pos[1] > bound) fc._pos[1] = -bound;
+            if (fc._pos[1] < -bound) fc._pos[1] = bound;
+            if (fc._pos[2] > bound) fc._pos[2] = -bound;
+            if (fc._pos[2] < -bound) fc._pos[2] = bound;
+          }
+          else if (currentFlightMode === 1) {
+            // Mode 1: ORBITAL SWARM (Gravitationally bound Keplerian orbits around core)
+            var fx = fc._pos[0], fy = fc._pos[1], fz = fc._pos[2];
+            var fDist = Math.sqrt(fx * fx + fy * fy + fz * fz) + 10;
+            // Gravity acceleration
+            var gAcc = 3200 / (fDist * fDist);
+            fc._vel[0] -= (fx / fDist) * gAcc * dt;
+            fc._vel[1] -= (fy / fDist) * gAcc * dt;
+            fc._vel[2] -= (fz / fDist) * gAcc * dt;
+
+            // Tangential boost to sustain orbits
+            var tangX = -fy / fDist, tangY = fx / fDist;
+            fc._vel[0] += tangX * 0.45 * dt;
+            fc._vel[1] += tangY * 0.45 * dt;
+
+            fc._pos[0] += fc._vel[0] * speedMultiplier;
+            fc._pos[1] += fc._vel[1] * speedMultiplier;
+            fc._pos[2] += fc._vel[2] * speedMultiplier;
+          }
+          else if (currentFlightMode === 2) {
+            // Mode 2: WARP (Parametric Lissajous Weave through structure)
+            var pTime = simTime * 0.8 + fc._phase;
+            var wR = 120 + 35 * Math.sin(pTime * 0.5 + j);
+            fc._pos[0] = wR * Math.sin(pTime * 0.7 + j * 0.2);
+            fc._pos[1] = wR * Math.cos(pTime * 0.9 + j * 0.3);
+            fc._pos[2] = 80 * Math.sin(pTime * 1.3 + j * 0.5);
+          }
+          else {
+            // Mode 3: CHAOTIC SWARM (Vibrant boids-like flocking with harmonic jitter)
+            var cTime = simTime * 1.2 + j;
+            fc._pos[0] += Math.sin(cTime * 1.1) * 3.5 * speedMultiplier;
+            fc._pos[1] += Math.cos(cTime * 0.9) * 3.5 * speedMultiplier;
+            fc._pos[2] += Math.sin(cTime * 1.7) * 3.0 * speedMultiplier;
+
+            if (Math.abs(fc._pos[0]) > bound) fc._pos[0] *= -0.9;
+            if (Math.abs(fc._pos[1]) > bound) fc._pos[1] *= -0.9;
+            if (Math.abs(fc._pos[2]) > bound) fc._pos[2] *= -0.9;
+          }
+
+          // Flying cube tumbling rotation
+          fc._rot[0] += fc._rotVel[0] * dt * speedMultiplier;
+          fc._rot[1] += fc._rotVel[1] * dt * speedMultiplier;
+          fc._rot[2] += fc._rotVel[2] * dt * speedMultiplier;
+
+          // Flash decay
+          fc._flash *= 0.93;
+          fc._scale += (1.0 - fc._scale) * 0.1;
+
+          // Flying Cube Color (Vibrant contrasting theme accent)
+          var fFactor = ((j / FLYING_COUNT) + simTime * 0.25) % 1.0;
+          var fBaseCol = getThemeColor(currentThemeIdx, fFactor, 0.5);
+          if (fc._flash > 0.02) {
+            fc.color = [
+              fBaseCol[0] * (1 - fc._flash) + 1.0 * fc._flash,
+              fBaseCol[1] * (1 - fc._flash) + 1.0 * fc._flash,
+              fBaseCol[2] * (1 - fc._flash) + 1.0 * fc._flash
+            ];
+          } else {
+            fc.color = fBaseCol;
+          }
+
+          updateCubeMatrix(fc, fc._pos[0], fc._pos[1], fc._pos[2], fc._rot[0], fc._rot[1], fc._rot[2], fc._scale, fc._scale, fc._scale);
+        }
+
+        // --- AUTOMATIC CINEMATIC CAMERA ORBIT ---
+        // Gently orbit camera around focal point when user is not manually dragging
+        if (autoCamera && !isUserDragging && (now - lastInteractionTime > 1500)) {
+          var orbitSpeed = 0.35 * speedMultiplier;
+          var pitchWobble = 0.08 * Math.sin(simTime * 0.5) * speedMultiplier;
+          r.camera.rotate([orbitSpeed, pitchWobble]);
+        }
+
+        // --- TELEMETRY / FPS METER ---
+        frameCount++;
+        if (now - lastFpsUpdate >= 500) {
+          var fps = Math.round((frameCount * 1000) / (now - lastFpsUpdate));
+          fpsDisplay.textContent = fps;
+          frameCount = 0;
+          lastFpsUpdate = now;
+        }
+      };
+
+      // 5. Start Rendering Loop
+      r.render();
+
+      // Setup UI Events
+      setupEventListeners();
+    };
+
+    // --- INTERACTION & EVENT LISTENERS ---
+    function setupEventListeners() {
+      var hud = document.getElementById('hud');
+      var btnToggleHud = document.getElementById('btnToggleHud');
+      var hudToggleText = document.getElementById('hudToggleText');
+
+      // Track mousedown coordinates to cleanly differentiate clicks from 3D drag orbits
+      window.addEventListener('mousedown', function(e) {
+        initAudio();
+        isUserDragging = true;
+        lastInteractionTime = performance.now();
+        mouseDownPos.x = e.clientX;
+        mouseDownPos.y = e.clientY;
+        mouseDownPos.time = performance.now();
+      });
+
+      window.addEventListener('mouseup', function() {
+        isUserDragging = false;
+        lastInteractionTime = performance.now();
+      });
+
+      // Formation Switching
+      var formBtns = document.querySelectorAll('[data-form]');
+      formBtns.forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          initAudio();
+          var idx = parseInt(btn.getAttribute('data-form'), 10);
+          setFormation(idx);
+        });
+      });
+
+      // Color Theme Switching
+      var colorBtns = document.querySelectorAll('[data-theme]');
+      colorBtns.forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          initAudio();
+          var idx = parseInt(btn.getAttribute('data-theme'), 10);
+          setTheme(idx);
+        });
+      });
+
+      // Flight Mode Switching
+      var flightBtns = document.querySelectorAll('[data-flight]');
+      flightBtns.forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          initAudio();
+          var idx = parseInt(btn.getAttribute('data-flight'), 10);
+          setFlightMode(idx);
+        });
+      });
+
+      // Speed Slider
+      var speedSlider = document.getElementById('speedSlider');
+      var speedValText = document.getElementById('speedValText');
+      speedSlider.addEventListener('input', function(e) {
+        e.stopPropagation();
+        speedMultiplier = parseFloat(speedSlider.value);
+        speedValText.textContent = speedMultiplier.toFixed(1) + 'x';
+      });
+
+      // Action: Shockwave Blast
+      var btnShockwave = document.getElementById('btnShockwave');
+      btnShockwave.addEventListener('click', function(e) {
+        e.stopPropagation();
+        triggerShockwave([0, 0, 0]);
+      });
+
+      // Action: Launch High-Speed Comet
+      var btnLaunchComet = document.getElementById('btnLaunchComet');
+      btnLaunchComet.addEventListener('click', function(e) {
+        e.stopPropagation();
+        launchComet();
+      });
+
+      // Auto Camera Toggle
+      var btnAutoCam = document.getElementById('btnAutoCam');
+      btnAutoCam.addEventListener('click', function(e) {
+        e.stopPropagation();
+        autoCamera = !autoCamera;
+        btnAutoCam.classList.toggle('active', autoCamera);
+        playTone(autoCamera ? 880 : 440, 'sine', 0.2, 0.1);
+      });
+
+      // Audio Toggle
+      var btnAudioToggle = document.getElementById('btnAudioToggle');
+      btnAudioToggle.addEventListener('click', function(e) {
+        e.stopPropagation();
+        initAudio();
+        audioEnabled = !audioEnabled;
+        btnAudioToggle.classList.toggle('active', audioEnabled);
+        btnAudioToggle.innerHTML = audioEnabled ? '<span>🔊 Sound On</span><span class="key-hint">M</span>' : '<span>🔇 Sound Off</span><span class="key-hint">M</span>';
+        if (audioEnabled) {
+          playChord([440, 554, 659, 880], 0.7);
+        }
+      });
+
+      // Reset Camera
+      var btnResetCam = document.getElementById('btnResetCam');
+      btnResetCam.addEventListener('click', function(e) {
+        e.stopPropagation();
+        resetCameraView();
+      });
+
+      // Toggle HUD Visibility
+      btnToggleHud.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var isHidden = hud.classList.toggle('hidden');
+        hudToggleText.textContent = isHidden ? 'Show HUD [H]' : 'Hide HUD [H]';
+      });
+
+      // --- CUBE PICKING / CLICK INTERACTION ---
+      window.addEventListener('click', function(e) {
+        // Discard clicks that were actually camera drag rotations
+        var distMoved = Math.hypot(e.clientX - mouseDownPos.x, e.clientY - mouseDownPos.y);
+        var clickDuration = performance.now() - mouseDownPos.time;
+        if (distMoved > 6 || clickDuration > 300) {
+          return;
+        }
+
+        // If clicking on UI panel buttons or toggle button, ignore 3D picking
+        if (e.target.closest('#hud') || e.target.closest('.toggle-hud-btn') || e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT') {
+          return;
+        }
+
+        initAudio();
+        spawnClickRipple(e.clientX, e.clientY);
+
+        // Perform XTK Pick
+        if (r && r.pick) {
+          // Normalize coordinates to canvas client bounds
+          var canvas = document.querySelector('canvas:not(#bgCanvas)');
+          var x = e.clientX, y = e.clientY;
+          if (canvas) {
+            var rect = canvas.getBoundingClientRect();
+            x = e.clientX - rect.left;
+            y = e.clientY - rect.top;
+          }
+
+          var pickId = r.pick(x, y);
+          if (pickId > 0) {
+            var pickedObj = r.get(pickId);
+            if (pickedObj) {
+              // Detonate and burst clicked cube!
+              pickedObj._flash = 1.0;
+              pickedObj._scale = 2.2;
+              pickedObj._rotSpeed = [
+                (Math.random() * 2 - 1) * 12,
+                (Math.random() * 2 - 1) * 12,
+                (Math.random() * 2 - 1) * 12
+              ];
+
+              playPickSound();
+              // Emit shockwave from picked cube location
+              triggerShockwave([pickedObj._pos[0], pickedObj._pos[1], pickedObj._pos[2]]);
+              return;
+            }
+          }
+        }
+
+        // If clicked empty space, launch a comet towards the scene
+        launchComet();
+      });
+
+      // --- KEYBOARD SHORTCUTS ---
+      window.addEventListener('keydown', function(e) {
+        initAudio();
+        var key = e.key.toUpperCase();
+
+        if (key >= '1' && key <= '6') {
+          var fIdx = parseInt(key, 10) - 1;
+          setFormation(fIdx);
+        }
+        else if (key === 'C') {
+          currentThemeIdx = (currentThemeIdx + 1) % THEMES.length;
+          setTheme(currentThemeIdx);
+        }
+        else if (key === 'F') {
+          currentFlightMode = (currentFlightMode + 1) % 4;
+          setFlightMode(currentFlightMode);
+        }
+        else if (key === ' ') {
+          e.preventDefault();
+          triggerShockwave([0, 0, 0]);
+        }
+        else if (key === 'B') {
+          launchComet();
+        }
+        else if (key === 'A') {
+          btnAutoCam.click();
+        }
+        else if (key === 'M') {
+          btnAudioToggle.click();
+        }
+        else if (key === 'H') {
+          btnToggleHud.click();
+        }
+        else if (key === 'R') {
+          resetCameraView();
+        }
+      });
+    }
+
+    // --- CONTROLLER HELPER FUNCTIONS ---
+    function setFormation(idx) {
+      if (idx < 0 || idx >= FORMATIONS.length) return;
+      currentFormation = idx;
+
+      // Update UI button state
+      var formBtns = document.querySelectorAll('[data-form]');
+      formBtns.forEach(function(b) {
+        b.classList.toggle('active', parseInt(b.getAttribute('data-form'), 10) === idx);
+      });
+
+      var formNameVal = document.getElementById('formationNameVal');
+      formNameVal.textContent = FORMATIONS[idx].name;
+
+      // Sound and visual pulse
+      playChord([440, 554, 659, 880], 0.6);
+
+      // Give cubes an excitation impulse during morph
+      for (var i = 0; i < CORE_COUNT; i++) {
+        coreCubes[i]._flash = 0.7;
+        coreCubes[i]._scale = 1.3;
+      }
+    }
+
+    function setTheme(idx) {
+      if (idx < 0 || idx >= THEMES.length) return;
+      currentThemeIdx = idx;
+
+      var colorBtns = document.querySelectorAll('[data-theme]');
+      colorBtns.forEach(function(b) {
+        b.classList.toggle('active', parseInt(b.getAttribute('data-theme'), 10) === idx);
+      });
+
+      playTone(720, 'sine', 0.25, 0.12);
+    }
+
+    function setFlightMode(idx) {
+      currentFlightMode = idx;
+      var flightBtns = document.querySelectorAll('[data-flight]');
+      flightBtns.forEach(function(b) {
+        b.classList.toggle('active', parseInt(b.getAttribute('data-flight'), 10) === idx);
+      });
+      playTone(587.33, 'triangle', 0.25, 0.12);
+    }
+
+    function triggerShockwave(origin) {
+      shockwaveActive = true;
+      shockwaveRadius = 0;
+      shockwaveOrigin = origin || [0, 0, 0];
+      playShockwaveSound();
+
+      // UI button pulse
+      var btn = document.getElementById('btnShockwave');
+      btn.style.transform = 'scale(0.96)';
+      setTimeout(function() { btn.style.transform = ''; }, 150);
+    }
+
+    function launchComet() {
+      // Pick a random flying cube and fling it from outer space with extreme velocity
+      var fc = flyingCubes[Math.floor(Math.random() * flyingCubes.length)];
+      var startDist = 240;
+      var angle = Math.random() * Math.PI * 2;
+      var z = (Math.random() * 2 - 1) * 90;
+
+      fc._pos = [startDist * Math.cos(angle), startDist * Math.sin(angle), z];
+      // Target towards center
+      var speed = 7.5;
+      fc._vel = [-fc._pos[0] * 0.04 * speed, -fc._pos[1] * 0.04 * speed, -fc._pos[2] * 0.04 * speed];
+      fc._flash = 1.0;
+      fc._scale = 2.4;
+      fc._rotVel = [14, 18, 12];
+
+      playTone(987.77, 'sine', 0.45, 0.18);
+    }
+
+    function resetCameraView() {
+      if (!r) return;
+      r.camera.position = [0, -320, 160];
+      r.camera.focus = [0, 0, 0];
+      r.camera.up = [0, 0, 1];
+      playTone(659.25, 'sine', 0.3, 0.1);
+    }
+
+    function spawnClickRipple(x, y) {
+      var rip = document.createElement('div');
+      rip.className = 'click-ripple';
+      rip.style.left = x + 'px';
+      rip.style.top = y + 'px';
+      document.body.appendChild(rip);
+      setTimeout(function() {
+        if (rip.parentNode) rip.parentNode.removeChild(rip);
+      }, 700);
+    }
+  </script>
+</body>
+</html>
