@@ -1,0 +1,1148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CS460 - Solar System Voxel Cube Art (XTK)</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      background-color: #030308;
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      width: 100%;
+      overflow: hidden !important;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: #e2e8f0;
+      cursor: crosshair;
+    }
+
+    /* Top-Left HUD Header */
+    #hud {
+      position: absolute;
+      top: 18px;
+      left: 20px;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .title {
+      font-size: 1.25rem;
+      font-weight: 800;
+      letter-spacing: 2px;
+      margin: 0;
+      background: linear-gradient(135deg, #ffffff 0%, #ffd700 40%, #ff4500 70%, #00f0ff 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 0 2px 10px rgba(0, 0, 0, 0.7);
+    }
+
+    .subtitle {
+      font-size: 0.78rem;
+      color: #94a3b8;
+      font-family: "SF Mono", Monaco, monospace;
+      margin-top: 5px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(255, 215, 0, 0.35);
+      padding: 2px 10px;
+      border-radius: 4px;
+      color: #ffd700;
+      font-weight: 700;
+    }
+
+    .badge-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background-color: #ffd700;
+      box-shadow: 0 0 8px #ffd700;
+      animation: pulse 1.4s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.8); }
+    }
+
+    .hint-rings {
+      color: #38bdf8;
+      font-weight: 600;
+    }
+
+    /* Event Status Banner (Center Top) */
+    #event-banner {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 20;
+      padding: 8px 18px;
+      border-radius: 20px;
+      font-family: "SF Mono", Monaco, monospace;
+      font-size: 0.82rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      background: rgba(15, 23, 42, 0.90);
+      border: 1px solid rgba(0, 240, 255, 0.4);
+      color: #00f0ff;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(8px);
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      pointer-events: none;
+    }
+
+    #event-banner.danger {
+      border-color: #ef4444;
+      color: #ef4444;
+      box-shadow: 0 0 16px rgba(239, 68, 68, 0.45);
+      animation: alertPulse 0.8s infinite alternate;
+    }
+
+    #event-banner.rebuild {
+      border-color: #10b981;
+      color: #10b981;
+      box-shadow: 0 0 16px rgba(16, 185, 129, 0.45);
+    }
+
+    @keyframes alertPulse {
+      0% { transform: translateX(-50%) scale(1); }
+      100% { transform: translateX(-50%) scale(1.03); }
+    }
+
+    /* Top-Right Controls */
+    #top-controls {
+      position: absolute;
+      top: 18px;
+      right: 20px;
+      z-index: 15;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .ctrl-btn {
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #94a3b8;
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-family: "SF Mono", Monaco, monospace;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      outline: none;
+    }
+
+    .ctrl-btn:hover {
+      border-color: #00f0ff;
+      color: #ffffff;
+      box-shadow: 0 0 8px rgba(0, 240, 255, 0.3);
+    }
+
+    .ctrl-btn.active {
+      background: rgba(0, 240, 255, 0.15);
+      border-color: #00f0ff;
+      color: #00f0ff;
+      font-weight: 700;
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.35);
+    }
+
+    .action-btn {
+      background: linear-gradient(135deg, rgba(239, 68, 68, 0.3) 0%, rgba(245, 158, 11, 0.3) 100%);
+      border: 1px solid #ef4444;
+      color: #fca5a5;
+      font-weight: 700;
+    }
+
+    .action-btn:hover {
+      background: linear-gradient(135deg, rgba(239, 68, 68, 0.5) 0%, rgba(245, 158, 11, 0.5) 100%);
+      color: #ffffff;
+      box-shadow: 0 0 12px rgba(239, 68, 68, 0.55);
+    }
+
+    /* Bottom Planet Selector Bar */
+    #planet-bar {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 15;
+      display: flex;
+      gap: 6px;
+      background: rgba(10, 15, 29, 0.85);
+      padding: 6px 12px;
+      border-radius: 30px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(8px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+    }
+
+    .planet-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      color: #94a3b8;
+      padding: 5px 10px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-family: "SF Mono", Monaco, monospace;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+      outline: none;
+    }
+
+    .planet-btn:hover {
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .planet-btn.active {
+      background: rgba(0, 240, 255, 0.18);
+      border-color: #00f0ff;
+      color: #00f0ff;
+      font-weight: 700;
+    }
+
+    .color-chip {
+      width: 8px;
+      height: 8px;
+      border-radius: 2px;
+      display: inline-block;
+    }
+
+    /* Time Speed Controls */
+    #time-controls {
+      position: absolute;
+      bottom: 22px;
+      right: 20px;
+      z-index: 15;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(10, 15, 29, 0.85);
+      padding: 6px 12px;
+      border-radius: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      font-family: "SF Mono", Monaco, monospace;
+      font-size: 0.75rem;
+    }
+
+    .time-btn {
+      background: transparent;
+      border: none;
+      color: #94a3b8;
+      cursor: pointer;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .time-btn:hover {
+      color: #00f0ff;
+    }
+
+    input[type=range] {
+      width: 65px;
+      accent-color: #00f0ff;
+      cursor: pointer;
+    }
+  </style>
+
+  <!-- Include XTK library and CS460 loader -->
+  <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+  <script type="text/javascript" src="loader.js"></script>
+</head>
+<body>
+  <div id="hud">
+    <h1 class="title">SOLAR SYSTEM CUBE ART</h1>
+    <div class="subtitle">
+      <span class="badge"><span class="badge-dot"></span> <span id="status-tag">HELIOCENTRIC ORBITS FIXED</span></span>
+      <span>DISTINCTION: <span class="hint-rings">RINGS ON EARTH &amp; ALL PLANETS</span></span>
+      <span>ORBITS: <strong style="color: #ffd700;">8 CONCENTRIC TRACKS</strong></span>
+    </div>
+  </div>
+
+  <!-- Event Status Banner -->
+  <div id="event-banner">
+    <span id="event-icon">🪐</span>
+    <span id="event-text">ALL 8 PLANETS ORBITING OUTSIDE THE SUN IN CLEAR CIRCLES</span>
+  </div>
+
+  <!-- Top-Right Controls -->
+  <div id="top-controls">
+    <button class="ctrl-btn action-btn" onclick="triggerManualAsteroid()">☄️ SUMMON ASTEROID</button>
+    <button class="ctrl-btn active" id="btn-orrery" onclick="setCameraPreset('orrery')">ORRERY (55°)</button>
+    <button class="ctrl-btn" id="btn-top" onclick="setCameraPreset('top')">TOP-DOWN (89°)</button>
+  </div>
+
+  <!-- Planet Bottom Bar -->
+  <div id="planet-bar">
+    <button class="planet-btn active" id="pbtn-all" onclick="focusTarget('all')">OVERVIEW</button>
+    <button class="planet-btn" id="pbtn-sun" onclick="focusTarget('sun')"><span class="color-chip" style="background: #ffd700;"></span>SUN</button>
+    <button class="planet-btn" id="pbtn-mercury" onclick="focusTarget('mercury')"><span class="color-chip" style="background: #a8a29e;"></span>MERCURY</button>
+    <button class="planet-btn" id="pbtn-venus" onclick="focusTarget('venus')"><span class="color-chip" style="background: #fde047;"></span>VENUS</button>
+    <button class="planet-btn" id="pbtn-earth" onclick="focusTarget('earth')"><span class="color-chip" style="background: #38bdf8;"></span>EARTH</button>
+    <button class="planet-btn" id="pbtn-mars" onclick="focusTarget('mars')"><span class="color-chip" style="background: #ef4444;"></span>MARS</button>
+    <button class="planet-btn" id="pbtn-jupiter" onclick="focusTarget('jupiter')"><span class="color-chip" style="background: #f59e0b;"></span>JUPITER</button>
+    <button class="planet-btn" id="pbtn-saturn" onclick="focusTarget('saturn')"><span class="color-chip" style="background: #fcd34d;"></span>SATURN</button>
+    <button class="planet-btn" id="pbtn-uranus" onclick="focusTarget('uranus')"><span class="color-chip" style="background: #2dd4bf;"></span>URANUS</button>
+    <button class="planet-btn" id="pbtn-neptune" onclick="focusTarget('neptune')"><span class="color-chip" style="background: #3b82f6;"></span>NEPTUNE</button>
+  </div>
+
+  <!-- Time Controls -->
+  <div id="time-controls">
+    <button class="time-btn" id="pause-btn" onclick="togglePause()">⏸</button>
+    <input type="range" id="speed-slider" min="0.2" max="3.0" step="0.1" value="1.0" oninput="setSpeed(this.value)" />
+    <span id="speed-label" style="color: #00f0ff;">1.0x</span>
+  </div>
+
+  <script type="text/javascript">
+    // Global references for CS460 loader compatibility
+    var r = null;
+    var CAMERAS = [];
+
+    // Global handlers
+    var setCameraPreset = null;
+    var focusTarget = null;
+    var triggerManualAsteroid = null;
+    var togglePause = null;
+    var setSpeed = null;
+
+    window.onload = function () {
+      // -------------------------------------------------------------
+      // 1. SETUP RENDERER & CONSTANTS
+      // -------------------------------------------------------------
+      r = new X.renderer3D();
+      r.init();
+      window.r = r;
+
+      let isPaused = false;
+      let timeSpeed = 1.0;
+
+      togglePause = function () {
+        isPaused = !isPaused;
+        document.getElementById('pause-btn').innerText = isPaused ? '▶' : '⏸';
+      };
+
+      setSpeed = function (val) {
+        timeSpeed = parseFloat(val);
+        document.getElementById('speed-label').innerText = timeSpeed.toFixed(1) + 'x';
+      };
+
+      // Box-Muller Gaussian random generator
+      function gaussian(mean, std) {
+        let u = 0, v = 0;
+        while (u === 0) u = Math.random();
+        while (v === 0) v = Math.random();
+        return mean + std * Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+      }
+
+      function smootherstep(t) {
+        t = Math.max(0, Math.min(1, t));
+        return t * t * t * (t * (t * 6 - 15) + 10);
+      }
+
+      // Rotate local offset around planet's polar Y axis
+      function rotateLocalY(offset, rad) {
+        const cosA = Math.cos(rad);
+        const sinA = Math.sin(rad);
+        return [
+          offset[0] * cosA - offset[2] * sinA,
+          offset[1],
+          offset[0] * sinA + offset[2] * cosA
+        ];
+      }
+
+      // -------------------------------------------------------------
+      // 2. GAUSSIAN STAR CLUSTERS (LIKE EXAMPLE.JPG) & MOUSE REPEL
+      // -------------------------------------------------------------
+      const STAR_CLUSTER_CENTERS = [
+        [-200, 80, -200], // Top-Left
+        [ 200, 80, -200], // Top-Right
+        [-200, 80,  200], // Bottom-Left
+        [ 200, 80,  200]  // Bottom-Right
+      ];
+
+      const STAR_PALETTES = [
+        [0.70, 0.92, 1.00], // Cyan starlight
+        [1.00, 0.86, 0.45], // Golden starlight
+        [0.85, 0.70, 1.00], // Violet starlight
+        [0.45, 0.95, 0.85]  // Teal starlight
+      ];
+
+      const STARS_PER_CLUSTER = 20;
+      const allStars = [];
+      const STAR_REPEL_RADIUS = 68.0;
+      const STAR_REPEL_FORCE = 50.0;
+
+      for (let c = 0; c < 4; c++) {
+        const center = STAR_CLUSTER_CENTERS[c];
+        const col = STAR_PALETTES[c];
+
+        for (let i = 0; i < STARS_PER_CLUSTER; i++) {
+          const sc = new X.cube();
+          const sSize = 1.8 + Math.random() * 1.4;
+          sc.lengthX = sSize; sc.lengthY = sSize; sc.lengthZ = sSize;
+          sc.color = col;
+          sc.opacity = 0.85;
+
+          const std = 28.0;
+          const ox = gaussian(0, std);
+          const oz = gaussian(0, std);
+          const oy = gaussian(0, std * 0.35);
+
+          const bx = center[0] + ox;
+          const by = center[1] + oy;
+          const bz = center[2] + oz;
+
+          // Important: local center at origin, world position via transform.matrix
+          sc.center = [0, 0, 0];
+          sc.transform.matrix[12] = bx;
+          sc.transform.matrix[13] = by;
+          sc.transform.matrix[14] = bz;
+          r.add(sc);
+
+          allStars.push({
+            cube: sc,
+            baseX: bx, baseY: by, baseZ: bz,
+            repelX: 0, repelY: 0, repelZ: 0,
+            rotSpeed: [(Math.random() - 0.5) * 1.5, (Math.random() - 0.5) * 1.5]
+          });
+        }
+      }
+
+      // Mouse tracking for star repulsion
+      const mouse = { x: 0, z: 0, active: false };
+
+      window.addEventListener('mousemove', function (e) {
+        const ndcX = (e.clientX / window.innerWidth) * 2 - 1;
+        const ndcY = -(e.clientY / window.innerHeight) * 2 + 1;
+        mouse.x = ndcX * 320;
+        mouse.z = -ndcY * 320;
+        mouse.active = true;
+      });
+
+      window.addEventListener('mouseleave', function () {
+        mouse.active = false;
+      });
+
+      // -------------------------------------------------------------
+      // 3. THE CENTRAL SUN (RADIANT VOXEL STAR AT 0, 0, 0)
+      // -------------------------------------------------------------
+      const sunCore = new X.cube();
+      sunCore.lengthX = 22.0; sunCore.lengthY = 22.0; sunCore.lengthZ = 22.0;
+      sunCore.color = [1.0, 0.92, 0.15];
+      sunCore.center = [0, 0, 0];
+      r.add(sunCore);
+
+      const solarFlares = [];
+      const flareOffsets = [[12,0,0], [-12,0,0], [0,12,0], [0,-12,0], [0,0,12], [0,0,-12]];
+      for (let i = 0; i < flareOffsets.length; i++) {
+        const fc = new X.cube();
+        fc.lengthX = 9.0; fc.lengthY = 9.0; fc.lengthZ = 9.0;
+        fc.color = [1.0, 0.50, 0.05];
+        fc.center = [0, 0, 0];
+        r.add(fc);
+        solarFlares.push({ cube: fc, baseOffset: flareOffsets[i], phase: i * 1.05 });
+      }
+
+      // -------------------------------------------------------------
+      // 4. PLANETARY CONFIGURATION WITH DISTINCT RINGS FOR EARTH & ALL PLANETS
+      // -------------------------------------------------------------
+      const PLANET_DESIGNS = [
+        // 1. MERCURY (R = 36.0, Slate-grey cratered body + silver guide ring)
+        {
+          id: 'mercury', name: 'MERCURY', radius: 36.0, speed: 1.80, spinSpeed: 1.5,
+          orbitTrackColor: [0.70, 0.70, 0.75],
+          ringColor: [0.75, 0.72, 0.78], ringRadius: 6.8, ringCount: 10, ringTilt: 5.0,
+          voxels: [
+            { size: [3.8, 3.8, 3.8], color: [0.72, 0.68, 0.65], offset: [0, 0, 0] },
+            { size: [2.6, 2.6, 2.6], color: [0.48, 0.45, 0.43], offset: [1.2, 0.6, 0.8] },
+            { size: [2.4, 2.4, 2.4], color: [0.88, 0.86, 0.84], offset: [-1.2, -0.6, -0.8] },
+            { size: [2.6, 2.6, 2.6], color: [0.60, 0.56, 0.52], offset: [0.6, -1.0, 0.6] }
+          ]
+        },
+        // 2. VENUS (R = 54.0, Swirling cream/amber clouds + Golden halo ring)
+        {
+          id: 'venus', name: 'VENUS', radius: 54.0, speed: 1.35, spinSpeed: -1.0,
+          orbitTrackColor: [0.95, 0.85, 0.40],
+          ringColor: [0.96, 0.88, 0.52], ringRadius: 8.5, ringCount: 12, ringTilt: 8.0,
+          voxels: [
+            { size: [5.2, 5.2, 5.2], color: [0.96, 0.85, 0.48], offset: [0, 0, 0] },
+            { size: [3.8, 3.8, 3.8], color: [0.98, 0.92, 0.75], offset: [1.8, 1.2, 0.6] },
+            { size: [3.8, 3.8, 3.8], color: [0.90, 0.72, 0.35], offset: [-1.8, -1.2, -0.6] },
+            { size: [3.6, 3.6, 3.6], color: [0.94, 0.88, 0.55], offset: [0, 1.6, 1.6] },
+            { size: [3.6, 3.6, 3.6], color: [0.88, 0.68, 0.38], offset: [0, -1.6, -1.6] }
+          ]
+        },
+        // 3. EARTH (R = 76.0, Blue Oceans, Green Continents, White Ice Caps + Sapphire-Cyan Earth Ring!)
+        {
+          id: 'earth', name: 'EARTH', radius: 76.0, speed: 1.05, spinSpeed: 2.0, hasMoon: true,
+          orbitTrackColor: [0.15, 0.60, 1.00],
+          ringColor: [0.35, 0.75, 1.00], ringRadius: 10.8, ringCount: 16, ringTilt: 23.5,
+          voxels: [
+            { size: [5.2, 5.2, 5.2], color: [0.10, 0.45, 0.92], offset: [0, 0, 0] },
+            { size: [4.0, 4.0, 4.0], color: [0.12, 0.50, 0.95], offset: [2.2, 0, 0] },
+            { size: [4.0, 4.0, 4.0], color: [0.10, 0.42, 0.90], offset: [-2.2, 0, 0] },
+            { size: [4.0, 4.0, 4.0], color: [0.12, 0.48, 0.92], offset: [0, 0, 2.2] },
+            { size: [3.2, 2.0, 3.2], color: [0.98, 0.98, 1.00], offset: [0, 3.2, 0] },
+            { size: [3.2, 2.0, 3.2], color: [0.98, 0.98, 1.00], offset: [0, -3.2, 0] },
+            { size: [3.4, 3.2, 3.2], color: [0.15, 0.68, 0.25], offset: [1.8, 1.2, 1.8] },
+            { size: [3.2, 3.0, 3.0], color: [0.18, 0.72, 0.28], offset: [-1.8, 0.8, -1.8] },
+            { size: [2.8, 2.8, 2.8], color: [0.65, 0.48, 0.22], offset: [1.6, -1.2, 1.4] },
+            { size: [2.4, 2.4, 2.4], color: [1.00, 1.00, 1.00], offset: [-1.2, 2.0, 1.5] }
+          ]
+        },
+        // 4. MARS (R = 102.0, Red Planet + Terracotta-Rust dust ring)
+        {
+          id: 'mars', name: 'MARS', radius: 102.0, speed: 0.85, spinSpeed: 1.8,
+          orbitTrackColor: [0.95, 0.30, 0.15],
+          ringColor: [0.92, 0.42, 0.20], ringRadius: 8.8, ringCount: 12, ringTilt: 25.0,
+          voxels: [
+            { size: [2.6, 1.6, 2.6], color: [0.98, 0.98, 1.00], offset: [0, 2.5, 0] },
+            { size: [2.6, 1.6, 2.6], color: [0.98, 0.98, 1.00], offset: [0, -2.5, 0] },
+            { size: [4.4, 4.4, 4.4], color: [0.92, 0.32, 0.15], offset: [0, 0, 0] },
+            { size: [3.4, 3.4, 3.4], color: [0.85, 0.28, 0.12], offset: [1.6, 0.3, 1.2] },
+            { size: [3.4, 3.4, 3.4], color: [0.95, 0.38, 0.18], offset: [-1.6, -0.3, -1.2] },
+            { size: [2.8, 2.8, 2.8], color: [0.45, 0.18, 0.10], offset: [1.4, -0.6, -1.4] },
+            { size: [2.6, 2.6, 2.6], color: [0.50, 0.22, 0.12], offset: [-1.2, 0.8, 1.4] }
+          ]
+        },
+        // 5. JUPITER (R = 155.0, Banded Giant with Great Red Spot + Equatorial Amber ring)
+        {
+          id: 'jupiter', name: 'JUPITER', radius: 155.0, speed: 0.55, spinSpeed: 3.0, hasGalileanMoons: true,
+          orbitTrackColor: [0.92, 0.65, 0.35],
+          ringColor: [0.88, 0.68, 0.40], ringRadius: 18.0, ringCount: 16, ringTilt: 3.1,
+          voxels: [
+            { size: [9.0, 2.8, 9.0],   color: [0.75, 0.65, 0.52], offset: [0, 5.0, 0] },
+            { size: [12.0, 2.6, 12.0], color: [0.95, 0.88, 0.78], offset: [0, 2.6, 0] },
+            { size: [13.5, 2.8, 13.5], color: [0.85, 0.52, 0.25], offset: [0, 0, 0] },
+            { size: [12.0, 2.6, 12.0], color: [0.92, 0.84, 0.72], offset: [0, -2.6, 0] },
+            { size: [9.0, 2.8, 9.0],   color: [0.75, 0.65, 0.52], offset: [0, -5.0, 0] },
+            { size: [3.8, 2.6, 3.0],   color: [0.92, 0.18, 0.12], offset: [4.8, -2.4, 3.2] }
+          ]
+        },
+        // 6. SATURN (R = 200.0, Golden Sandstone + Iconic Grand Double Ring Disc)
+        {
+          id: 'saturn', name: 'SATURN', radius: 200.0, speed: 0.40, spinSpeed: 2.5, hasSaturnRings: true,
+          orbitTrackColor: [0.94, 0.85, 0.58],
+          ringColor: [0.94, 0.89, 0.76], ringRadius: 16.0, ringCount: 28, ringTilt: 26.7,
+          voxels: [
+            { size: [7.0, 2.2, 7.0],   color: [0.82, 0.75, 0.55], offset: [0, 3.5, 0] },
+            { size: [9.5, 2.4, 9.5],   color: [0.96, 0.90, 0.72], offset: [0, 1.4, 0] },
+            { size: [10.5, 2.4, 10.5], color: [0.92, 0.82, 0.58], offset: [0, -0.8, 0] },
+            { size: [7.0, 2.2, 7.0],   color: [0.82, 0.75, 0.55], offset: [0, -3.2, 0] }
+          ]
+        },
+        // 7. URANUS (R = 245.0, Aquamarine Ice + Vertical Ice Ring System)
+        {
+          id: 'uranus', name: 'URANUS', radius: 245.0, speed: 0.30, spinSpeed: -1.8, hasUranusRings: true,
+          orbitTrackColor: [0.30, 0.90, 0.92],
+          ringColor: [0.60, 0.92, 0.96], ringRadius: 12.0, ringCount: 14, ringTilt: 98.0,
+          voxels: [
+            { size: [7.2, 7.2, 7.2], color: [0.32, 0.88, 0.90], offset: [0, 0, 0] },
+            { size: [5.2, 5.2, 5.2], color: [0.45, 0.94, 0.92], offset: [1.8, 0, 1.2] },
+            { size: [5.2, 5.2, 5.2], color: [0.22, 0.78, 0.84], offset: [-1.8, 0, -1.2] },
+            { size: [4.8, 4.8, 4.8], color: [0.55, 0.96, 0.96], offset: [0, 2.0, 0] }
+          ]
+        },
+        // 8. NEPTUNE (R = 285.0, Vivid Cobalt Azure + Electric Blue Ring)
+        {
+          id: 'neptune', name: 'NEPTUNE', radius: 285.0, speed: 0.22, spinSpeed: 2.0,
+          orbitTrackColor: [0.20, 0.45, 1.00],
+          ringColor: [0.35, 0.65, 1.00], ringRadius: 12.0, ringCount: 12, ringTilt: 28.3,
+          voxels: [
+            { size: [6.8, 6.8, 6.8], color: [0.10, 0.32, 0.92], offset: [0, 0, 0] },
+            { size: [3.2, 3.2, 3.2], color: [0.05, 0.15, 0.55], offset: [1.8, -1.2, 1.8] },
+            { size: [2.6, 1.2, 3.5], color: [0.80, 0.92, 1.00], offset: [-1.6, 1.4, -1.4] },
+            { size: [5.0, 2.2, 5.0], color: [0.20, 0.55, 0.98], offset: [0, 0.4, 0] }
+          ]
+        }
+      ];
+
+      // -------------------------------------------------------------
+      // 5. SPAWN CONCENTRIC ORBIT TRACKS & PLANET VOXEL CLUSTERS
+      // -------------------------------------------------------------
+      // A. Fixed Concentric Orbit Tracks centered at [0, 0, 0]
+      PLANET_DESIGNS.forEach(p => {
+        const DOT_COUNT = 32;
+        for (let k = 0; k < DOT_COUNT; k++) {
+          const theta = (k / DOT_COUNT) * Math.PI * 2;
+          const dot = new X.cube();
+          dot.lengthX = 1.8; dot.lengthY = 1.8; dot.lengthZ = 1.8;
+          dot.color = p.orbitTrackColor;
+          dot.opacity = 0.50;
+          dot.center = [0, 0, 0];
+          dot.transform.matrix[12] = p.radius * Math.cos(theta);
+          dot.transform.matrix[13] = 0;
+          dot.transform.matrix[14] = p.radius * Math.sin(theta);
+          r.add(dot);
+        }
+      });
+
+      // B. Spawn Planets: cube.center = [0, 0, 0], positioned via transform.matrix
+      const planets = [];
+      PLANET_DESIGNS.forEach((p, idx) => {
+        const startAngle = idx * (Math.PI * 2 / PLANET_DESIGNS.length) + 0.2;
+        const initialX = p.radius * Math.cos(startAngle);
+        const initialZ = p.radius * Math.sin(startAngle);
+
+        const voxelCubes = [];
+        p.voxels.forEach(v => {
+          const c = new X.cube();
+          c.lengthX = v.size[0]; c.lengthY = v.size[1]; c.lengthZ = v.size[2];
+          c.color = v.color;
+          // Local center is origin; world position set via transform.matrix
+          c.center = [0, 0, 0];
+          c.transform.matrix[12] = initialX + v.offset[0];
+          c.transform.matrix[13] = v.offset[1];
+          c.transform.matrix[14] = initialZ + v.offset[2];
+          r.add(c);
+          voxelCubes.push({ cube: c, baseOffset: v.offset });
+        });
+
+        const planetObj = {
+          data: p,
+          orbitAngle: startAngle,
+          spinAngle: 0.0,
+          currentPos: [initialX, 0, initialZ],
+          isExploded: false,
+          voxelCubes: voxelCubes,
+          moons: [],
+          rings: []
+        };
+
+        // Rings around this planet
+        const rCount = p.ringCount;
+        for (let k = 0; k < rCount; k++) {
+          const rc = new X.cube();
+          let rSize = 1.6;
+          let rRad = p.ringRadius;
+
+          if (p.hasSaturnRings) {
+            rSize = 1.8 + Math.random() * 0.8;
+            rRad = 15.5 + (k % 3) * 3.5;
+            rc.lengthY = 0.6;
+          } else {
+            rc.lengthY = 0.8;
+          }
+          rc.lengthX = rSize; rc.lengthZ = rSize;
+          rc.color = p.ringColor;
+          rc.opacity = 0.85;
+          rc.center = [0, 0, 0];
+          r.add(rc);
+
+          const ringTheta = (k / rCount) * Math.PI * 2;
+          planetObj.rings.push({
+            cube: rc,
+            rad: rRad,
+            theta: ringTheta,
+            tiltDeg: p.ringTilt,
+            isVertical: !!p.hasUranusRings,
+            rotSpeed: 1.2 / Math.sqrt(rRad / 10.0)
+          });
+        }
+
+        // Earth's Moon
+        if (p.hasMoon) {
+          const m = new X.cube();
+          m.lengthX = 2.4; m.lengthY = 2.4; m.lengthZ = 2.4;
+          m.color = [0.88, 0.88, 0.92];
+          m.center = [0, 0, 0];
+          r.add(m);
+          planetObj.moons.push({ cube: m, dist: 15.0, speed: 4.0, angle: 0.0 });
+        }
+
+        // Jupiter's Galilean Moons
+        if (p.hasGalileanMoons) {
+          const io = new X.cube();
+          io.lengthX = 2.6; io.lengthY = 2.6; io.lengthZ = 2.6;
+          io.color = [0.95, 0.85, 0.20];
+          io.center = [0, 0, 0];
+          r.add(io);
+          planetObj.moons.push({ cube: io, dist: 22.0, speed: 3.5, angle: 0.0 });
+
+          const europa = new X.cube();
+          europa.lengthX = 2.3; europa.lengthY = 2.3; europa.lengthZ = 2.3;
+          europa.color = [0.75, 0.90, 1.0];
+          europa.center = [0, 0, 0];
+          r.add(europa);
+          planetObj.moons.push({ cube: europa, dist: 28.0, speed: 2.6, angle: 1.8 });
+        }
+
+        planets.push(planetObj);
+      });
+
+      // Asteroid Belt Cubes
+      const asteroidBelt = [];
+      for (let i = 0; i < 24; i++) {
+        const a = new X.cube();
+        const aSize = 1.8 + Math.random() * 1.5;
+        a.lengthX = aSize; a.lengthY = aSize; a.lengthZ = aSize;
+        const shade = 0.45 + Math.random() * 0.25;
+        a.color = [shade, shade * 0.95, shade * 0.9];
+        const rDist = 122.0 + Math.random() * 22.0;
+        const aAngle = Math.random() * Math.PI * 2;
+        const ay = (Math.random() - 0.5) * 6.0;
+        a.center = [0, 0, 0];
+        a.transform.matrix[12] = rDist * Math.cos(aAngle);
+        a.transform.matrix[13] = ay;
+        a.transform.matrix[14] = rDist * Math.sin(aAngle);
+        r.add(a);
+
+        asteroidBelt.push({
+          cube: a, radius: rDist, angle: aAngle,
+          speed: 0.70 / Math.sqrt(rDist / 125.0),
+          yOffset: ay,
+          rotSpeed: (Math.random() - 0.5) * 2.5
+        });
+      }
+
+      // -------------------------------------------------------------
+      // 6. ASTEROID IMPACT & REBUILD OBJECT POOLS
+      // -------------------------------------------------------------
+      const asteroidProjectile = new X.cube();
+      asteroidProjectile.lengthX = 4.2; asteroidProjectile.lengthY = 4.2; asteroidProjectile.lengthZ = 4.2;
+      asteroidProjectile.color = [1.0, 0.35, 0.05];
+      asteroidProjectile.center = [0, 0, 0];
+      asteroidProjectile.visible = false;
+      r.add(asteroidProjectile);
+
+      const debrisPool = [];
+      for (let i = 0; i < 20; i++) {
+        const dc = new X.cube();
+        dc.lengthX = 3.2; dc.lengthY = 3.2; dc.lengthZ = 3.2;
+        dc.color = [1.0, 0.5, 0.1];
+        dc.center = [0, 0, 0];
+        dc.visible = false;
+        r.add(dc);
+
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos(2 * Math.random() - 1);
+        const spd = 28.0 + Math.random() * 32.0;
+        debrisPool.push({
+          cube: dc,
+          vx: spd * Math.sin(phi) * Math.cos(theta),
+          vy: spd * Math.sin(phi) * Math.sin(theta),
+          vz: spd * Math.cos(phi)
+        });
+      }
+
+      const rebuilderPool = [];
+      for (let i = 0; i < 16; i++) {
+        const rc = new X.cube();
+        rc.lengthX = 3.0; rc.lengthY = 3.0; rc.lengthZ = 3.0;
+        rc.color = [0.0, 0.95, 1.0];
+        rc.center = [0, 0, 0];
+        rc.visible = false;
+        r.add(rc);
+        rebuilderPool.push({ cube: rc, spawnOffset: [0, 0, 0] });
+      }
+
+      // -------------------------------------------------------------
+      // 7. ASTEROID ATTACK & REBUILD STATE MACHINE
+      // -------------------------------------------------------------
+      const impactEvent = {
+        state: 'idle',
+        timer: 0.0,
+        nextAutoImpactTime: 6.0,
+        targetPlanet: null,
+        spawnPos: [0, 0, 0],
+        impactPos: [0, 0, 0]
+      };
+
+      function updateBanner(text, type, icon) {
+        const banner = document.getElementById('event-banner');
+        document.getElementById('event-text').innerText = text;
+        document.getElementById('event-icon').innerText = icon || '🪐';
+        banner.className = type || '';
+      }
+
+      triggerManualAsteroid = function () {
+        if (impactEvent.state !== 'idle') return;
+        launchAsteroidAttack();
+      };
+
+      function launchAsteroidAttack() {
+        const candidates = planets.filter(p => !p.isExploded);
+        if (candidates.length === 0) return;
+        const target = candidates[Math.floor(Math.random() * candidates.length)];
+
+        impactEvent.targetPlanet = target;
+        impactEvent.state = 'incoming';
+        impactEvent.timer = 0.0;
+
+        const spawnAngle = Math.random() * Math.PI * 2;
+        const spawnDist = 260.0;
+        impactEvent.spawnPos = [
+          Math.cos(spawnAngle) * spawnDist,
+          180.0 + Math.random() * 40.0,
+          Math.sin(spawnAngle) * spawnDist
+        ];
+
+        asteroidProjectile.visible = true;
+        updateBanner(`🚨 ASTEROID INCOMING: TARGETING ${target.data.name}!`, 'danger', '☄️');
+      }
+
+      // -------------------------------------------------------------
+      // 8. CAMERA NAVIGATION (STANDARD WORLD UP [0, 1, 0])
+      // -------------------------------------------------------------
+      const CAMERA_VIEWS = {
+        orrery: { pos: [0, 240, 280] },
+        top:    { pos: [0, 400, 5] }
+      };
+
+      let activeCamPreset = 'orrery';
+      let camFocus = [0, 0, 0];
+      let targetCamFocus = [0, 0, 0];
+      let focusedPlanetId = 'all';
+
+      r.camera.position = [0, 240, 280];
+      r.camera.focus = [0, 0, 0];
+      r.camera.up = [0, 1, 0];
+
+      setCameraPreset = function (key) {
+        if (!CAMERA_VIEWS[key]) return;
+        activeCamPreset = key;
+        const targetPos = CAMERA_VIEWS[key].pos;
+        r.camera.position = [targetPos[0], targetPos[1], targetPos[2]];
+        r.camera.focus = [0, 0, 0];
+        r.camera.up = [0, 1, 0];
+
+        ['btn-orrery', 'btn-top'].forEach(id => {
+          const btn = document.getElementById(id);
+          if (btn) btn.classList.remove('active');
+        });
+        const activeBtn = document.getElementById(key === 'orrery' ? 'btn-orrery' : 'btn-top');
+        if (activeBtn) activeBtn.classList.add('active');
+      };
+
+      focusTarget = function (targetId) {
+        focusedPlanetId = targetId;
+
+        document.querySelectorAll('.planet-btn').forEach(b => b.classList.remove('active'));
+        const btn = document.getElementById('pbtn-' + targetId);
+        if (btn) btn.classList.add('active');
+
+        if (targetId === 'all') {
+          setCameraPreset(activeCamPreset);
+        } else if (targetId === 'sun') {
+          r.camera.position = [0, 75, 110];
+          r.camera.focus = [0, 0, 0];
+          r.camera.up = [0, 1, 0];
+        }
+      };
+
+      // -------------------------------------------------------------
+      // 9. MAIN RENDER LOOP: UNMISTAKABLE ORBITS AROUND SUN (0, 0, 0)
+      // -------------------------------------------------------------
+      let lastTime = performance.now();
+      let simTime = 0;
+
+      r.onRender = function () {
+        const now = performance.now();
+        const rawDt = Math.min((now - lastTime) / 1000.0, 0.05);
+        lastTime = now;
+
+        const dt = isPaused ? 0.0 : rawDt * timeSpeed;
+        simTime += dt;
+
+        // -----------------------------------------------------------
+        // A. CAMERA FOLLOWING FOCUSED PLANET
+        // -----------------------------------------------------------
+        if (focusedPlanetId !== 'all' && focusedPlanetId !== 'sun') {
+          const pl = planets.find(p => p.data.id === focusedPlanetId);
+          if (pl) {
+            targetCamFocus = pl.currentPos;
+            camFocus[0] += (targetCamFocus[0] - camFocus[0]) * Math.min(1.0, rawDt * 6.0);
+            camFocus[1] += (targetCamFocus[1] - camFocus[1]) * Math.min(1.0, rawDt * 6.0);
+            camFocus[2] += (targetCamFocus[2] - camFocus[2]) * Math.min(1.0, rawDt * 6.0);
+
+            const followDist = 42.0;
+            r.camera.position = [camFocus[0], camFocus[1] + followDist * 0.65, camFocus[2] + followDist];
+            r.camera.focus = [camFocus[0], camFocus[1], camFocus[2]];
+            r.camera.up = [0, 1, 0];
+          }
+        }
+
+        // -----------------------------------------------------------
+        // B. GAUSSIAN STAR CLUSTERS & MOUSE REPEL
+        // -----------------------------------------------------------
+        for (let i = 0; i < allStars.length; i++) {
+          const s = allStars[i];
+
+          let targetRepelX = 0, targetRepelZ = 0, targetRepelY = 0;
+          if (mouse.active) {
+            const currentPosX = s.baseX + s.repelX;
+            const currentPosZ = s.baseZ + s.repelZ;
+            const dx = currentPosX - mouse.x;
+            const dz = currentPosZ - mouse.z;
+            const dist = Math.sqrt(dx * dx + dz * dz);
+
+            if (dist < STAR_REPEL_RADIUS && dist > 0.001) {
+              const force = (1.0 - dist / STAR_REPEL_RADIUS) * STAR_REPEL_FORCE;
+              targetRepelX = (dx / dist) * force;
+              targetRepelZ = (dz / dist) * force;
+              targetRepelY = (1.0 - dist / STAR_REPEL_RADIUS) * 20.0;
+            }
+          }
+
+          s.repelX += (targetRepelX - s.repelX) * Math.min(1.0, rawDt * 10.0);
+          s.repelY += (targetRepelY - s.repelY) * Math.min(1.0, rawDt * 10.0);
+          s.repelZ += (targetRepelZ - s.repelZ) * Math.min(1.0, rawDt * 10.0);
+
+          s.cube.transform.rotateX(s.rotSpeed[0] * 30 * rawDt);
+          s.cube.transform.rotateY(s.rotSpeed[1] * 30 * rawDt);
+          s.cube.transform.matrix[12] = s.baseX + s.repelX;
+          s.cube.transform.matrix[13] = s.baseY + s.repelY;
+          s.cube.transform.matrix[14] = s.baseZ + s.repelZ;
+        }
+
+        // -----------------------------------------------------------
+        // C. SUN CORE & PULSING CORONAL FLARES
+        // -----------------------------------------------------------
+        sunCore.transform.rotateY(15 * rawDt);
+        sunCore.transform.matrix[12] = 0;
+        sunCore.transform.matrix[13] = 0;
+        sunCore.transform.matrix[14] = 0;
+
+        solarFlares.forEach(fl => {
+          const pulseD = 1.0 + 0.22 * Math.sin(simTime * 3.5 + fl.phase);
+          fl.cube.transform.rotateY(25 * rawDt);
+          fl.cube.transform.matrix[12] = fl.baseOffset[0] * pulseD;
+          fl.cube.transform.matrix[13] = fl.baseOffset[1] * pulseD;
+          fl.cube.transform.matrix[14] = fl.baseOffset[2] * pulseD;
+        });
+
+        // -----------------------------------------------------------
+        // D. PLANETS ACTIVE ORBITS AROUND THE SUN & PLANETARY RINGS
+        // -----------------------------------------------------------
+        planets.forEach(p => {
+          // Standard circular orbit centered at [0, 0, 0]
+          p.orbitAngle += p.data.speed * dt;
+          p.spinAngle += p.data.spinSpeed * 1.5 * dt;
+
+          // Pure heliocentric planar circular orbit: px^2 + pz^2 = R^2 CONSTANT!
+          const px = p.data.radius * Math.cos(p.orbitAngle);
+          const pz = p.data.radius * Math.sin(p.orbitAngle);
+          const py = 0.0;
+          p.currentPos = [px, py, pz];
+
+          if (!p.isExploded) {
+            // Update planet voxel body around (px, py, pz)
+            p.voxelCubes.forEach(v => {
+              v.cube.visible = true;
+              const rotOff = rotateLocalY(v.baseOffset, p.spinAngle);
+              v.cube.transform.matrix[12] = px + rotOff[0];
+              v.cube.transform.matrix[13] = py + rotOff[1];
+              v.cube.transform.matrix[14] = pz + rotOff[2];
+            });
+
+            // Update planetary rings around (px, py, pz)
+            p.rings.forEach(ring => {
+              ring.theta += ring.rotSpeed * dt;
+              const tiltRad = ring.tiltDeg * (Math.PI / 180);
+              const lx = ring.rad * Math.cos(ring.theta);
+              const lz = ring.rad * Math.sin(ring.theta);
+              ring.cube.visible = true;
+
+              if (ring.isVertical) {
+                // Uranus vertical ring
+                ring.cube.transform.matrix[12] = px + lx;
+                ring.cube.transform.matrix[13] = py + lz;
+                ring.cube.transform.matrix[14] = pz;
+              } else {
+                // Tilted planar ring (Earth 23.5°, Saturn 26.7°, etc.)
+                const sinT = Math.sin(tiltRad);
+                const cosT = Math.cos(tiltRad);
+                ring.cube.transform.matrix[12] = px + lx;
+                ring.cube.transform.matrix[13] = py + lz * sinT;
+                ring.cube.transform.matrix[14] = pz + lz * cosT;
+              }
+            });
+
+            // Moons orbiting host planet around (px, py, pz)
+            p.moons.forEach(m => {
+              m.angle += m.speed * dt;
+              const mx = px + m.dist * Math.cos(m.angle);
+              const mz = pz + m.dist * Math.sin(m.angle);
+              const my = py + Math.sin(m.angle) * 1.5;
+              m.cube.visible = true;
+              m.cube.transform.rotateY(60 * dt);
+              m.cube.transform.matrix[12] = mx;
+              m.cube.transform.matrix[13] = my;
+              m.cube.transform.matrix[14] = mz;
+            });
+          } else {
+            p.voxelCubes.forEach(v => { v.cube.visible = false; });
+            p.rings.forEach(r => { r.cube.visible = false; });
+            p.moons.forEach(m => { m.cube.visible = false; });
+          }
+        });
+
+        // -----------------------------------------------------------
+        // E. ASTEROID BELT DRIFT
+        // -----------------------------------------------------------
+        asteroidBelt.forEach(ast => {
+          ast.angle += ast.speed * dt;
+          ast.cube.transform.rotateY(ast.rotSpeed * 30 * rawDt);
+          ast.cube.transform.matrix[12] = ast.radius * Math.cos(ast.angle);
+          ast.cube.transform.matrix[13] = ast.yOffset;
+          ast.cube.transform.matrix[14] = ast.radius * Math.sin(ast.angle);
+        });
+
+        // -----------------------------------------------------------
+        // F. ASTEROID ATTACK, EXPLOSION & REBUILD STATE MACHINE
+        // -----------------------------------------------------------
+        if (!isPaused) {
+          impactEvent.timer += rawDt;
+
+          if (impactEvent.state === 'idle') {
+            if (impactEvent.timer >= impactEvent.nextAutoImpactTime) {
+              launchAsteroidAttack();
+            }
+          }
+
+          // 1. INCOMING ASTEROID
+          else if (impactEvent.state === 'incoming') {
+            const FLIGHT_TIME = 1.6;
+            const p = Math.min(impactEvent.timer / FLIGHT_TIME, 1.0);
+            const easeP = p * p;
+
+            const targetPos = impactEvent.targetPlanet.currentPos;
+            const curX = impactEvent.spawnPos[0] + (targetPos[0] - impactEvent.spawnPos[0]) * easeP;
+            const curY = impactEvent.spawnPos[1] + (targetPos[1] - impactEvent.spawnPos[1]) * easeP;
+            const curZ = impactEvent.spawnPos[2] + (targetPos[2] - impactEvent.spawnPos[2]) * easeP;
+
+            asteroidProjectile.transform.rotateX(90 * rawDt);
+            asteroidProjectile.transform.rotateY(120 * rawDt);
+            asteroidProjectile.transform.matrix[12] = curX;
+            asteroidProjectile.transform.matrix[13] = curY;
+            asteroidProjectile.transform.matrix[14] = curZ;
+
+            if (p >= 1.0) {
+              impactEvent.state = 'exploding';
+              impactEvent.timer = 0.0;
+              impactEvent.impactPos = [targetPos[0], targetPos[1], targetPos[2]];
+              asteroidProjectile.visible = false;
+
+              impactEvent.targetPlanet.isExploded = true;
+
+              const vCubes = impactEvent.targetPlanet.voxelCubes;
+              debrisPool.forEach((deb, idx) => {
+                deb.cube.visible = true;
+                const sampleVoxel = vCubes[idx % vCubes.length];
+                deb.cube.color = sampleVoxel.cube.color;
+              });
+
+              updateBanner(`💥 ${impactEvent.targetPlanet.data.name} DESTROYED! DEBRIS SCATTERING!`, 'danger', '💥');
+            }
+          }
+
+          // 2. EXPLODING DEBRIS
+          else if (impactEvent.state === 'exploding') {
+            const EXPLODE_TIME = 2.0;
+            const p = Math.min(impactEvent.timer / EXPLODE_TIME, 1.0);
+            const expandFactor = Math.pow(p, 0.7);
+
+            debrisPool.forEach(deb => {
+              deb.cube.transform.rotateX(150 * rawDt);
+              deb.cube.transform.rotateY(180 * rawDt);
+              deb.cube.transform.matrix[12] = impactEvent.impactPos[0] + deb.vx * expandFactor;
+              deb.cube.transform.matrix[13] = impactEvent.impactPos[1] + deb.vy * expandFactor;
+              deb.cube.transform.matrix[14] = impactEvent.impactPos[2] + deb.vz * expandFactor;
+            });
+
+            if (p >= 1.0) {
+              impactEvent.state = 'rebuilding';
+              impactEvent.timer = 0.0;
+              debrisPool.forEach(deb => { deb.cube.visible = false; });
+
+              const vCubes = impactEvent.targetPlanet.voxelCubes;
+              rebuilderPool.forEach((rc, idx) => {
+                rc.cube.visible = true;
+                const sampleVoxel = vCubes[idx % vCubes.length];
+                rc.cube.color = sampleVoxel.cube.color;
+
+                const sTheta = Math.random() * Math.PI * 2;
+                const sPhi = Math.acos(2 * Math.random() - 1);
+                const sDist = 75.0 + Math.random() * 45.0;
+                rc.spawnOffset = [
+                  sDist * Math.sin(sPhi) * Math.cos(sTheta),
+                  sDist * Math.sin(sPhi) * Math.sin(sTheta),
+                  sDist * Math.cos(sPhi)
+                ];
+              });
+
+              updateBanner(`✨ REBUILDING ${impactEvent.targetPlanet.data.name}: CUBES CONVERGING FROM DEEP SPACE`, 'rebuild', '✨');
+            }
+          }
+
+          // 3. REBUILDING FROM CUBES OUT OF NOWHERE
+          else if (impactEvent.state === 'rebuilding') {
+            const REBUILD_TIME = 2.4;
+            const p = Math.min(impactEvent.timer / REBUILD_TIME, 1.0);
+            const easeIn = smootherstep(p);
+
+            const targetPos = impactEvent.targetPlanet.currentPos;
+            const distFactor = (1.0 - easeIn);
+            const swirl = (1.0 - easeIn) * Math.PI * 1.5;
+
+            rebuilderPool.forEach(rc => {
+              rc.cube.transform.rotateY(200 * rawDt);
+              const curX = targetPos[0] + rc.spawnOffset[0] * distFactor * Math.cos(swirl) - rc.spawnOffset[2] * distFactor * Math.sin(swirl);
+              const curY = targetPos[1] + rc.spawnOffset[1] * distFactor;
+              const curZ = targetPos[2] + rc.spawnOffset[0] * distFactor * Math.sin(swirl) + rc.spawnOffset[2] * distFactor * Math.cos(swirl);
+
+              rc.cube.transform.matrix[12] = curX;
+              rc.cube.transform.matrix[13] = curY;
+              rc.cube.transform.matrix[14] = curZ;
+            });
+
+            if (p >= 1.0) {
+              rebuilderPool.forEach(rc => { rc.cube.visible = false; });
+              impactEvent.targetPlanet.isExploded = false;
+
+              updateBanner(`✅ ${impactEvent.targetPlanet.data.name} FULLY RECONSTRUCTED & ORBIT RESTORED!`, 'rebuild', '✅');
+
+              impactEvent.state = 'idle';
+              impactEvent.timer = 0.0;
+              impactEvent.nextAutoImpactTime = 8.0 + Math.random() * 6.0;
+
+              setTimeout(() => {
+                if (impactEvent.state === 'idle') {
+                  updateBanner('🪐 ALL 8 PLANETS ORBITING OUTSIDE THE SUN IN CLEAR CIRCLES', '', '🪐');
+                }
+              }, 3000);
+            }
+          }
+        }
+      };
+
+      // Start rendering loop
+      r.render();
+    };
+  </script>
+</body>
+</html>
