@@ -1,0 +1,239 @@
+<html>
+  <head>
+    <style>
+      html, body {
+        background-color:#000;
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden !important;
+      }
+    </style>
+
+    <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@latest/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@latest/examples/jsm/"
+      }
+    }
+    </script>
+
+    <script type="module">
+
+      import * as THREE from 'three';
+      import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+      var renderer, controls, scene, camera;
+      var invisible_plane;
+
+      //Hotpink and grassgreen CSS colors
+      var HOTPINK    = 0xff69b4;   // #FF69B4
+      var GRASSGREEN = 0x7cfc00;   // #7CFC00
+
+      //Torus knot parameters
+      var TK_RADIUS = 5;
+      var TK_TUBE   = 1.2;
+      var TK_TUBULAR_SEGMENTS = 128;
+      var TK_RADIAL_SEGMENTS  = 16;
+      var TK_P = 2;
+      var TK_Q = 3;
+
+      //Drag to scale state
+      var LASTOBJECT   = null;
+      var scaling      = false;
+      var SCALE_SPEED  = 0.01;
+
+      //The flicker state
+      var FLICKERING = false;
+      var toruses    = [];    //For all toruses placed
+
+      //Bonus: wireframe view toggle
+      var WIREFRAME = false;
+
+      window.onload = function() {
+
+        //Scene
+        scene = new THREE.Scene();
+
+        //Invokes camera and its attributes
+        var fov = 75;
+        var ratio = window.innerWidth / window.innerHeight;
+        var zNear = 1;
+        var zFar = 10000;
+        camera = new THREE.PerspectiveCamera( fov, ratio, zNear, zFar );
+        camera.position.set( 0, 60, 120 );
+
+        //Main renderer
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize( window.innerWidth, window.innerHeight );
+        document.body.appendChild( renderer.domElement );
+
+        //Light casting
+        var ambientLight = new THREE.AmbientLight( 0xffffff, 0.4 );
+        scene.add( ambientLight );
+
+        var light = new THREE.DirectionalLight( 0xffffff, 3.0 );
+        light.position.set( 50, 100, 50 );
+        scene.add( light );
+
+        //Invisible ground plane on XZ
+        var planeGeo = new THREE.PlaneGeometry( 10000, 10000 );
+        var planeMat = new THREE.MeshBasicMaterial({ visible: false });
+        invisible_plane = new THREE.Mesh( planeGeo, planeMat );
+        invisible_plane.rotation.x = -Math.PI / 2;
+        scene.add( invisible_plane );
+
+        //Threejs OrbitControls
+        controls = new OrbitControls( camera, renderer.domElement );
+        controls.target.set( 0, 0, 0 );
+        controls.update();
+
+        //MOUSEDOWN INTERACTION - SHIFT + left button places a torus knot and starts the scaling event.
+        renderer.domElement.onmousedown = function( e ) {
+
+          if ( !e.shiftKey || e.button !== 0 ) return;
+
+          controls.enabled = false;
+
+          var pixel_coords = new THREE.Vector2( e.clientX, e.clientY );
+          var vp_coords = new THREE.Vector2(
+            ( pixel_coords.x / window.innerWidth ) * 2 - 1,
+            -( pixel_coords.y / window.innerHeight ) * 2 + 1
+          );
+          var vp_coords_near = new THREE.Vector3( vp_coords.x, vp_coords.y, 0 );
+
+          var raycaster = new THREE.Raycaster();
+          raycaster.setFromCamera( vp_coords_near, camera );
+          var intersects = raycaster.intersectObject( invisible_plane );
+
+          if ( intersects.length > 0 ) {
+            var p = intersects[0].point;
+            addTorusKnot( p.x, p.y, p.z );
+            scaling = true;
+          }
+        };
+
+        //MOUSEMOVE INTERACTION - scale LASTOBJECT; flip its color whenever the scale crosses zero.
+        renderer.domElement.onmousemove = function( e ) {
+
+          if ( !scaling || !LASTOBJECT ) return;
+
+          var DELTA = -e.movementY * SCALE_SPEED;
+
+          var sx = LASTOBJECT.scale.x + DELTA;
+          var sy = LASTOBJECT.scale.y + DELTA;
+          var sz = LASTOBJECT.scale.z + DELTA;
+
+          var oldSign = Math.sign( LASTOBJECT.scale.x );
+          var newSign = Math.sign( sx );
+
+          if ( oldSign !== 0 && newSign !== 0 && oldSign !== newSign ) {
+            var wasPink = LASTOBJECT.userData.pink;
+            LASTOBJECT.material.color.set( wasPink ? GRASSGREEN : HOTPINK );
+            LASTOBJECT.userData.pink = !wasPink;
+          }
+
+          LASTOBJECT.scale.set( sx, sy, sz );
+        };
+
+        //  MOUSEUP - ends event gesture, then re-enables the OrbitControls feature.
+        window.onmouseup = function( e ) {
+          if ( e.button !== 0 ) return;
+
+          scaling = false;
+          controls.enabled = true;
+        };
+
+        //  Keypress - 'f' toggles flickering for all toruses in the render.
+        window.onkeypress = function( e ) {
+
+          if ( e.key === 'f' || e.key === 'F' ) {
+
+            FLICKERING = !FLICKERING;
+            console.log( 'Flickering:', FLICKERING );
+
+            // When turning flickering OFF, it makes everything solid again.
+            if ( !FLICKERING ) {
+              for ( var i = 0; i < toruses.length; i++ ) {
+                toruses[i].material.opacity     = 1.0;
+                toruses[i].material.transparent = false;
+                toruses[i].material.needsUpdate = true;
+              }
+            }
+          }
+
+          //Bonus: wireframe toggle
+          if ( e.key === 'w' || e.key === 'W' ) {
+
+            WIREFRAME = !WIREFRAME;
+            console.log( 'Wireframe:', WIREFRAME );
+
+            for ( var i = 0; i < toruses.length; i++ ) {
+              toruses[i].material.wireframe = WIREFRAME;
+            }
+          }
+        };
+
+        animate();
+      };
+
+      //Builds and adds a solid hotpink torus knot at (x, y, z)
+      function addTorusKnot( x, y, z ) {
+
+        var geometry = new THREE.TorusKnotGeometry(
+          TK_RADIUS,
+          TK_TUBE,
+          TK_TUBULAR_SEGMENTS,
+          TK_RADIAL_SEGMENTS,
+          TK_P,
+          TK_Q
+        );
+
+        var material = new THREE.MeshStandardMaterial({
+          color: HOTPINK,
+          roughness: 0.35,
+          metalness: 0.4
+        });
+
+        var knot = new THREE.Mesh( geometry, material );
+        knot.position.set( x, y + TK_RADIUS + TK_TUBE, z );
+
+        knot.userData.pink = true;
+
+        scene.add( knot );
+        LASTOBJECT = knot;
+        toruses.push( knot );    //Also to remind flickering
+
+        console.log(
+            'torus verts:', knot.geometry.attributes.position.count,
+            '| tris:', knot.geometry.index.count / 3,
+            '| running V/E/F totals:',
+            toruses.reduce((a,t) => a + t.geometry.attributes.position.count, 0),
+            toruses.reduce((a,t) => a + t.geometry.index.count / 3, 0)
+        );
+      }
+
+      function animate() {
+        requestAnimationFrame( animate );
+
+        //The flicker effect
+        if ( FLICKERING ) {
+          for ( var i = 0; i < toruses.length; i++ ) {
+            var m = toruses[i].material;
+            m.transparent = true;
+            m.opacity     = Math.random();
+            m.needsUpdate = true;
+          }
+        }
+
+        controls.update();
+        renderer.render( scene, camera );
+      }
+
+    </script>
+  </head>
+  <body></body>
+</html>

@@ -1,2 +1,1221 @@
-Ready for assignment 2.
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Super Mario 8-Bit 3D Cube Art - CS460</title>
+  <!-- Load official XTK WebGL Framework -->
+  <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
 
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: radial-gradient(circle at 50% 50%, #1a1e2e 0%, #0d101d 55%, #05070c 100%);
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+      color: #e2e8f0;
+    }
+
+    /* WebGL Canvas Container */
+    #container {
+      width: 100vw;
+      height: 100vh;
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 1;
+      cursor: grab;
+    }
+
+    #container:active {
+      cursor: grabbing;
+    }
+
+    /* Header Panel */
+    .header-panel {
+      position: absolute;
+      top: 20px;
+      left: 24px;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .title-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .title {
+      font-size: 24px;
+      font-weight: 900;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      background: linear-gradient(135deg, #ff2a2a 0%, #ffbe1a 50%, #00d2ff 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 0 0 25px rgba(255, 42, 42, 0.4);
+    }
+
+    .badge {
+      display: inline-block;
+      background: rgba(255, 42, 42, 0.18);
+      border: 1px solid rgba(255, 42, 42, 0.5);
+      color: #ff6b6b;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 999px;
+      letter-spacing: 0.5px;
+    }
+
+    .subtitle {
+      font-size: 13px;
+      color: #94a3b8;
+      letter-spacing: 0.8px;
+      margin-top: 5px;
+      font-weight: 500;
+    }
+
+    .sketch-ref {
+      font-size: 11px;
+      color: #38bdf8;
+      margin-top: 3px;
+      opacity: 0.9;
+    }
+
+    /* Stats Panel (Top Right) */
+    .stats-panel {
+      position: absolute;
+      top: 20px;
+      right: 24px;
+      z-index: 10;
+      display: flex;
+      gap: 10px;
+      pointer-events: none;
+    }
+
+    .stat-pill {
+      background: rgba(15, 23, 42, 0.8);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 12px;
+      padding: 8px 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    }
+
+    .stat-label {
+      color: #64748b;
+      font-size: 10px;
+      text-transform: uppercase;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+    }
+
+    .stat-value {
+      font-size: 15px;
+      font-weight: 800;
+      color: #38bdf8;
+      font-family: monospace;
+    }
+
+    /* Controls Panel */
+    .controls-panel {
+      position: absolute;
+      top: 86px;
+      right: 24px;
+      width: 320px;
+      z-index: 10;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 18px;
+      padding: 20px;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.55);
+      max-height: calc(100vh - 110px);
+      overflow-y: auto;
+      transition: all 0.3s ease;
+    }
+
+    .controls-panel::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .controls-panel::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.25);
+      border-radius: 4px;
+    }
+
+    .section-title {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: #ffbe1a;
+      margin-top: 14px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .section-title:first-child {
+      margin-top: 0;
+    }
+
+    .section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, rgba(255, 190, 26, 0.4), transparent);
+    }
+
+    .control-group {
+      margin-bottom: 14px;
+    }
+
+    .label-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: #cbd5e1;
+      margin-bottom: 6px;
+    }
+
+    .val-display {
+      font-family: monospace;
+      color: #38bdf8;
+      font-weight: 700;
+    }
+
+    /* Range Sliders */
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 6px;
+      border-radius: 6px;
+      background: #1e293b;
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #ff4757;
+      box-shadow: 0 0 10px rgba(255, 71, 87, 0.8);
+      cursor: pointer;
+      border: 2px solid #ffffff;
+      transition: transform 0.15s ease;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.25);
+      background: #ff6b81;
+    }
+
+    /* Dropdown Select */
+    select {
+      width: 100%;
+      background: #1e293b;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #f1f5f9;
+      padding: 9px 12px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 600;
+      outline: none;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+    }
+
+    select:focus {
+      border-color: #38bdf8;
+    }
+
+    /* Buttons */
+    .btn-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .btn-grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+    }
+
+    .btn {
+      background: rgba(30, 41, 59, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #e2e8f0;
+      padding: 9px 12px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      text-align: center;
+    }
+
+    .btn:hover {
+      background: rgba(255, 71, 87, 0.25);
+      border-color: rgba(255, 71, 87, 0.6);
+      color: #ffffff;
+      transform: translateY(-1px);
+    }
+
+    .btn:active {
+      transform: translateY(1px);
+    }
+
+    .btn-active {
+      background: linear-gradient(135deg, #e84118 0%, #c23616 100%);
+      border-color: #ff6b81;
+      color: #ffffff;
+      box-shadow: 0 0 16px rgba(232, 65, 24, 0.45);
+    }
+
+    .btn-pulse {
+      animation: pulseGlow 2.5s infinite;
+    }
+
+    @keyframes pulseGlow {
+      0%, 100% { box-shadow: 0 0 14px rgba(232, 65, 24, 0.4); }
+      50% { box-shadow: 0 0 24px rgba(255, 107, 129, 0.8); }
+    }
+
+    /* Bottom Keyboard Guide */
+    .keyboard-guide {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      background: rgba(15, 23, 42, 0.78);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 999px;
+      padding: 8px 20px;
+      display: flex;
+      gap: 16px;
+      font-size: 11px;
+      color: #94a3b8;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+      pointer-events: none;
+    }
+
+    .key-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .key-badge {
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 5px;
+      padding: 1px 6px;
+      font-family: monospace;
+      font-size: 10px;
+      color: #f1f5f9;
+      font-weight: 700;
+    }
+
+    /* Target Crosshair / Center Reticle subtle indicator */
+    .center-reticle {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 14px;
+      height: 14px;
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 5;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .center-reticle::after {
+      content: '';
+      width: 2px;
+      height: 2px;
+      background: rgba(56, 189, 248, 0.45);
+      border-radius: 50%;
+    }
+  </style>
+</head>
+<body>
+  <!-- Container for XTK WebGL Renderer -->
+  <div id="container"></div>
+
+  <!-- Center Reticle indicating camera focal lock on art -->
+  <div class="center-reticle" title="Camera Focal Lock [0,0,0]"></div>
+
+  <!-- Header Overlay -->
+  <div class="header-panel">
+    <div class="title-row">
+      <h1 class="title">Super Mario 8-Bit</h1>
+      <span class="badge">XTK 3D CUBES</span>
+    </div>
+    <div class="subtitle">CS460 Assignment 2 • Interactive 3D Voxel Art Visualization</div>
+    <div class="sketch-ref">🎨 Recreated from reference sketch: Mario Jump &amp; 3D Stepped Pedestal</div>
+  </div>
+
+  <!-- Stats HUD -->
+  <div class="stats-panel">
+    <div class="stat-pill">
+      <span class="stat-label">Cubes</span>
+      <span class="stat-value" id="statCubes">0</span>
+    </div>
+    <div class="stat-pill">
+      <span class="stat-label">Orbit View</span>
+      <span class="stat-value" id="statAngle">45° / 20°</span>
+    </div>
+    <div class="stat-pill">
+      <span class="stat-label">FPS</span>
+      <span class="stat-value" id="statFps">60 FPS</span>
+    </div>
+  </div>
+
+  <!-- Interactive Controls Panel -->
+  <div class="controls-panel">
+    <!-- Camera Section -->
+    <div class="section-title">🎥 Camera Orbit (Mouse Controlled)</div>
+    
+    <div class="control-group">
+      <button id="btnAutoOrbit" class="btn btn-active btn-pulse" style="width: 100%;">
+        🔄 Auto Orbit Around Art: <b>ON</b>
+      </button>
+    </div>
+
+    <div class="control-group">
+      <div class="label-row">
+        <span>Azimuth (Surround Angle)</span>
+        <span class="val-display" id="valAzimuth">45°</span>
+      </div>
+      <input type="range" id="sliderAzimuth" min="0" max="360" value="45" step="1">
+    </div>
+
+    <div class="control-group">
+      <div class="label-row">
+        <span>Elevation (Pitch Angle)</span>
+        <span class="val-display" id="valElevation">20°</span>
+      </div>
+      <input type="range" id="sliderElevation" min="-85" max="85" value="20" step="1">
+    </div>
+
+    <div class="control-group">
+      <div class="label-row">
+        <span>Camera Distance (Zoom)</span>
+        <span class="val-display" id="valDistance">360</span>
+      </div>
+      <input type="range" id="sliderDistance" min="140" max="750" value="360" step="5">
+    </div>
+
+    <div class="control-group">
+      <div class="label-row">
+        <span>Auto Orbit Speed</span>
+        <span class="val-display" id="valOrbitSpeed">1.0×</span>
+      </div>
+      <input type="range" id="sliderOrbitSpeed" min="0.2" max="3.0" value="1.0" step="0.1">
+    </div>
+
+    <!-- View Presets -->
+    <div class="section-title">📐 Camera Presets</div>
+    <div class="btn-grid" style="margin-bottom: 14px;">
+      <button class="btn" id="presetFront">🎯 Front (8-Bit)</button>
+      <button class="btn" id="presetIsometric">📐 3D Isometric</button>
+      <button class="btn" id="presetSide">🔍 Side Profile</button>
+      <button class="btn" id="presetTop">🔝 Top View</button>
+    </div>
+
+    <!-- Art & Color Palettes -->
+    <div class="section-title">🎨 Mario Color Palettes</div>
+    <div class="control-group">
+      <select id="selectTheme">
+        <option value="modern">Modern Classic (Red &amp; Blue)</option>
+        <option value="nes1985">Original 1985 NES (Red &amp; Brown)</option>
+        <option value="fire">Fire Mario (White &amp; Red)</option>
+        <option value="star">Invincible Star (Rainbow Cycle)</option>
+        <option value="gameboy">1989 Game Boy (Dot Matrix Green)</option>
+        <option value="cyber">Cyberpunk Neon</option>
+      </select>
+    </div>
+
+    <!-- Voxel & Art Style -->
+    <div class="section-title">🧱 3D Voxel Sculpture Features</div>
+
+    <div class="control-group">
+      <div class="label-row">
+        <span>3D Relief Depth</span>
+        <span class="val-display" id="valRelief">Sculpted</span>
+      </div>
+      <div class="btn-grid">
+        <button class="btn btn-active" id="btnRelief3D">🧊 3D Relief</button>
+        <button class="btn" id="btnReliefFlat">📄 2D Slice</button>
+      </div>
+    </div>
+
+    <div class="control-group">
+      <div class="btn-grid">
+        <button class="btn btn-active" id="btnTogglePedestal">🎪 Pedestal Base: ON</button>
+        <button class="btn btn-active" id="btnToggleHover">🦘 Jump Float: ON</button>
+      </div>
+    </div>
+
+    <div class="control-group">
+      <button class="btn" id="btnResetAll" style="width: 100%;">
+        🔄 Reset View &amp; Camera
+      </button>
+    </div>
+  </div>
+
+  <!-- Bottom Keyboard Quick Help -->
+  <div class="keyboard-guide">
+    <div class="key-item"><span>🖱️ Drag:</span> Orbit 360°</div>
+    <div class="key-item"><span>🖱️ Scroll:</span> Zoom</div>
+    <div class="key-item"><span class="key-badge">Space</span> Auto Orbit</div>
+    <div class="key-item"><span class="key-badge">P</span> Cycle Palette</div>
+    <div class="key-item"><span class="key-badge">R</span> Reset View</div>
+  </div>
+
+  <script type="text/javascript">
+    window.onload = function() {
+      // =========================================================================
+      // 1. INITIALIZE XTK RENDERER
+      // =========================================================================
+      var r = new X.renderer3D();
+      r.container = 'container';
+      r.init();
+
+      // Atmospheric deep space background
+      r.clearColor = [0.05, 0.07, 0.12];
+
+      // =========================================================================
+      // 2. STATE & CAMERA CONFIGURATION
+      // =========================================================================
+      // Target Art Center: Center of the Mario sculpture is centered at [0, 0, 0]
+      var ART_CENTER = [0, 0, 0];
+
+      var cameraAzimuth = 45;       // Horizontal surround angle (0 - 360 degrees)
+      var cameraElevation = 20;     // Vertical pitch (-85 to +85 degrees)
+      var cameraDistance = 360;     // Distance from art center [0, 0, 0]
+      var isAutoOrbit = true;       // Rotate automatically around art
+      var orbitSpeed = 1.0;         // Orbit speed multiplier
+      var activeTheme = 'modern';   // Current color palette
+      var is3DRelief = true;        // 3D sculpted depth vs 2D flat slice
+      var showPedestal = true;      // Pedestal base visibility
+      var isHovering = true;        // Gentle hovering jump animation
+      var animTime = 0;             // Running time for animation
+
+      // =========================================================================
+      // 3. COLOR PALETTES DEFINITIONS
+      // =========================================================================
+      var PALETTES = {
+        modern: {
+          R: [0.90, 0.14, 0.14],  // Vibrant Mario Red (Cap & Shirt)
+          U: [0.00, 0.32, 0.85],  // Royal Overalls Blue
+          S: [1.00, 0.80, 0.62],  // Skin / Peach
+          B: [0.42, 0.20, 0.08],  // Leather Brown (Hair, Mustache, Boots)
+          Y: [0.98, 0.86, 0.12],  // Golden Yellow (Buttons)
+          W: [0.96, 0.96, 0.96],  // White (Gloves)
+          pedTop: [0.18, 0.72, 0.28], // Green Grass Pedestal Top
+          pedSide: [0.55, 0.30, 0.14] // Earth Brick Pedestal Side
+        },
+        nes1985: {
+          R: [0.85, 0.16, 0.00],  // Original 1985 Vermilion Red
+          U: [0.85, 0.16, 0.00],  // NES Original used Red for overalls too!
+          S: [0.99, 0.60, 0.22],  // NES Warm Tan
+          B: [0.53, 0.44, 0.00],  // NES Gold/Brown (Hair, Shirt, Shoes)
+          Y: [0.99, 0.60, 0.22],  // Accent
+          W: [0.99, 0.60, 0.22],
+          pedTop: [0.00, 0.65, 0.00],
+          pedSide: [0.53, 0.44, 0.00]
+        },
+        fire: {
+          R: [0.92, 0.15, 0.12],  // Fiery Red Shirt
+          U: [0.96, 0.96, 0.96],  // Pure White Cap & Overalls
+          S: [1.00, 0.80, 0.62],  // Skin
+          B: [0.42, 0.20, 0.08],  // Brown
+          Y: [1.00, 0.85, 0.10],  // Yellow
+          W: [0.96, 0.96, 0.96],
+          pedTop: [0.88, 0.35, 0.10],
+          pedSide: [0.35, 0.12, 0.06]
+        },
+        gameboy: {
+          R: [0.55, 0.67, 0.06],  // Light Olive
+          U: [0.19, 0.38, 0.19],  // Dark Olive Green
+          S: [0.61, 0.73, 0.06],  // Bright Green
+          B: [0.06, 0.22, 0.06],  // Deep Matrix Green
+          Y: [0.61, 0.73, 0.06],
+          W: [0.61, 0.73, 0.06],
+          pedTop: [0.55, 0.67, 0.06],
+          pedSide: [0.19, 0.38, 0.19]
+        },
+        cyber: {
+          R: [1.00, 0.05, 0.45],  // Neon Hot Pink
+          U: [0.00, 0.85, 1.00],  // Electric Cyan
+          S: [1.00, 0.90, 0.75],  // Bright Skin
+          B: [0.35, 0.10, 0.60],  // Cyber Purple
+          Y: [1.00, 0.95, 0.15],  // Cyber Yellow
+          W: [0.00, 0.95, 1.00],
+          pedTop: [0.00, 0.90, 0.60],
+          pedSide: [0.15, 0.10, 0.35]
+        }
+      };
+
+      function hslToRgb(h, s, l) {
+        var r, g, b;
+        h = ((h % 360) + 360) % 360 / 360;
+        if (s === 0) {
+          r = g = b = l;
+        } else {
+          var hue2rgb = function(p, q, t) {
+            if (t < 0) t += 1;
+            if (t > 1) t -= 1;
+            if (t < 1/6) return p + (q - p) * 6 * t;
+            if (t < 1/2) return q;
+            if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+            return p;
+          };
+          var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+          var p = 2 * l - q;
+          r = hue2rgb(p, q, h + 1/3);
+          g = hue2rgb(p, q, h);
+          b = hue2rgb(p, q, h - 1/3);
+        }
+        return [r, g, b];
+      }
+
+      function getColor(code, timeOffset) {
+        if (activeTheme === 'star') {
+          // Invincible Star rainbow color cycling
+          var baseHue;
+          if (code === 'R') baseHue = 0;
+          else if (code === 'U') baseHue = 220;
+          else if (code === 'S') baseHue = 40;
+          else if (code === 'B') baseHue = 280;
+          else if (code === 'Y') baseHue = 60;
+          else if (code === 'pedTop') baseHue = 120;
+          else baseHue = 30;
+          var cycleHue = (baseHue + (animTime * 120) + (timeOffset || 0)) % 360;
+          return hslToRgb(cycleHue, 0.95, 0.55);
+        }
+        var pal = PALETTES[activeTheme] || PALETTES.modern;
+        return pal[code] || [0.8, 0.8, 0.8];
+      }
+
+      // =========================================================================
+      // 4. 8-BIT SUPER MARIO JUMP SPRITE GRID (16x16)
+      // Recreated faithfully from the user's reference drawing:
+      // - Right fist punching upwards at top-right
+      // - Cap with brim and face with protruding nose & mustache
+      // - Left arm extended backwards horizontally
+      // - Overalls with straps and yellow buttons
+      // - Left leg kicked back & right leg bent forward in mid-air jump
+      // =========================================================================
+      var MARIO_GRID = [
+        "............SS..", // Row 0 (top): Right raised fist!
+        "......RRRRR.SS..", // Row 1: Cap crown + fist
+        ".....RRRRRRRRR..", // Row 2: Cap brim visor
+        ".....BBBSSBS.RR.", // Row 3: Hair, face, eye, right sleeve
+        "....BSBSSSBSSSRR", // Row 4: Hair, nose, mustache, right arm
+        "....BSBSSSBSSSRR", // Row 5: Hair, mustache, right arm
+        "....BBSSSSBBBB..", // Row 6: Hair, chin, collar
+        "..SS..SSSSSS....", // Row 7: Left hand/glove extended back
+        ".SSSRRRRUURRRR..", // Row 8: Left glove, red sleeve, overalls
+        "...RRRRRUUUURRR.", // Row 9: Left sleeve, overalls chest, right sleeve
+        "....RRUUYYUUURR.", // Row 10: Overalls with yellow buttons!
+        "....UUUUUUUUUU..", // Row 11: Overalls waist
+        "..UUUUUUUUUUUU..", // Row 12: Overalls hips / thighs
+        ".UUU..UUUU..UU..", // Row 13: Left thigh, crotch, right leg
+        "BBB....BB....BB.", // Row 14: Left boot heel & right boot
+        "BB................" // Row 15 (bottom): Left shoe sole
+      ];
+
+      var CUBE_SIZE = 10; // Dimension of each pixel block in 3D world units
+      var marioCubes = [];    // Array of Mario cube descriptor objects
+      var pedestalCubes = []; // Array of Pedestal cube descriptor objects
+
+      // =========================================================================
+      // 5. BUILD THE 3D MARIO VOXEL ART SCULPTURE
+      // =========================================================================
+      // Center the 16x16 sprite at the origin
+      var gridWidth = 16;
+      var gridHeight = 16;
+      var offsetX = -(gridWidth * CUBE_SIZE) / 2 + CUBE_SIZE / 2;
+      var marioElevationZ = 20; // Elevate Mario jumping above the pedestal
+      var offsetZ = -(gridHeight * CUBE_SIZE) / 2 + CUBE_SIZE / 2 + marioElevationZ;
+
+      for (var row = 0; row < gridHeight; row++) {
+        var line = MARIO_GRID[row];
+        var zPos = (gridHeight - 1 - row) * CUBE_SIZE + offsetZ;
+
+        for (var col = 0; col < gridWidth; col++) {
+          var char = line.charAt(col);
+          if (char === '.') continue; // Empty space
+
+          var xPos = col * CUBE_SIZE + offsetX;
+
+          // 3D Sculpted Voxel Depth Layering:
+          // Subtle relief depth for facial features, overalls, and limbs
+          var reliefY = 0;
+          var depthLength = CUBE_SIZE;
+
+          if (char === 'S' && col >= 11 && row <= 5) {
+            // Protruding Nose
+            reliefY = CUBE_SIZE * 0.55;
+            depthLength = CUBE_SIZE * 1.3;
+          } else if (char === 'B' && col >= 10 && row <= 6) {
+            // Mustache
+            reliefY = CUBE_SIZE * 0.45;
+            depthLength = CUBE_SIZE * 1.25;
+          } else if (char === 'R' && row === 2) {
+            // Cap Brim / Visor
+            reliefY = CUBE_SIZE * 0.35;
+            depthLength = CUBE_SIZE * 1.2;
+          } else if (char === 'Y') {
+            // Overalls Buttons
+            reliefY = CUBE_SIZE * 0.5;
+            depthLength = CUBE_SIZE * 1.15;
+          } else if (char === 'U') {
+            // Overalls
+            reliefY = CUBE_SIZE * 0.2;
+            depthLength = CUBE_SIZE * 1.1;
+          } else if (col <= 3 && row >= 7 && row <= 8) {
+            // Back Left Arm / Glove (slightly backwards in 3D)
+            reliefY = -CUBE_SIZE * 0.25;
+          } else if (col >= 12 && row <= 2) {
+            // Raised Fist (slightly forward in 3D)
+            reliefY = CUBE_SIZE * 0.3;
+          }
+
+          var cube = new X.cube();
+          cube.center = [xPos, reliefY, zPos];
+          cube.lengthX = CUBE_SIZE * 0.94; // slight gap accentuates 8-bit voxel tiles
+          cube.lengthY = depthLength * 0.94;
+          cube.lengthZ = CUBE_SIZE * 0.94;
+          cube.color = getColor(char, col * 10);
+          r.add(cube);
+
+          marioCubes.push({
+            obj: cube,
+            char: char,
+            baseX: xPos,
+            baseY: reliefY,
+            baseZ: zPos,
+            row: row,
+            col: col,
+            depthLength: depthLength
+          });
+        }
+      }
+
+      // =========================================================================
+      // 6. BUILD THE 3D STEPPED PEDESTAL / PLATFORM (FROM SKETCH)
+      // Stepped circular/elliptical pedestal directly beneath Mario's jump
+      // =========================================================================
+      var pedRadiusX = 11; // Semi-major axis in cubes
+      var pedRadiusY = 8;  // Semi-minor axis in cubes
+      var pedTopZ = -85;   // Top surface elevation of pedestal
+      var pedStepHeight = CUBE_SIZE * 0.85;
+
+      for (var py = -pedRadiusY; py <= pedRadiusY; py++) {
+        for (var px = -pedRadiusX; px <= pedRadiusX; px++) {
+          var normDist = Math.pow(px / pedRadiusX, 2) + Math.pow(py / pedRadiusY, 2);
+          if (normDist <= 1.0) {
+            var posX = px * CUBE_SIZE;
+            var posY = py * CUBE_SIZE;
+
+            // Top surface cube (Grass green or Checkered top)
+            var cubeTop = new X.cube();
+            cubeTop.center = [posX, posY, pedTopZ];
+            cubeTop.lengthX = CUBE_SIZE * 0.94;
+            cubeTop.lengthY = CUBE_SIZE * 0.94;
+            cubeTop.lengthZ = pedStepHeight;
+            cubeTop.color = getColor('pedTop', (px + py) * 8);
+            r.add(cubeTop);
+
+            pedestalCubes.push({
+              obj: cubeTop,
+              char: 'pedTop',
+              basePos: [posX, posY, pedTopZ]
+            });
+
+            // If on outer edge, build side bevel wall cubes (Earth/Brick)
+            if (normDist >= 0.72) {
+              var cubeSide = new X.cube();
+              cubeSide.center = [posX, posY, pedTopZ - pedStepHeight];
+              cubeSide.lengthX = CUBE_SIZE * 0.94;
+              cubeSide.lengthY = CUBE_SIZE * 0.94;
+              cubeSide.lengthZ = pedStepHeight;
+              cubeSide.color = getColor('pedSide', (px + py) * 8);
+              r.add(cubeSide);
+
+              pedestalCubes.push({
+                obj: cubeSide,
+                char: 'pedSide',
+                basePos: [posX, posY, pedTopZ - pedStepHeight]
+              });
+            }
+          }
+        }
+      }
+
+      // Update total cubes in UI HUD
+      document.getElementById('statCubes').innerText = (marioCubes.length + pedestalCubes.length);
+
+      // =========================================================================
+      // 7. CAMERA SPHERICAL ORBIT POSITIONING
+      // "The camera rotates around the 3D cube art with the use of the computer mouse.
+      //  The camera has to always look directly at the art."
+      // =========================================================================
+      function updateCameraView() {
+        var radAzimuth = cameraAzimuth * Math.PI / 180;
+        var radElevation = cameraElevation * Math.PI / 180;
+
+        // Spherical coordinates conversion:
+        var cx = ART_CENTER[0] + cameraDistance * Math.cos(radElevation) * Math.sin(radAzimuth);
+        var cy = ART_CENTER[1] + cameraDistance * Math.cos(radElevation) * Math.cos(radAzimuth);
+        var cz = ART_CENTER[2] + cameraDistance * Math.sin(radElevation);
+
+        r.camera.position = [cx, cy, cz];
+        r.camera.focus = [ART_CENTER[0], ART_CENTER[1], ART_CENTER[2]]; // ALWAYS LOOK DIRECTLY AT ART
+        r.camera.up = [0, 0, 1]; // Z-axis is world up
+
+        // Update UI displays
+        var normAz = Math.round(((cameraAzimuth % 360) + 360) % 360);
+        var normEl = Math.round(cameraElevation);
+        document.getElementById('sliderAzimuth').value = normAz;
+        document.getElementById('valAzimuth').innerText = normAz + '°';
+        document.getElementById('sliderElevation').value = normEl;
+        document.getElementById('valElevation').innerText = normEl + '°';
+        document.getElementById('sliderDistance').value = Math.round(cameraDistance);
+        document.getElementById('valDistance').innerText = Math.round(cameraDistance);
+        document.getElementById('statAngle').innerText = normAz + '° / ' + normEl + '°';
+      }
+
+      // =========================================================================
+      // 8. REALTIME ANIMATION LOOP (r.onRender)
+      // =========================================================================
+      var lastTimestamp = performance.now();
+      var frameCount = 0;
+      var fpsTimer = performance.now();
+
+      r.onRender = function() {
+        var now = performance.now();
+        var delta = (now - lastTimestamp) / 1000;
+        lastTimestamp = now;
+
+        // FPS Monitoring
+        frameCount++;
+        if (now - fpsTimer >= 1000) {
+          document.getElementById('statFps').innerText = Math.round((frameCount * 1000) / (now - fpsTimer)) + ' FPS';
+          frameCount = 0;
+          fpsTimer = now;
+        }
+
+        // Camera Auto-Orbiting Around the Art
+        if (isAutoOrbit) {
+          cameraAzimuth = (cameraAzimuth + 0.45 * orbitSpeed) % 360;
+          updateCameraView();
+        } else {
+          // Keep camera always looking directly at the art
+          r.camera.focus = [ART_CENTER[0], ART_CENTER[1], ART_CENTER[2]];
+        }
+
+        animTime += delta;
+
+        // Jump Floating / Hovering Animation
+        var hoverZ = isHovering ? Math.sin(animTime * 2.8) * 6.0 : 0;
+
+        // Animate Mario Cubes (hover + dynamic star palette if active)
+        for (var i = 0; i < marioCubes.length; i++) {
+          var item = marioCubes[i];
+          var cubeObj = item.obj;
+
+          // Update position for hover bobbing
+          var targetY = is3DRelief ? item.baseY : 0;
+          var targetZ = item.baseZ + hoverZ;
+
+          cubeObj.transform.matrix[12] = item.baseX;
+          cubeObj.transform.matrix[13] = targetY;
+          cubeObj.transform.matrix[14] = targetZ;
+          if (cubeObj.transform.modified) cubeObj.transform.modified();
+
+          // Star Power rainbow cycle update
+          if (activeTheme === 'star') {
+            cubeObj.color = getColor(item.char, item.col * 8);
+          }
+        }
+
+        // Star Power Pedestal color update
+        if (activeTheme === 'star' && showPedestal) {
+          for (var j = 0; j < pedestalCubes.length; j++) {
+            var pedItem = pedestalCubes[j];
+            pedItem.obj.color = getColor(pedItem.char, j * 4);
+          }
+        }
+      };
+
+      // =========================================================================
+      // 9. START INITIAL RENDER & CAMERA SETUP
+      // =========================================================================
+      r.camera.position = [220, 220, 160];
+      r.render();
+      updateCameraView();
+
+      // =========================================================================
+      // 10. MOUSE INTERACTION (DRAG TO ROTATE AROUND ART, WHEEL TO ZOOM)
+      // "The camera rotates around the 3D cube art with the use of the computer mouse.
+      //  The camera has to always look directly at the art."
+      // =========================================================================
+      var isMouseDown = false;
+      var lastMouseX = 0;
+      var lastMouseY = 0;
+      var containerEl = document.getElementById('container');
+
+      containerEl.addEventListener('mousedown', function(e) {
+        if (e.button === 0) { // Left mouse button
+          isMouseDown = true;
+          lastMouseX = e.clientX;
+          lastMouseY = e.clientY;
+          isAutoOrbit = false; // Pause auto-orbit when user interacts
+          updateAutoOrbitButton();
+        }
+      });
+
+      window.addEventListener('mouseup', function() {
+        isMouseDown = false;
+      });
+
+      window.addEventListener('mousemove', function(e) {
+        if (!isMouseDown) return;
+
+        var dx = e.clientX - lastMouseX;
+        var dy = e.clientY - lastMouseY;
+        lastMouseX = e.clientX;
+        lastMouseY = e.clientY;
+
+        // Mouse drag rotates camera around 3D cube art
+        cameraAzimuth = (cameraAzimuth - dx * 0.45 + 360) % 360;
+        cameraElevation = Math.max(-85, Math.min(85, cameraElevation + dy * 0.35));
+
+        updateCameraView();
+      });
+
+      // Mouse Wheel Zooms In / Out
+      containerEl.addEventListener('wheel', function(e) {
+        e.preventDefault();
+        cameraDistance = Math.max(140, Math.min(750, cameraDistance + e.deltaY * 0.35));
+        updateCameraView();
+      }, { passive: false });
+
+      // Touch Drag Support for Tablets / Touchscreens
+      containerEl.addEventListener('touchstart', function(e) {
+        if (e.touches.length === 1) {
+          isMouseDown = true;
+          lastMouseX = e.touches[0].clientX;
+          lastMouseY = e.touches[0].clientY;
+          isAutoOrbit = false;
+          updateAutoOrbitButton();
+        }
+      });
+
+      window.addEventListener('touchend', function() {
+        isMouseDown = false;
+      });
+
+      window.addEventListener('touchmove', function(e) {
+        if (!isMouseDown || e.touches.length !== 1) return;
+        var dx = e.touches[0].clientX - lastMouseX;
+        var dy = e.touches[0].clientY - lastMouseY;
+        lastMouseX = e.touches[0].clientX;
+        lastMouseY = e.touches[0].clientY;
+
+        cameraAzimuth = (cameraAzimuth - dx * 0.45 + 360) % 360;
+        cameraElevation = Math.max(-85, Math.min(85, cameraElevation + dy * 0.35));
+        updateCameraView();
+      });
+
+      // =========================================================================
+      // 11. UI SLIDERS, BUTTONS & PRESETS BINDING
+      // =========================================================================
+
+      // Azimuth Slider
+      var sliderAzimuth = document.getElementById('sliderAzimuth');
+      sliderAzimuth.oninput = function() {
+        cameraAzimuth = parseFloat(this.value);
+        isAutoOrbit = false;
+        updateAutoOrbitButton();
+        updateCameraView();
+      };
+
+      // Elevation Slider
+      var sliderElevation = document.getElementById('sliderElevation');
+      sliderElevation.oninput = function() {
+        cameraElevation = parseFloat(this.value);
+        isAutoOrbit = false;
+        updateAutoOrbitButton();
+        updateCameraView();
+      };
+
+      // Distance Zoom Slider
+      var sliderDistance = document.getElementById('sliderDistance');
+      sliderDistance.oninput = function() {
+        cameraDistance = parseFloat(this.value);
+        updateCameraView();
+      };
+
+      // Auto Orbit Speed Slider
+      var sliderOrbitSpeed = document.getElementById('sliderOrbitSpeed');
+      sliderOrbitSpeed.oninput = function() {
+        orbitSpeed = parseFloat(this.value);
+        document.getElementById('valOrbitSpeed').innerText = orbitSpeed.toFixed(1) + '×';
+      };
+
+      // Auto Orbit Toggle Button
+      var btnAutoOrbit = document.getElementById('btnAutoOrbit');
+      function updateAutoOrbitButton() {
+        if (isAutoOrbit) {
+          btnAutoOrbit.className = 'btn btn-active btn-pulse';
+          btnAutoOrbit.innerHTML = '<span>🔄 Auto Orbit Around Art: <b>ON</b></span>';
+        } else {
+          btnAutoOrbit.className = 'btn';
+          btnAutoOrbit.innerHTML = '<span>⏸️ Auto Orbit: <b>PAUSED (Manual)</b></span>';
+        }
+      }
+
+      btnAutoOrbit.onclick = function() {
+        isAutoOrbit = !isAutoOrbit;
+        updateAutoOrbitButton();
+      };
+
+      // Camera Presets
+      document.getElementById('presetFront').onclick = function() {
+        cameraAzimuth = 0;
+        cameraElevation = 0;
+        cameraDistance = 360;
+        isAutoOrbit = false;
+        updateAutoOrbitButton();
+        updateCameraView();
+      };
+
+      document.getElementById('presetIsometric').onclick = function() {
+        cameraAzimuth = 45;
+        cameraElevation = 30;
+        cameraDistance = 360;
+        isAutoOrbit = false;
+        updateAutoOrbitButton();
+        updateCameraView();
+      };
+
+      document.getElementById('presetSide').onclick = function() {
+        cameraAzimuth = 90;
+        cameraElevation = 5;
+        cameraDistance = 360;
+        isAutoOrbit = false;
+        updateAutoOrbitButton();
+        updateCameraView();
+      };
+
+      document.getElementById('presetTop').onclick = function() {
+        cameraAzimuth = 0;
+        cameraElevation = 80;
+        cameraDistance = 380;
+        isAutoOrbit = false;
+        updateAutoOrbitButton();
+        updateCameraView();
+      };
+
+      // Reset All
+      document.getElementById('btnResetAll').onclick = function() {
+        cameraAzimuth = 45;
+        cameraElevation = 20;
+        cameraDistance = 360;
+        isAutoOrbit = true;
+        activeTheme = 'modern';
+        selectTheme.value = 'modern';
+        applyColorTheme();
+        is3DRelief = true;
+        btnRelief3D.className = 'btn btn-active';
+        btnReliefFlat.className = 'btn';
+        document.getElementById('valRelief').innerText = 'Sculpted';
+        updateAutoOrbitButton();
+        updateCameraView();
+      };
+
+      // Palette Selector
+      var selectTheme = document.getElementById('selectTheme');
+      function applyColorTheme() {
+        for (var i = 0; i < marioCubes.length; i++) {
+          var item = marioCubes[i];
+          item.obj.color = getColor(item.char, item.col * 10);
+        }
+        for (var j = 0; j < pedestalCubes.length; j++) {
+          var pedItem = pedestalCubes[j];
+          pedItem.obj.color = getColor(pedItem.char, j * 5);
+        }
+      }
+
+      selectTheme.onchange = function() {
+        activeTheme = this.value;
+        applyColorTheme();
+      };
+
+      // 3D Relief vs 2D Flat Slice
+      var btnRelief3D = document.getElementById('btnRelief3D');
+      var btnReliefFlat = document.getElementById('btnReliefFlat');
+
+      btnRelief3D.onclick = function() {
+        is3DRelief = true;
+        btnRelief3D.className = 'btn btn-active';
+        btnReliefFlat.className = 'btn';
+        document.getElementById('valRelief').innerText = 'Sculpted';
+        for (var i = 0; i < marioCubes.length; i++) {
+          var item = marioCubes[i];
+          item.obj.lengthY = item.depthLength * 0.94;
+        }
+      };
+
+      btnReliefFlat.onclick = function() {
+        is3DRelief = false;
+        btnRelief3D.className = 'btn';
+        btnReliefFlat.className = 'btn btn-active';
+        document.getElementById('valRelief').innerText = 'Flat 2D';
+        for (var i = 0; i < marioCubes.length; i++) {
+          var item = marioCubes[i];
+          item.obj.lengthY = CUBE_SIZE * 0.94;
+        }
+      };
+
+      // Pedestal Toggle
+      var btnTogglePedestal = document.getElementById('btnTogglePedestal');
+      btnTogglePedestal.onclick = function() {
+        showPedestal = !showPedestal;
+        btnTogglePedestal.innerText = showPedestal ? '🎪 Pedestal Base: ON' : '🎪 Pedestal Base: OFF';
+        btnTogglePedestal.className = showPedestal ? 'btn btn-active' : 'btn';
+        for (var i = 0; i < pedestalCubes.length; i++) {
+          pedestalCubes[i].obj.visible = showPedestal;
+        }
+        document.getElementById('statCubes').innerText = showPedestal ? 
+          (marioCubes.length + pedestalCubes.length) : marioCubes.length;
+      };
+
+      // Jump Float Animation Toggle
+      var btnToggleHover = document.getElementById('btnToggleHover');
+      btnToggleHover.onclick = function() {
+        isHovering = !isHovering;
+        btnToggleHover.innerText = isHovering ? '🦘 Jump Float: ON' : '🦘 Jump Float: OFF';
+        btnToggleHover.className = isHovering ? 'btn btn-active' : 'btn';
+      };
+
+      // =========================================================================
+      // 12. KEYBOARD SHORTCUTS
+      // =========================================================================
+      window.addEventListener('keydown', function(e) {
+        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'Spacebar'].indexOf(e.key) !== -1) {
+          e.preventDefault();
+        }
+
+        switch (e.key) {
+          case 'ArrowLeft':
+          case 'a':
+          case 'A':
+            cameraAzimuth = (cameraAzimuth - 4 + 360) % 360;
+            isAutoOrbit = false;
+            updateAutoOrbitButton();
+            updateCameraView();
+            break;
+
+          case 'ArrowRight':
+          case 'd':
+          case 'D':
+            cameraAzimuth = (cameraAzimuth + 4) % 360;
+            isAutoOrbit = false;
+            updateAutoOrbitButton();
+            updateCameraView();
+            break;
+
+          case 'ArrowUp':
+          case 'w':
+          case 'W':
+            cameraElevation = Math.min(85, cameraElevation + 3);
+            isAutoOrbit = false;
+            updateAutoOrbitButton();
+            updateCameraView();
+            break;
+
+          case 'ArrowDown':
+          case 's':
+          case 'S':
+            cameraElevation = Math.max(-85, cameraElevation - 3);
+            isAutoOrbit = false;
+            updateAutoOrbitButton();
+            updateCameraView();
+            break;
+
+          case '+':
+          case '=':
+          case ']':
+            cameraDistance = Math.max(140, cameraDistance - 15);
+            updateCameraView();
+            break;
+
+          case '-':
+          case '_':
+          case '[':
+            cameraDistance = Math.min(750, cameraDistance + 15);
+            updateCameraView();
+            break;
+
+          case ' ':
+            isAutoOrbit = !isAutoOrbit;
+            updateAutoOrbitButton();
+            break;
+
+          case 'p':
+          case 'P':
+            var themes = ['modern', 'nes1985', 'fire', 'star', 'gameboy', 'cyber'];
+            var nextIdx = (themes.indexOf(activeTheme) + 1) % themes.length;
+            activeTheme = themes[nextIdx];
+            selectTheme.value = activeTheme;
+            applyColorTheme();
+            break;
+
+          case 'r':
+          case 'R':
+            document.getElementById('btnResetAll').click();
+            break;
+        }
+      });
+    };
+  </script>
+</body>
+</html>

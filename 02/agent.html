@@ -1,0 +1,1175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>XTK 3D Kinetic Cube Art - CS460</title>
+  <!-- Load official XTK WebGL Framework -->
+  <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: radial-gradient(circle at 50% 50%, #151828 0%, #090a12 60%, #030408 100%);
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+      color: #e2e8f0;
+    }
+
+    /* Container for XTK WebGL Canvas */
+    #container {
+      width: 100vw;
+      height: 100vh;
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 1;
+      cursor: grab;
+    }
+
+    #container:active {
+      cursor: grabbing;
+    }
+
+    /* Overlay Header */
+    .header-panel {
+      position: absolute;
+      top: 20px;
+      left: 24px;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .title {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      background: linear-gradient(135deg, #00f5ff 0%, #7928ca 50%, #ff007f 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 0 0 30px rgba(0, 245, 255, 0.4);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .subtitle {
+      font-size: 13px;
+      color: #94a3b8;
+      letter-spacing: 1px;
+      margin-top: 4px;
+      font-weight: 500;
+    }
+
+    .badge {
+      display: inline-block;
+      background: rgba(0, 245, 255, 0.15);
+      border: 1px solid rgba(0, 245, 255, 0.4);
+      color: #38bdf8;
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      letter-spacing: 0.5px;
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+
+    /* Stats Panel (Top Right) */
+    .stats-panel {
+      position: absolute;
+      top: 20px;
+      right: 24px;
+      z-index: 10;
+      display: flex;
+      gap: 12px;
+    }
+
+    .stat-pill {
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 8px 14px;
+      font-size: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    }
+
+    .stat-label {
+      color: #64748b;
+      font-size: 10px;
+      text-transform: uppercase;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+    }
+
+    .stat-value {
+      font-size: 16px;
+      font-weight: 800;
+      color: #38bdf8;
+      font-family: monospace;
+    }
+
+    /* Floating Glassmorphism Controls Panel (Right Side) */
+    .controls-panel {
+      position: absolute;
+      top: 86px;
+      right: 24px;
+      width: 310px;
+      z-index: 10;
+      background: rgba(15, 23, 42, 0.82);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 18px;
+      padding: 20px;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.5);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      max-height: calc(100vh - 110px);
+      overflow-y: auto;
+    }
+
+    .controls-panel::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .controls-panel::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 4px;
+    }
+
+    .section-title {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: #38bdf8;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, rgba(56, 189, 248, 0.4), transparent);
+    }
+
+    .control-group {
+      margin-bottom: 16px;
+    }
+
+    .label-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: #cbd5e1;
+      margin-bottom: 6px;
+    }
+
+    .val-display {
+      font-family: monospace;
+      color: #38bdf8;
+      font-weight: 700;
+    }
+
+    /* Styled Sliders */
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 6px;
+      border-radius: 6px;
+      background: #1e293b;
+      outline: none;
+      transition: background 0.2s;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #38bdf8;
+      box-shadow: 0 0 10px #38bdf8;
+      cursor: pointer;
+      border: 2px solid #ffffff;
+      transition: transform 0.15s ease, background 0.15s ease;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.25);
+      background: #00f5ff;
+    }
+
+    /* Buttons & Button Grids */
+    .btn-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .btn-grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+    }
+
+    .btn {
+      background: rgba(30, 41, 59, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #e2e8f0;
+      padding: 9px 12px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .btn:hover {
+      background: rgba(56, 189, 248, 0.2);
+      border-color: rgba(56, 189, 248, 0.5);
+      color: #38bdf8;
+      transform: translateY(-1px);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+    }
+
+    .btn-active {
+      background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+      border-color: #38bdf8;
+      color: #ffffff;
+      box-shadow: 0 0 14px rgba(56, 189, 248, 0.4);
+    }
+
+    .btn-pulse {
+      animation: pulse-glow 2s infinite ease-in-out;
+    }
+
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 0 8px rgba(0, 245, 255, 0.3); }
+      50% { box-shadow: 0 0 20px rgba(0, 245, 255, 0.8); }
+    }
+
+    /* Theme Select Dropdown */
+    select {
+      width: 100%;
+      background: #1e293b;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 10px;
+      color: #e2e8f0;
+      padding: 9px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      outline: none;
+      cursor: pointer;
+    }
+
+    select:focus {
+      border-color: #38bdf8;
+    }
+
+    /* Bottom Keyboard Navigation Bar */
+    .keyboard-guide {
+      position: absolute;
+      bottom: 20px;
+      left: 24px;
+      z-index: 10;
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 14px;
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 12px;
+      color: #94a3b8;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    }
+
+    .key-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: #1e293b;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-bottom: 2px solid rgba(255, 255, 255, 0.35);
+      color: #f1f5f9;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 6px;
+      margin-right: 4px;
+      font-family: monospace;
+    }
+
+    .key-item {
+      display: flex;
+      align-items: center;
+    }
+
+    /* Center Camera Crosshair Indicator (Subtle) */
+    .crosshair {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 14px;
+      height: 14px;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      z-index: 2;
+      opacity: 0.15;
+    }
+
+    .crosshair::before, .crosshair::after {
+      content: '';
+      position: absolute;
+      background: #00f5ff;
+    }
+
+    .crosshair::before {
+      top: 6px; left: 0; width: 14px; height: 2px;
+    }
+
+    .crosshair::after {
+      left: 6px; top: 0; width: 2px; height: 14px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- XTK Canvas Target Container -->
+  <div id="container"></div>
+
+  <!-- Subtle Center Reticle showing camera focus point -->
+  <div class="crosshair"></div>
+
+  <!-- Header Title -->
+  <div class="header-panel">
+    <div class="title">
+      Cube Artistry
+      <span class="badge">XTK WebGL</span>
+    </div>
+    <div class="subtitle">3D Kinetic Sculpture • Orbital Swarm • Dynamic Chroma</div>
+  </div>
+
+  <!-- Realtime Stats (Top Right) -->
+  <div class="stats-panel">
+    <div class="stat-pill">
+      <span class="stat-label">Cubes Active</span>
+      <span class="stat-value" id="statCubes">45</span>
+    </div>
+    <div class="stat-pill">
+      <span class="stat-label">Frame Rate</span>
+      <span class="stat-value" id="statFps">60 FPS</span>
+    </div>
+    <div class="stat-pill">
+      <span class="stat-label">Camera Angle</span>
+      <span class="stat-value" id="statAngle">Az: 45°</span>
+    </div>
+  </div>
+
+  <!-- Interactive Glassmorphism Controls Dock -->
+  <div class="controls-panel">
+    <!-- Camera Surround & Rotation -->
+    <div class="section-title">Camera Orbit & View</div>
+    
+    <div class="control-group">
+      <div class="label-row">
+        <span>Azimuth (Surround Rotation)</span>
+        <span class="val-display" id="valAzimuth">45°</span>
+      </div>
+      <input type="range" id="sliderAzimuth" min="0" max="360" step="1" value="45">
+    </div>
+
+    <div class="control-group">
+      <div class="label-row">
+        <span>Elevation (Pitch)</span>
+        <span class="val-display" id="valElevation">25°</span>
+      </div>
+      <input type="range" id="sliderElevation" min="-80" max="80" step="1" value="25">
+    </div>
+
+    <div class="control-group">
+      <div class="label-row">
+        <span>Camera Distance (Zoom)</span>
+        <span class="val-display" id="valDistance">340</span>
+      </div>
+      <input type="range" id="sliderDistance" min="120" max="750" step="5" value="340">
+    </div>
+
+    <div class="control-group">
+      <button class="btn btn-active btn-pulse" id="btnAutoOrbit" style="width: 100%;">
+        <span>🔄 Auto Orbiting Around Art: <b>ON</b></span>
+      </button>
+    </div>
+
+    <div class="control-group">
+      <div class="label-row">
+        <span>Auto Orbit Speed</span>
+        <span class="val-display" id="valOrbitSpeed">0.8×</span>
+      </div>
+      <input type="range" id="sliderOrbitSpeed" min="0.1" max="3.0" step="0.1" value="0.8">
+    </div>
+
+    <div class="control-group">
+      <div class="label-row" style="margin-bottom: 8px;"><span>Camera View Presets</span></div>
+      <div class="btn-grid">
+        <button class="btn" id="presetIsometric">Isometric 45°</button>
+        <button class="btn" id="presetTop">Top-Down</button>
+        <button class="btn" id="presetFront">Front View</button>
+        <button class="btn" id="presetSide">Side View</button>
+      </div>
+    </div>
+
+    <!-- Art & Cube Swarm Controls -->
+    <div class="section-title" style="margin-top: 20px;">Cube Art & Animation</div>
+
+    <div class="control-group">
+      <div class="label-row"><span>Color Palette</span></div>
+      <select id="selectTheme">
+        <option value="cyberpunk">Cyberpunk Synthwave (Cyan & Magenta)</option>
+        <option value="rainbow">Prismatic Rainbow (Chroma Flow)</option>
+        <option value="solar">Solar Flare (Plasma Fire & Gold)</option>
+        <option value="ocean">Bioluminescent Deep Abyss</option>
+        <option value="matrix">Quantum Emerald Matrix</option>
+      </select>
+    </div>
+
+    <div class="control-group">
+      <div class="label-row">
+        <span>Color Shift Speed</span>
+        <span class="val-display" id="valColorSpeed">1.0×</span>
+      </div>
+      <input type="range" id="sliderColorSpeed" min="0.1" max="4.0" step="0.1" value="1.0">
+    </div>
+
+    <div class="control-group">
+      <div class="label-row">
+        <span>Sculpture Expansion (Breathing)</span>
+        <span class="val-display" id="valExpansion">1.0×</span>
+      </div>
+      <input type="range" id="sliderExpansion" min="0.2" max="2.8" step="0.05" value="1.0">
+    </div>
+
+    <div class="control-group">
+      <div class="label-row">
+        <span>Flying Swarm Radius</span>
+        <span class="val-display" id="valSwarmRadius">140</span>
+      </div>
+      <input type="range" id="sliderSwarmRadius" min="60" max="280" step="5" value="140">
+    </div>
+
+    <div class="control-group">
+      <div class="label-row">
+        <span>Flying Cubes Speed</span>
+        <span class="val-display" id="valSwarmSpeed">1.2×</span>
+      </div>
+      <input type="range" id="sliderSwarmSpeed" min="0.1" max="3.5" step="0.1" value="1.2">
+    </div>
+
+    <div class="control-group">
+      <div class="btn-grid">
+        <button class="btn" id="btnExplosion">💥 Supernova</button>
+        <button class="btn" id="btnPause">⏸️ Pause Motion</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Keyboard Quick Help -->
+  <div class="keyboard-guide">
+    <div class="key-item"><span class="key-badge">←</span><span class="key-badge">→</span> Orbit Azimuth</div>
+    <div class="key-item"><span class="key-badge">↑</span><span class="key-badge">↓</span> Orbit Pitch</div>
+    <div class="key-item"><span class="key-badge">+</span><span class="key-badge">-</span> Zoom</div>
+    <div class="key-item"><span class="key-badge">Space</span> Auto Orbit</div>
+    <div class="key-item"><span class="key-badge">C</span> Cycle Colors</div>
+    <div class="key-item"><span class="key-badge">E</span> Supernova</div>
+    <div class="key-item"><span class="key-badge">P</span> Pause</div>
+    <div class="key-item"><span class="key-badge">R</span> Reset View</div>
+  </div>
+
+  <script type="text/javascript">
+    window.onload = function() {
+      // ==========================================
+      // 1. INITIALIZE XTK RENDERER
+      // ==========================================
+      var r = new X.renderer3D();
+      r.container = 'container';
+      r.init();
+
+      // Configure background color to match outer ambient theme
+      r.clearColor = [0.03, 0.04, 0.07];
+
+      // ==========================================
+      // 2. STATE & CONFIGURATION VARIABLES
+      // ==========================================
+      var cameraAzimuth = 45;      // In degrees (horizontal surround angle)
+      var cameraElevation = 25;    // In degrees (vertical pitch: -80 to +80)
+      var cameraDistance = 340;    // Distance from the art center (0,0,0)
+      var isAutoOrbit = true;      // Auto orbit active by default
+      var orbitSpeed = 0.8;        // Auto orbit speed multiplier
+      var isPaused = false;        // Pause toggle
+
+      var colorSpeed = 1.0;
+      var activeTheme = 'cyberpunk';
+      var time = 0;
+      var expansion = 1.0;
+      var swarmRadius = 140;
+      var swarmSpeed = 1.2;
+
+      // Supernova explosion effect state
+      var explosionFactor = 1.0;
+      var isExploding = false;
+      var explosionProgress = 0;
+
+      // ==========================================
+      // 3. COLOR PALETTES & CONVERSION HELPERS
+      // ==========================================
+      function hslToRgb(h, s, l) {
+        var r, g, b;
+        h = ((h % 360) + 360) % 360 / 360;
+        if (s === 0) {
+          r = g = b = l; // achromatic
+        } else {
+          var hue2rgb = function(p, q, t) {
+            if (t < 0) t += 1;
+            if (t > 1) t -= 1;
+            if (t < 1/6) return p + (q - p) * 6 * t;
+            if (t < 1/2) return q;
+            if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+            return p;
+          };
+          var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+          var p = 2 * l - q;
+          r = hue2rgb(p, q, h + 1/3);
+          g = hue2rgb(p, q, h);
+          b = hue2rgb(p, q, h - 1/3);
+        }
+        return [r, g, b];
+      }
+
+      function computeColor(phaseOffset, radialDist) {
+        var t = time * colorSpeed * 0.8 + phaseOffset;
+        if (activeTheme === 'cyberpunk') {
+          // Neon Cyan, Hot Magenta, Indigo, Amber
+          var h = 180 + Math.sin(t * 0.05 + radialDist * 0.02) * 140;
+          return hslToRgb(h, 0.95, 0.58);
+        } else if (activeTheme === 'rainbow') {
+          // Full Prismatic Rainbow Chroma
+          var h = (t * 40 + radialDist * 1.5) % 360;
+          return hslToRgb(h, 0.9, 0.55);
+        } else if (activeTheme === 'solar') {
+          // Fiery Plasma: Crimson, Orange, Gold, White
+          var val = Math.sin(t * 0.08 + radialDist * 0.03) * 0.5 + 0.5;
+          var red = 1.0;
+          var green = 0.2 + val * 0.7;
+          var blue = Math.max(0, val * 0.3 - 0.1);
+          return [red, green, blue];
+        } else if (activeTheme === 'ocean') {
+          // Bioluminescent Deep Abyss: Navy, Cyan, Emerald
+          var h = 160 + Math.sin(t * 0.06 + radialDist * 0.025) * 50;
+          return hslToRgb(h, 0.9, 0.52);
+        } else if (activeTheme === 'matrix') {
+          // Quantum Matrix Green & Mint
+          var val = Math.sin(t * 0.1 + radialDist * 0.04) * 0.5 + 0.5;
+          return [val * 0.3, 0.8 + val * 0.2, val * 0.4];
+        }
+        return [0.2, 0.8, 1.0];
+      }
+
+      // ==========================================
+      // 4. CONSTRUCT THE KINETIC CUBE ART
+      // ==========================================
+      var coreCubes = [];    // Centerpiece crystalline sculpture
+      var flyingCubes = [];  // Swarm orbital cubes
+
+      // 4A. Central Heart Cube
+      var centerCube = new X.cube();
+      centerCube.center = [0, 0, 0];
+      centerCube.lengthX = centerCube.lengthY = centerCube.lengthZ = 24;
+      centerCube.color = [0.0, 0.96, 1.0];
+      r.add(centerCube);
+      coreCubes.push({
+        obj: centerCube,
+        basePos: [0, 0, 0],
+        rotSpeed: [1.2, 1.6, 0.8],
+        radialDist: 0,
+        phase: 0,
+        size: 24
+      });
+
+      // 4B. Inner Cross / Octahedral Shell (6 cubes)
+      var d1 = 38;
+      var axialPositions = [
+        [d1, 0, 0], [-d1, 0, 0],
+        [0, d1, 0], [0, -d1, 0],
+        [0, 0, d1], [0, 0, -d1]
+      ];
+      axialPositions.forEach(function(pos, idx) {
+        var c = new X.cube();
+        c.center = pos;
+        c.lengthX = c.lengthY = c.lengthZ = 16;
+        c.color = computeColor(idx * 0.8, d1);
+        r.add(c);
+        coreCubes.push({
+          obj: c,
+          basePos: pos,
+          rotSpeed: [1.4 * (idx % 2 === 0 ? 1 : -1), 1.0, 1.2],
+          radialDist: d1,
+          phase: idx * 0.9,
+          size: 16
+        });
+      });
+
+      // 4C. Middle Cuboctahedron Shell (12 edge midpoint cubes)
+      var d2 = 32;
+      var edgePositions = [
+        [d2, d2, 0], [-d2, d2, 0], [d2, -d2, 0], [-d2, -d2, 0],
+        [d2, 0, d2], [-d2, 0, d2], [d2, 0, -d2], [-d2, 0, -d2],
+        [0, d2, d2], [0, -d2, d2], [0, d2, -d2], [0, -d2, -d2]
+      ];
+      edgePositions.forEach(function(pos, idx) {
+        var c = new X.cube();
+        c.center = pos;
+        c.lengthX = c.lengthY = c.lengthZ = 13;
+        c.color = computeColor(idx * 0.5, 45);
+        r.add(c);
+        coreCubes.push({
+          obj: c,
+          basePos: pos,
+          rotSpeed: [1.0, 1.5 * (idx % 2 === 0 ? 1 : -1), 0.7],
+          radialDist: 45,
+          phase: 1.5 + idx * 0.45,
+          size: 13
+        });
+      });
+
+      // 4D. Outer Tesseract Corners (8 cubes)
+      var d3 = 48;
+      var cornerSigns = [
+        [1, 1, 1], [-1, 1, 1], [1, -1, 1], [-1, -1, 1],
+        [1, 1, -1], [-1, 1, -1], [1, -1, -1], [-1, -1, -1]
+      ];
+      cornerSigns.forEach(function(sgn, idx) {
+        var pos = [sgn[0] * d3, sgn[1] * d3, sgn[2] * d3];
+        var c = new X.cube();
+        c.center = pos;
+        c.lengthX = c.lengthY = c.lengthZ = 14;
+        c.color = computeColor(idx * 0.7, 83);
+        r.add(c);
+        coreCubes.push({
+          obj: c,
+          basePos: pos,
+          rotSpeed: [1.1, -1.2, 1.4 * (idx % 2 === 0 ? 1 : -1)],
+          radialDist: 83,
+          phase: 3.0 + idx * 0.6,
+          size: 14
+        });
+      });
+
+      // ==========================================
+      // 5. CONSTRUCT THE FLYING ORBITAL SWARM
+      // ==========================================
+      // 18 satellite cubes orbiting in 3 distinct rings with varying inclinations
+      var numFlying = 18;
+      for (var i = 0; i < numFlying; i++) {
+        var fc = new X.cube();
+        var cubeSize = 8 + (i % 4) * 2.5; // Size variation
+        fc.lengthX = fc.lengthY = fc.lengthZ = cubeSize;
+        
+        // Initial ring assignment: 0 = Equatorial, 1 = Polar/Vertical, 2 = Inclined 45°
+        var ringType = i % 3;
+        var ringAngle = (i / numFlying) * Math.PI * 2;
+        var rInit = 140;
+
+        var initPos;
+        if (ringType === 0) {
+          initPos = [Math.cos(ringAngle) * rInit, Math.sin(ringAngle) * rInit, Math.sin(ringAngle * 3) * 20];
+        } else if (ringType === 1) {
+          initPos = [Math.sin(ringAngle * 2) * 25, Math.cos(ringAngle) * rInit, Math.sin(ringAngle) * rInit];
+        } else {
+          var tilt = Math.PI / 4;
+          var x0 = Math.cos(ringAngle) * rInit;
+          var y0 = Math.sin(ringAngle) * rInit;
+          initPos = [x0 * Math.cos(tilt), y0, x0 * Math.sin(tilt) + Math.cos(ringAngle * 2) * 30];
+        }
+
+        fc.center = initPos;
+        fc.color = computeColor(i * 1.2, 140);
+        r.add(fc);
+
+        flyingCubes.push({
+          obj: fc,
+          ringType: ringType,
+          angleOffset: ringAngle,
+          orbitRate: (0.7 + (i % 5) * 0.25) * ((i % 2 === 0) ? 1 : -1),
+          heightFreq: 2 + (i % 3),
+          heightAmp: 25 + (i % 4) * 10,
+          currentPos: initPos.slice(),
+          spinSpeed: [2.0 + (i % 3), 1.5 + (i % 2), 2.2],
+          size: cubeSize,
+          id: i
+        });
+      }
+
+      // Total cubes displayed in UI
+      document.getElementById('statCubes').innerText = (coreCubes.length + flyingCubes.length);
+
+      // ==========================================
+      // 6. CAMERA SPHERICAL ORBIT POSITIONING
+      // ==========================================
+      // Keep camera always looking at art center [0, 0, 0]
+      function updateCameraView() {
+        var radAzimuth = cameraAzimuth * Math.PI / 180;
+        var radElevation = cameraElevation * Math.PI / 180;
+
+        var cx = cameraDistance * Math.cos(radElevation) * Math.sin(radAzimuth);
+        var cy = cameraDistance * Math.cos(radElevation) * Math.cos(radAzimuth);
+        var cz = cameraDistance * Math.sin(radElevation);
+
+        r.camera.position = [cx, cy, cz];
+        r.camera.focus = [0, 0, 0];
+        r.camera.up = [0, 0, 1];
+
+        // Update UI displays
+        document.getElementById('sliderAzimuth').value = Math.round(((cameraAzimuth % 360) + 360) % 360);
+        document.getElementById('valAzimuth').innerText = Math.round(((cameraAzimuth % 360) + 360) % 360) + '°';
+        document.getElementById('sliderElevation').value = Math.round(cameraElevation);
+        document.getElementById('valElevation').innerText = Math.round(cameraElevation) + '°';
+        document.getElementById('sliderDistance').value = Math.round(cameraDistance);
+        document.getElementById('valDistance').innerText = Math.round(cameraDistance);
+        document.getElementById('statAngle').innerText = 'Az: ' + Math.round(((cameraAzimuth % 360) + 360) % 360) + '°';
+      }
+
+      // ==========================================
+      // 7. REALTIME ANIMATION LOOP (r.onRender)
+      // ==========================================
+      var lastTimestamp = performance.now();
+      var frameCount = 0;
+      var fpsTimer = performance.now();
+
+      r.onRender = function() {
+        var now = performance.now();
+        var delta = (now - lastTimestamp) / 1000;
+        lastTimestamp = now;
+
+        // FPS Monitoring
+        frameCount++;
+        if (now - fpsTimer >= 1000) {
+          document.getElementById('statFps').innerText = Math.round((frameCount * 1000) / (now - fpsTimer)) + ' FPS';
+          frameCount = 0;
+          fpsTimer = now;
+        }
+
+        // Camera Auto-Orbiting Around the Art
+        if (isAutoOrbit) {
+          cameraAzimuth = (cameraAzimuth + 0.45 * orbitSpeed) % 360;
+          // Gentle vertical breathing wave for cinematic camera motion
+          cameraElevation += Math.sin(time * 0.4) * 0.05 * orbitSpeed;
+          cameraElevation = Math.max(-80, Math.min(80, cameraElevation));
+          updateCameraView();
+        }
+
+        if (isPaused) {
+          return;
+        }
+
+        time += 0.025;
+
+        // Supernova explosion physics update
+        if (isExploding) {
+          explosionProgress += delta * 1.5;
+          if (explosionProgress < 1.0) {
+            // Explode outwards
+            explosionFactor = 1.0 + Math.sin(explosionProgress * Math.PI) * 2.8;
+          } else {
+            // Settle back to normal
+            isExploding = false;
+            explosionFactor = 1.0;
+            explosionProgress = 0;
+            document.getElementById('btnExplosion').classList.remove('btn-active');
+          }
+        }
+
+        var effectiveExpansion = expansion * explosionFactor;
+
+        // 7A. Animate Core Sculpture Cubes
+        for (var i = 0; i < coreCubes.length; i++) {
+          var item = coreCubes[i];
+          var cubeObj = item.obj;
+
+          // Local spinning on 3 axes with harmonic rates
+          cubeObj.transform.rotateX(item.rotSpeed[0]);
+          cubeObj.transform.rotateY(item.rotSpeed[1]);
+          cubeObj.transform.rotateZ(item.rotSpeed[2]);
+
+          // Dynamic Color Shifting
+          cubeObj.color = computeColor(item.phase, item.radialDist);
+
+          // Kinetic Breathing Displacement
+          if (item.radialDist > 0) {
+            var pulse = 1.0 + Math.sin(time * 2.0 + item.phase) * 0.15;
+            var curScale = effectiveExpansion * pulse;
+            var targetX = item.basePos[0] * curScale;
+            var targetY = item.basePos[1] * curScale;
+            var targetZ = item.basePos[2] * curScale;
+
+            // Direct matrix translation in world space
+            cubeObj.transform.matrix[12] = targetX;
+            cubeObj.transform.matrix[13] = targetY;
+            cubeObj.transform.matrix[14] = targetZ;
+            if (cubeObj.transform.modified) cubeObj.transform.modified();
+          }
+        }
+
+        // 7B. Animate Flying Cubes (Orbital Swarm)
+        for (var j = 0; j < flyingCubes.length; j++) {
+          var flight = flyingCubes[j];
+          var fcObj = flight.obj;
+
+          // Rapid individual spinning as they fly through space
+          fcObj.transform.rotateX(flight.spinSpeed[0]);
+          fcObj.transform.rotateY(flight.spinSpeed[1]);
+          fcObj.transform.rotateZ(flight.spinSpeed[2]);
+
+          // Dynamic colors for the swarm
+          fcObj.color = computeColor(flight.id * 0.9, swarmRadius);
+
+          // Compute 3D orbital trajectory position
+          var theta = time * flight.orbitRate * swarmSpeed + flight.angleOffset;
+          var curR = swarmRadius * effectiveExpansion;
+          var newX, newY, newZ;
+
+          if (flight.ringType === 0) {
+            // Equatorial undulating orbit
+            newX = Math.cos(theta) * curR;
+            newY = Math.sin(theta) * curR;
+            newZ = Math.sin(theta * flight.heightFreq) * flight.heightAmp;
+          } else if (flight.ringType === 1) {
+            // Polar vertical corkscrew orbit
+            newX = Math.sin(theta * flight.heightFreq) * (flight.heightAmp * 0.8);
+            newY = Math.cos(theta) * curR;
+            newZ = Math.sin(theta) * curR;
+          } else {
+            // 45° tilted Lissajous loop orbit
+            var tilt = Math.PI / 4;
+            var rx = Math.cos(theta) * curR;
+            var ry = Math.sin(theta) * curR;
+            newX = rx * Math.cos(tilt);
+            newY = ry;
+            newZ = rx * Math.sin(tilt) + Math.cos(theta * 2) * flight.heightAmp;
+          }
+
+          // Direct matrix translation in world space
+          fcObj.transform.matrix[12] = newX;
+          fcObj.transform.matrix[13] = newY;
+          fcObj.transform.matrix[14] = newZ;
+          if (fcObj.transform.modified) fcObj.transform.modified();
+        }
+      };
+
+      // ==========================================
+      // 8. START INITIAL RENDER
+      // ==========================================
+      r.camera.position = [150, 150, 220];
+      r.render();
+      updateCameraView();
+
+      // ==========================================
+      // 9. EVENT LISTENERS & USER INPUT BINDINGS
+      // ==========================================
+
+      // 9A. Sliders Binding
+      var sliderAzimuth = document.getElementById('sliderAzimuth');
+      sliderAzimuth.oninput = function() {
+        cameraAzimuth = parseFloat(this.value);
+        isAutoOrbit = false;
+        updateAutoOrbitButton();
+        updateCameraView();
+      };
+
+      var sliderElevation = document.getElementById('sliderElevation');
+      sliderElevation.oninput = function() {
+        cameraElevation = parseFloat(this.value);
+        isAutoOrbit = false;
+        updateAutoOrbitButton();
+        updateCameraView();
+      };
+
+      var sliderDistance = document.getElementById('sliderDistance');
+      sliderDistance.oninput = function() {
+        cameraDistance = parseFloat(this.value);
+        updateCameraView();
+      };
+
+      var sliderOrbitSpeed = document.getElementById('sliderOrbitSpeed');
+      sliderOrbitSpeed.oninput = function() {
+        orbitSpeed = parseFloat(this.value);
+        document.getElementById('valOrbitSpeed').innerText = orbitSpeed.toFixed(1) + '×';
+      };
+
+      var sliderColorSpeed = document.getElementById('sliderColorSpeed');
+      sliderColorSpeed.oninput = function() {
+        colorSpeed = parseFloat(this.value);
+        document.getElementById('valColorSpeed').innerText = colorSpeed.toFixed(1) + '×';
+      };
+
+      var sliderExpansion = document.getElementById('sliderExpansion');
+      sliderExpansion.oninput = function() {
+        expansion = parseFloat(this.value);
+        document.getElementById('valExpansion').innerText = expansion.toFixed(2) + '×';
+      };
+
+      var sliderSwarmRadius = document.getElementById('sliderSwarmRadius');
+      sliderSwarmRadius.oninput = function() {
+        swarmRadius = parseFloat(this.value);
+        document.getElementById('valSwarmRadius').innerText = Math.round(swarmRadius);
+      };
+
+      var sliderSwarmSpeed = document.getElementById('sliderSwarmSpeed');
+      sliderSwarmSpeed.oninput = function() {
+        swarmSpeed = parseFloat(this.value);
+        document.getElementById('valSwarmSpeed').innerText = swarmSpeed.toFixed(1) + '×';
+      };
+
+      var selectTheme = document.getElementById('selectTheme');
+      selectTheme.onchange = function() {
+        activeTheme = this.value;
+      };
+
+      // 9B. Auto Orbit Toggle
+      var btnAutoOrbit = document.getElementById('btnAutoOrbit');
+      function updateAutoOrbitButton() {
+        if (isAutoOrbit) {
+          btnAutoOrbit.className = 'btn btn-active btn-pulse';
+          btnAutoOrbit.innerHTML = '<span>🔄 Auto Orbiting Around Art: <b>ON</b></span>';
+        } else {
+          btnAutoOrbit.className = 'btn';
+          btnAutoOrbit.innerHTML = '<span>⏸️ Auto Orbit: <b>PAUSED (Manual)</b></span>';
+        }
+      }
+
+      btnAutoOrbit.onclick = function() {
+        isAutoOrbit = !isAutoOrbit;
+        updateAutoOrbitButton();
+      };
+
+      // 9C. View Presets
+      document.getElementById('presetIsometric').onclick = function() {
+        cameraAzimuth = 45;
+        cameraElevation = 35;
+        cameraDistance = 340;
+        isAutoOrbit = false;
+        updateAutoOrbitButton();
+        updateCameraView();
+      };
+
+      document.getElementById('presetTop').onclick = function() {
+        cameraAzimuth = 0;
+        cameraElevation = 78;
+        cameraDistance = 360;
+        isAutoOrbit = false;
+        updateAutoOrbitButton();
+        updateCameraView();
+      };
+
+      document.getElementById('presetFront').onclick = function() {
+        cameraAzimuth = 0;
+        cameraElevation = 5;
+        cameraDistance = 340;
+        isAutoOrbit = false;
+        updateAutoOrbitButton();
+        updateCameraView();
+      };
+
+      document.getElementById('presetSide').onclick = function() {
+        cameraAzimuth = 90;
+        cameraElevation = 10;
+        cameraDistance = 340;
+        isAutoOrbit = false;
+        updateAutoOrbitButton();
+        updateCameraView();
+      };
+
+      // 9D. Supernova & Pause
+      var btnExplosion = document.getElementById('btnExplosion');
+      btnExplosion.onclick = function() {
+        isExploding = true;
+        explosionProgress = 0;
+        btnExplosion.classList.add('btn-active');
+      };
+
+      var btnPause = document.getElementById('btnPause');
+      btnPause.onclick = function() {
+        isPaused = !isPaused;
+        btnPause.innerText = isPaused ? '▶️ Resume Motion' : '⏸️ Pause Motion';
+        if (isPaused) {
+          btnPause.classList.add('btn-active');
+        } else {
+          btnPause.classList.remove('btn-active');
+        }
+      };
+
+      // 9E. Keyboard Controls for Camera Surrounding and Modes
+      window.addEventListener('keydown', function(e) {
+        // Prevent default scrolling on arrow keys and space
+        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'Spacebar'].indexOf(e.key) !== -1) {
+          e.preventDefault();
+        }
+
+        switch (e.key) {
+          case 'ArrowLeft':
+          case 'a':
+          case 'A':
+            cameraAzimuth = (cameraAzimuth - 4 + 360) % 360;
+            isAutoOrbit = false;
+            updateAutoOrbitButton();
+            updateCameraView();
+            break;
+
+          case 'ArrowRight':
+          case 'd':
+          case 'D':
+            cameraAzimuth = (cameraAzimuth + 4) % 360;
+            isAutoOrbit = false;
+            updateAutoOrbitButton();
+            updateCameraView();
+            break;
+
+          case 'ArrowUp':
+          case 'w':
+          case 'W':
+            cameraElevation = Math.min(80, cameraElevation + 3);
+            isAutoOrbit = false;
+            updateAutoOrbitButton();
+            updateCameraView();
+            break;
+
+          case 'ArrowDown':
+          case 's':
+          case 'S':
+            cameraElevation = Math.max(-80, cameraElevation - 3);
+            isAutoOrbit = false;
+            updateAutoOrbitButton();
+            updateCameraView();
+            break;
+
+          case '+':
+          case '=':
+          case ']':
+            cameraDistance = Math.max(120, cameraDistance - 15);
+            updateCameraView();
+            break;
+
+          case '-':
+          case '_':
+          case '[':
+            cameraDistance = Math.min(750, cameraDistance + 15);
+            updateCameraView();
+            break;
+
+          case ' ':
+            isAutoOrbit = !isAutoOrbit;
+            updateAutoOrbitButton();
+            break;
+
+          case 'c':
+          case 'C':
+            // Cycle color theme
+            var themes = ['cyberpunk', 'rainbow', 'solar', 'ocean', 'matrix'];
+            var nextIdx = (themes.indexOf(activeTheme) + 1) % themes.length;
+            activeTheme = themes[nextIdx];
+            selectTheme.value = activeTheme;
+            break;
+
+          case 'e':
+          case 'E':
+            isExploding = true;
+            explosionProgress = 0;
+            btnExplosion.classList.add('btn-active');
+            break;
+
+          case 'p':
+          case 'P':
+            btnPause.click();
+            break;
+
+          case 'r':
+          case 'R':
+            cameraAzimuth = 45;
+            cameraElevation = 25;
+            cameraDistance = 340;
+            isAutoOrbit = true;
+            updateAutoOrbitButton();
+            updateCameraView();
+            break;
+        }
+      });
+
+      // 9F. Mouse Drag for Camera Orbiting
+      var isMouseDown = false;
+      var lastMouseX = 0;
+      var lastMouseY = 0;
+      var containerEl = document.getElementById('container');
+
+      containerEl.addEventListener('mousedown', function(e) {
+        if (e.button === 0) { // Left button
+          isMouseDown = true;
+          lastMouseX = e.clientX;
+          lastMouseY = e.clientY;
+        }
+      });
+
+      window.addEventListener('mouseup', function() {
+        isMouseDown = false;
+      });
+
+      window.addEventListener('mousemove', function(e) {
+        if (!isMouseDown) return;
+        var dx = e.clientX - lastMouseX;
+        var dy = e.clientY - lastMouseY;
+        lastMouseX = e.clientX;
+        lastMouseY = e.clientY;
+
+        // Drag rotates camera surround
+        cameraAzimuth = (cameraAzimuth - dx * 0.4 + 360) % 360;
+        cameraElevation = Math.max(-80, Math.min(80, cameraElevation + dy * 0.3));
+        isAutoOrbit = false;
+        updateAutoOrbitButton();
+        updateCameraView();
+      });
+
+      // Mouse Wheel Zoom
+      containerEl.addEventListener('wheel', function(e) {
+        e.preventDefault();
+        cameraDistance = Math.max(120, Math.min(750, cameraDistance + e.deltaY * 0.3));
+        updateCameraView();
+      }, { passive: false });
+    };
+  </script>
+</body>
+</html>
