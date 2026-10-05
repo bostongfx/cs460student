@@ -140,6 +140,13 @@
                 if (e.key === 'f') {
                     FLICKERING = !FLICKERING;
                 }
+
+                if (e.key === 'w') {
+                    for (var i = 0; i < TORUSES.length; i++) {
+                        TORUSES[i].material.wireframe =
+                            !TORUSES[i].material.wireframe;
+                    }
+                }
             };
 
 
