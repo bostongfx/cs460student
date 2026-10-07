@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>XTK WebGL • Kinetic Cube Art Visualization</title>
+  
+  <link rel="stylesheet" href="style.css">
+
+  <!-- Local XTK Edge library with CDN fallback -->
+  <script type="text/javascript" src="xtk_edge.js"></script>
+  <script type="text/javascript">
+    if (typeof X === 'undefined') {
+      console.warn('Local xtk_edge.js not found, loading from CDN...');
+      document.write('<script type="text/javascript" src="https://get.goxtk.com/xtk_edge.js"><\/script>');
+    }
+  </script>
+</head>
+<body>
+
+  <!-- WebGL Container for XTK Renderer -->
+  <div id="container"></div>
+
+  <!-- Futuristic Cyberpunk UI HUD Layer -->
+  <div class="ui-overlay">
+    
+    <!-- Top Header Bar -->
+    <header class="header-bar interactive">
+      <div class="title-group">
+        <div class="logo-badge">X</div>
+        <div class="title-text">
+          <h1>Kinetic Cube Art</h1>
+          <p>WebGL Scientific & Creative Visualization • Powered by XTK</p>
+        </div>
+      </div>
+
+      <div class="quick-actions">
+        <button id="btn-audio" class="btn-icon" title="Toggle Procedural Ambient Synth">
+          🔇 Sound: OFF
+        </button>
+        <button id="btn-orbit" class="btn-icon active" title="Toggle Cinematic Auto-Orbit [A]">
+          🌐 Orbit: ON
+        </button>
+        <button id="btn-pause" class="btn-icon" title="Pause / Resume [Space]">
+          <span class="icon">⏸</span> Pause
+        </button>
+        <button id="btn-toggle-controls" class="btn-icon" title="Toggle Control Panel [H]">
+          ⚙️ Controls
+        </button>
+        <button id="btn-help" class="btn-icon" title="Keyboard Shortcuts & Info">
+          ❓ Info
+        </button>
+      </div>
+    </header>
+
+    <!-- Collapsible Controls Drawer -->
+    <aside id="controls-drawer" class="controls-drawer interactive">
+      
+      <!-- Formation Mode Selection -->
+      <section class="control-section">
+        <div class="section-label">
+          <span>Formations (1-6)</span>
+        </div>
+        <div class="mode-grid">
+          <button class="mode-btn active" data-mode="wave">
+            <span class="icon">🌊</span>
+            <span>Wave Grid</span>
+          </button>
+          <button class="mode-btn" data-mode="vortex">
+            <span class="icon">🌀</span>
+            <span>Vortex Galaxy</span>
+          </button>
+          <button class="mode-btn" data-mode="helix">
+            <span class="icon">🧬</span>
+            <span>DNA Helix</span>
+          </button>
+          <button class="mode-btn" data-mode="supernova">
+            <span class="icon">💥</span>
+            <span>Supernova</span>
+          </button>
+          <button class="mode-btn" data-mode="torus">
+            <span class="icon">🍩</span>
+            <span>Torus Knot</span>
+          </button>
+          <button class="mode-btn" data-mode="pulsar">
+            <span class="icon">📻</span>
+            <span>Audio Pulsar</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- Color Palettes -->
+      <section class="control-section">
+        <div class="section-label">
+          <span>Color Palettes [C]</span>
+        </div>
+        <div class="palette-row">
+          <button class="palette-btn active" data-palette="cyber" title="Cyber Neon" style="background: linear-gradient(135deg, #fe019a, #00f2fe);"></button>
+          <button class="palette-btn" data-palette="rainbow" title="Rainbow Chroma" style="background: linear-gradient(135deg, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff);"></button>
+          <button class="palette-btn" data-palette="solar" title="Solar Flare" style="background: linear-gradient(135deg, #ff1a1a, #ffaa00, #ffffff);"></button>
+          <button class="palette-btn" data-palette="ocean" title="Bioluminescence Ocean" style="background: linear-gradient(135deg, #0055ff, #00e5ff, #00ffaa);"></button>
+          <button class="palette-btn" data-palette="vapor" title="Vaporwave Sunset" style="background: linear-gradient(135deg, #a855f7, #ec4899, #38bdf8);"></button>
+          <button class="palette-btn" data-palette="matrix" title="Digital Matrix" style="background: linear-gradient(135deg, #003300, #00ff66, #ffffff);"></button>
+        </div>
+      </section>
+
+      <!-- Render Styles & Magic Mode -->
+      <section class="control-section">
+        <div class="section-label">
+          <span>Render Style [W / M]</span>
+        </div>
+        <div class="style-row">
+          <button class="style-btn active" data-style="TRIANGLES">Solid</button>
+          <button class="style-btn" data-style="LINES">Wireframe</button>
+          <button class="style-btn" data-style="POINTS">Points</button>
+        </div>
+        <button id="btn-magic" class="btn-icon" style="justify-content: center; width: 100%; margin-top: 4px;">
+          ✨ Toggle Magic Normal Shading [M]
+        </button>
+      </section>
+
+      <!-- Sliders for Kinetics -->
+      <section class="control-section">
+        <div class="section-label">
+          <span>Kinetic Dynamics</span>
+        </div>
+        
+        <div class="slider-group">
+          <div class="slider-header">
+            <span>Speed</span>
+            <span id="val-speed" class="slider-val">1.0x</span>
+          </div>
+          <input type="range" id="slider-speed" min="0.1" max="3.0" step="0.1" value="1.0">
+        </div>
+
+        <div class="slider-group">
+          <div class="slider-header">
+            <span>Wave Amplitude</span>
+            <span id="val-amp" class="slider-val">75px</span>
+          </div>
+          <input type="range" id="slider-amp" min="10" max="180" step="5" value="75">
+        </div>
+
+        <div class="slider-group">
+          <div class="slider-header">
+            <span>Cube Spin Rate</span>
+            <span id="val-rot" class="slider-val">1.2x</span>
+          </div>
+          <input type="range" id="slider-rot" min="0" max="4.0" step="0.2" value="1.2">
+        </div>
+
+        <div class="slider-group">
+          <div class="slider-header">
+            <span>Glass Opacity</span>
+            <span id="val-opacity" class="slider-val">90%</span>
+          </div>
+          <input type="range" id="slider-opacity" min="0.2" max="1.0" step="0.05" value="0.9">
+        </div>
+      </section>
+
+      <!-- Actions -->
+      <section class="control-section">
+        <button id="btn-blast" class="btn-blast" title="Trigger Kinetic Physics Blast [E]">
+          <span>⚡</span> Trigger Shockwave Blast
+        </button>
+        <button id="btn-reset-cam" class="btn-icon" style="justify-content: center;">
+          🔄 Reset Camera [R]
+        </button>
+      </section>
+
+    </aside>
+
+    <!-- Bottom Status Bar -->
+    <footer class="bottom-bar interactive">
+      <div class="stats-badges">
+        <div class="badge">
+          <div class="status-dot"></div>
+          <span id="current-mode-badge">Mode: WAVE</span>
+        </div>
+        <div class="badge" id="cube-count-badge">
+          169 Cubes
+        </div>
+        <div class="badge" id="fps-counter">
+          60 FPS
+        </div>
+      </div>
+
+      <div class="instructions-hint">
+        <span>Click canvas to blast</span>
+        <span>•</span>
+        <span>Drag to rotate</span>
+        <span>•</span>
+        <span>Scroll to zoom</span>
+        <span>•</span>
+        <span class="hint-key">Space</span> to pause
+        <span class="hint-key">H</span> to hide UI
+      </div>
+    </footer>
+
+  </div>
+
+  <!-- Help & Shortcuts Modal -->
+  <div id="help-modal-backdrop" class="modal-backdrop">
+    <div class="help-modal interactive">
+      <div class="modal-header">
+        <h2><span>🎮</span> Kinetic Cube Art Guide</h2>
+        <button id="btn-close-modal" class="btn-close">&times;</button>
+      </div>
+
+      <div class="shortcuts-table">
+        <div class="key">Click</div>
+        <div class="desc">Trigger 3D impulse shockwave with spring physics</div>
+
+        <div class="key">Drag</div>
+        <div class="desc">Orbit 3D camera around visualization</div>
+
+        <div class="key">Scroll</div>
+        <div class="desc">Zoom camera in / out</div>
+
+        <div class="key">1 - 6</div>
+        <div class="desc">Switch formations (Wave, Vortex, Helix, Supernova, Torus, Pulsar)</div>
+
+        <div class="key">Space</div>
+        <div class="desc">Play / Pause animation engine</div>
+
+        <div class="key">C</div>
+        <div class="desc">Cycle color themes (Cyber, Rainbow, Solar, Ocean, Vapor, Matrix)</div>
+
+        <div class="key">W</div>
+        <div class="desc">Toggle render style (Solid / Wireframe / Points)</div>
+
+        <div class="key">M</div>
+        <div class="desc">Toggle XTK Magic Mode (rainbow normal shader)</div>
+
+        <div class="key">E</div>
+        <div class="desc">Explode / Shockwave blast impulse</div>
+
+        <div class="key">A</div>
+        <div class="desc">Toggle cinematic auto-orbit camera</div>
+
+        <div class="key">R</div>
+        <div class="desc">Reset camera vantage to default isometric</div>
+
+        <div class="key">H</div>
+        <div class="desc">Hide / show HUD controls for wallpaper mode</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cube Art Application Script -->
+  <script type="text/javascript" src="cube_art.js"></script>
+
+</body>
+</html>
