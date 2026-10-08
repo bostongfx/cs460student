@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>CS460 - Hello Cube (Three.js)</title>
+    <style>
+      html, body {
+        background-color: #000;
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden;
+      }
+    </style>
+    <!-- Three.js and TrackballControls loaded via HTTPS for GitHub Pages compatibility -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TrackballControls.js"></script>
+    <script type="text/javascript">
+      window.onload = function () {
+        // 1. Create the 3D scene
+        var scene = new THREE.Scene();
+
+        // 2. Setup perspective camera
+        var fov = 75;
+        var aspect = window.innerWidth / window.innerHeight;
+        var near = 0.1;
+        var far = 1000;
+        var camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
+        camera.position.z = 50;
+
+        // 3. Setup WebGL renderer and append canvas to body
+        var renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // 4. Create cube geometry and material (white cube)
+        var geometry = new THREE.BoxGeometry(20, 20, 20);
+        var material = new THREE.MeshStandardMaterial({ color: 0xffffff });
+        var cube = new THREE.Mesh(geometry, material);
+        scene.add(cube);
+
+        // 5. Lighting (ambient + directional light for 3D depth)
+        var ambientLight = new THREE.AmbientLight(0x404040);
+        scene.add(ambientLight);
+
+        var directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        directionalLight.position.set(10, 20, 20);
+        scene.add(directionalLight);
+
+        // 6. Interactive controls (matches XTK's trackball interaction)
+        var controls = new THREE.TrackballControls(camera, renderer.domElement);
+
+        // 7. Handle window resize
+        window.addEventListener('resize', function () {
+          camera.aspect = window.innerWidth / window.innerHeight;
+          camera.updateProjectionMatrix();
+          renderer.setSize(window.innerWidth, window.innerHeight);
+          controls.handleResize();
+        });
+
+        // 8. Animation loop to update controls and render the scene
+        function animate() {
+          requestAnimationFrame(animate);
+          controls.update();
+          renderer.render(scene, camera);
+        }
+        animate();
+      };
+    </script>
+  </head>
+  <body></body>
+</html>

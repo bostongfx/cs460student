@@ -1,0 +1,256 @@
+<html>
+
+<head>
+    <style>
+        html,
+        body {
+            background-color: #000;
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden !important;
+        }
+    </style>
+
+    <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@latest/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@latest/examples/jsm/"
+      }
+    }
+    </script>
+
+    <script type="module">
+
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        var renderer, controls, scene, camera;
+        var TORI = [];
+        var LASTOBJECT = null;
+        var flag = false;
+        var FLICKERING = false;
+        var WIREFRAME = false;
+
+        // Count the closed triangular surfaces, identifying duplicate seam vertices.
+        function updateBonusStats() {
+            var vertices = 0;
+            var storedVertices = 0;
+            var faces = 0;
+            for (var i = 0; i < TORI.length; i++) {
+                var geometry = TORI[i].geometry;
+                var t = Math.floor(geometry.parameters.tubularSegments);
+                var r = Math.floor(geometry.parameters.radialSegments);
+                vertices += t * r;
+                faces += geometry.index.count / 3;
+                storedVertices += geometry.attributes.position.count;
+            }
+            // Each triangle has 3 edges; each closed-surface edge joins 2 triangles.
+            var edges = faces * 3 / 2;
+            document.getElementById('bonus-stats').textContent =
+                'W: wireframe ' + (WIREFRAME ? 'ON' : 'OFF') +
+                ' | F: flicker | Shift + drag: create/resize\n' +
+                'Knots: ' + TORI.length + ' | Vertices: ' + vertices +
+                ' | Edges: ' + edges + ' | Triangle faces: ' + faces +
+                '\nClosed surfaces (seams counted once); stored vertices: ' + storedVertices;
+        }
+
+        window.onload = function () {
+
+            // Three.js code goes here
+            scene = new THREE.Scene();
+
+            // setup the camera
+            var fov = 75;
+            var ratio = window.innerWidth / window.innerHeight;
+            var zNear = 1;
+            var zFar = 10000;
+            camera = new THREE.PerspectiveCamera(fov, ratio, zNear, zFar);
+            camera.position.set(0, 0, 100);
+
+            // create renderer and setup the canvas
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+            // setup lights
+            var ambientLight = new THREE.AmbientLight();
+            scene.add(ambientLight);
+
+            var light = new THREE.DirectionalLight(0xffffff, 5.0);
+            light.position.set(10, 100, 10);
+            scene.add(light);
+
+            //
+            // The invisible plane
+            //
+            var planeGeometry = new THREE.PlaneGeometry(10000, 10000);
+            var planeMaterial = new THREE.MeshBasicMaterial({
+                visible: false
+            });
+
+            var invisible_plane = new THREE.Mesh(planeGeometry, planeMaterial);
+            scene.add(invisible_plane);
+
+            //
+            // Initial solid Torus Knot (replacing the starter cube)
+            //
+            var geometry = new THREE.TorusKnotGeometry(10, 3, 100);
+            var material = new THREE.MeshStandardMaterial({ color: '#FF69B4' }); // solid material
+            var knot = new THREE.Mesh(geometry, material);
+            scene.add(knot);
+            TORI.push(knot);
+            LASTOBJECT = knot;
+            updateBonusStats();
+
+            // interaction
+            controls = new OrbitControls(camera, renderer.domElement);
+
+            // Placement handler: onmousedown with Shift + left mouse button
+            renderer.domElement.onmousedown = function (e) {
+
+                // Only create a knot when Shift and the left mouse button (e.button === 0) are pressed together
+                if (!e.shiftKey || e.button !== 0) {
+                    return;
+                }
+
+                // Disable OrbitControls during placement drag
+                controls.enabled = false;
+
+                var pixel_coords = new THREE.Vector2(e.clientX, e.clientY);
+
+                var vp_coords = new THREE.Vector2(
+                    (pixel_coords.x / window.innerWidth) * 2 - 1,  // X
+                    -(pixel_coords.y / window.innerHeight) * 2 + 1 // Y
+                );
+
+                var vp_coords_near = new THREE.Vector3(vp_coords.x, vp_coords.y, 0);
+
+                var raycaster = new THREE.Raycaster();
+                raycaster.setFromCamera(vp_coords_near, camera);
+                var intersects = raycaster.intersectObject(invisible_plane);
+
+                if (intersects.length > 0) {
+                    // Create a new solid Torus Knot with hotpink (#FF69B4) color
+                    var new_geometry = new THREE.TorusKnotGeometry(10, 3, 100);
+                    var new_material = new THREE.MeshStandardMaterial({ color: '#FF69B4', wireframe: WIREFRAME });
+                    var new_knot = new THREE.Mesh(new_geometry, new_material);
+
+                    // Position the new knot at the raycast intersection point
+                    new_knot.position.set(intersects[0].point.x, intersects[0].point.y, intersects[0].point.z);
+
+                    // Add to scene (keeping previous knots in the scene)
+                    scene.add(new_knot);
+
+                    // Save to the list of created knots for later features
+                    TORI.push(new_knot);
+                    updateBonusStats();
+
+                    // Track as the most recently created knot and begin placement drag
+                    LASTOBJECT = new_knot;
+                    flag = true;
+                }
+
+            };
+
+            // Resizing drag handler: uniformly scales the active knot using movementY
+            renderer.domElement.onmousemove = function (e) {
+
+                // Only resize during the drag that began with Shift + left mouse down
+                if (!flag || !LASTOBJECT) {
+                    return;
+                }
+
+                // Drag sensitivity: multiplier controlling how quickly the knot scales per pixel of mouse motion
+                var SENSITIVITY = 0.01;
+                var DELTA = -e.movementY * SENSITIVITY;
+
+                // Scale uniformly on X, Y, and Z (allowed to cross zero and become negative)
+                var new_scale = LASTOBJECT.scale.x + DELTA;
+                LASTOBJECT.scale.set(new_scale, new_scale, new_scale);
+                // In onmousemove, right after LASTOBJECT.scale.set(...):
+                if (new_scale < 0) {
+                    LASTOBJECT.material.color.set('#7CFC00'); // Grass green when inverted
+                } else {
+                    LASTOBJECT.material.color.set('#FF69B4'); // Hotpink when positive
+                }
+
+
+
+
+            };
+
+            // Re-enable OrbitControls and stop resizing when the mouse is released,
+            // even if the cursor has moved outside the canvas
+            window.onmouseup = function () {
+                controls.enabled = true;
+                flag = false;
+                LASTOBJECT = null;
+            };
+            renderer.domElement.onmouseup = window.onmouseup;
+
+            // Bonus: toggle wireframe once per W press, including existing knots.
+            window.addEventListener('keydown', function (e) {
+                if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+                if (e.key.toLowerCase() === 'w') {
+                    WIREFRAME = !WIREFRAME;
+                    for (var i = 0; i < TORI.length; i++) {
+                        TORI[i].material.wireframe = WIREFRAME;
+                    }
+                    updateBonusStats();
+                }
+            });
+
+            // Keyboard interaction: toggle flickering mode with 'f'
+            window.onkeypress = function (e) {
+                if (e.key === 'f' || e.key === 'F' || e.code === 'KeyF') {
+                    FLICKERING = !FLICKERING;
+
+                    // When stopping flickering, restore full opacity and disable transparency
+                    if (!FLICKERING) {
+                        for (var i = 0; i < TORI.length; i++) {
+                            TORI[i].material.transparent = false;
+                            TORI[i].material.opacity = 1.0;
+                            TORI[i].material.needsUpdate = true;
+                        }
+                    }
+                }
+            };
+
+            // call animation/rendering loop
+            animate();
+
+        };
+
+        function animate() {
+
+            requestAnimationFrame(animate);
+
+            // Flickering animation: assign random opacity to each knot
+            if (FLICKERING) {
+                for (var i = 0; i < TORI.length; i++) {
+                    TORI[i].material.transparent = true;
+                    TORI[i].material.opacity = Math.random();
+                    TORI[i].material.needsUpdate = true;
+                }
+            }
+
+            // and here..
+            controls.update();
+            renderer.render(scene, camera);
+
+        };
+    </script>
+</head>
+
+<body>
+    <div id="bonus-stats" style="position: fixed; top: 12px; left: 12px; z-index: 1;
+        color: white; background: rgba(0, 0, 0, 0.75); padding: 10px 14px;
+        font: 13px/1.6 monospace; white-space: pre-line; pointer-events: none;
+        max-width: calc(100vw - 52px);"></div>
+</body>
+
+</html>

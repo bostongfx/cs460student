@@ -1,0 +1,1667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CYBERCUBE // XTK Interactive Cube Art</title>
+  
+  <!-- External dependencies loaded via HTTPS -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=Space+Grotesk:wght@300;400;600&display=swap" rel="stylesheet">
+  
+  <!-- XTK (The X Toolkit) WebGL Framework -->
+  <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+
+  <style>
+    :root {
+      --primary: #00f0ff;
+      --secondary: #ff007f;
+      --accent: #ffe600;
+      --bg-dark: rgba(8, 11, 20, 0.78);
+      --border-glow: rgba(0, 240, 255, 0.28);
+      --font-cyber: 'Orbitron', monospace, sans-serif;
+      --font-ui: 'Space Grotesk', -apple-system, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #04060a;
+      background-image: 
+        radial-gradient(circle at 50% 35%, rgba(18, 28, 55, 0.45) 0%, rgba(4, 6, 10, 0.95) 75%),
+        linear-gradient(to bottom, #030408, #070a12);
+      font-family: var(--font-ui);
+      color: #e2e8f0;
+    }
+
+    /* 3D WebGL Canvas Container */
+    #renderer-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      cursor: grab;
+    }
+
+    #renderer-container:active {
+      cursor: grabbing;
+    }
+
+    /* Background cosmic particle canvas */
+    #bg-stars {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.6;
+    }
+
+    /* UI Overlay Layer */
+    #ui-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 10;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 16px 20px;
+      transition: opacity 0.3s ease;
+    }
+
+    #ui-layer.hidden {
+      opacity: 0;
+      pointer-events: none !important;
+    }
+
+    /* Glassmorphism Common Styles */
+    .glass-panel {
+      background: var(--bg-dark);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--border-glow);
+      border-radius: 12px;
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5), inset 0 0 12px rgba(0, 240, 255, 0.05);
+      pointer-events: auto;
+    }
+
+    /* Top Navigation Header */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      gap: 16px;
+    }
+
+    .brand-section {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 10px 18px;
+    }
+
+    .logo-cube {
+      width: 28px;
+      height: 28px;
+      position: relative;
+      transform-style: preserve-3d;
+      animation: spinLogo 6s infinite linear;
+    }
+
+    @keyframes spinLogo {
+      0% { transform: rotateX(0deg) rotateY(0deg); }
+      100% { transform: rotateX(360deg) rotateY(360deg); }
+    }
+
+    .logo-cube div {
+      position: absolute;
+      width: 28px;
+      height: 28px;
+      background: rgba(0, 240, 255, 0.25);
+      border: 1.5px solid var(--primary);
+      box-shadow: inset 0 0 6px var(--primary);
+    }
+
+    .logo-cube .front  { transform: translateZ(14px); }
+    .logo-cube .back   { transform: rotateY(180deg) translateZ(14px); }
+    .logo-cube .right  { transform: rotateY(90deg) translateZ(14px); }
+    .logo-cube .left   { transform: rotateY(-90deg) translateZ(14px); }
+    .logo-cube .top    { transform: rotateX(90deg) translateZ(14px); }
+    .logo-cube .bottom { transform: rotateX(-90deg) translateZ(14px); }
+
+    .title-group h1 {
+      font-family: var(--font-cyber);
+      font-size: 1.15rem;
+      font-weight: 900;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      background: linear-gradient(90deg, #00f0ff, #ff007f);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      line-height: 1.2;
+    }
+
+    .title-group p {
+      font-size: 0.72rem;
+      color: #94a3b8;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    /* Telemetry HUD Pill */
+    .telemetry-bar {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 8px 18px;
+      font-family: var(--font-cyber);
+      font-size: 0.75rem;
+    }
+
+    .stat-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .stat-label {
+      font-size: 0.6rem;
+      color: #64748b;
+      letter-spacing: 1px;
+    }
+
+    .stat-val {
+      font-weight: 800;
+      color: var(--primary);
+      text-shadow: 0 0 8px rgba(0, 240, 255, 0.5);
+    }
+
+    /* Audio visualizer mini oscilloscope */
+    #audio-canvas {
+      width: 70px;
+      height: 24px;
+      border-radius: 4px;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(0, 240, 255, 0.2);
+    }
+
+    /* Main Interaction Workspace Layout */
+    .workspace-area {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin: auto 0;
+      gap: 20px;
+      pointer-events: none;
+    }
+
+    /* Left Control Sidebar */
+    .control-sidebar {
+      width: 320px;
+      max-height: calc(100vh - 150px);
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--primary) transparent;
+    }
+
+    .control-sidebar::-webkit-scrollbar {
+      width: 4px;
+    }
+    .control-sidebar::-webkit-scrollbar-thumb {
+      background: var(--primary);
+      border-radius: 4px;
+    }
+
+    .panel-section-title {
+      font-family: var(--font-cyber);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      color: #94a3b8;
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .panel-section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, var(--border-glow), transparent);
+    }
+
+    /* Formation Preset Grid */
+    .formation-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .btn-cyber {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 8px 10px;
+      color: #cbd5e1;
+      font-family: var(--font-cyber);
+      font-size: 0.68rem;
+      letter-spacing: 0.8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-cyber:hover {
+      background: rgba(0, 240, 255, 0.15);
+      border-color: var(--primary);
+      color: #fff;
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.25);
+      transform: translateY(-1px);
+    }
+
+    .btn-cyber.active {
+      background: linear-gradient(135deg, rgba(0, 240, 255, 0.25), rgba(255, 0, 127, 0.25));
+      border-color: var(--primary);
+      color: #fff;
+      box-shadow: 0 0 14px rgba(0, 240, 255, 0.4), inset 0 0 8px rgba(0, 240, 255, 0.2);
+    }
+
+    .key-badge {
+      display: inline-block;
+      font-size: 0.55rem;
+      padding: 1px 4px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.15);
+      color: var(--accent);
+      margin-left: auto;
+      font-weight: bold;
+    }
+
+    /* Color Palettes Pills */
+    .palette-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .palette-btn {
+      flex: 1 1 calc(33.333% - 6px);
+      padding: 6px 8px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(15, 23, 42, 0.6);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+      font-size: 0.68rem;
+      font-weight: 600;
+      color: #94a3b8;
+    }
+
+    .palette-btn:hover {
+      border-color: #fff;
+      color: #fff;
+    }
+
+    .palette-btn.active {
+      border-color: var(--accent);
+      color: #fff;
+      box-shadow: 0 0 10px rgba(255, 230, 0, 0.3);
+      background: rgba(255, 230, 0, 0.1);
+    }
+
+    .swatch {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+
+    /* Sliders */
+    .slider-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .slider-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.68rem;
+      color: #94a3b8;
+      font-weight: 500;
+    }
+
+    .slider-header span:last-child {
+      color: var(--primary);
+      font-family: var(--font-cyber);
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 5px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.1);
+      outline: none;
+      transition: background 0.2s ease;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--primary);
+      cursor: pointer;
+      box-shadow: 0 0 8px var(--primary);
+      transition: transform 0.1s ease;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    /* Action Trigger Buttons */
+    .actions-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .btn-action {
+      background: linear-gradient(135deg, rgba(255, 0, 127, 0.18), rgba(0, 240, 255, 0.18));
+      border: 1px solid rgba(255, 0, 127, 0.4);
+      border-radius: 8px;
+      padding: 9px 8px;
+      font-family: var(--font-cyber);
+      font-size: 0.68rem;
+      color: #fff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .btn-action:hover {
+      background: linear-gradient(135deg, rgba(255, 0, 127, 0.4), rgba(0, 240, 255, 0.4));
+      box-shadow: 0 0 16px rgba(255, 0, 127, 0.4);
+      transform: scale(1.02);
+    }
+
+    .btn-action:active {
+      transform: scale(0.98);
+    }
+
+    /* Floating Cube Inspection Reticle */
+    #reticle-tooltip {
+      position: absolute;
+      pointer-events: none;
+      padding: 8px 12px;
+      background: rgba(4, 6, 12, 0.88);
+      border: 1px solid var(--primary);
+      border-radius: 6px;
+      box-shadow: 0 0 16px rgba(0, 240, 255, 0.4);
+      font-family: var(--font-cyber);
+      font-size: 0.65rem;
+      color: #e2e8f0;
+      z-index: 50;
+      opacity: 0;
+      transition: opacity 0.15s ease, transform 0.05s linear;
+      transform: translate(-50%, -130%);
+      white-space: nowrap;
+    }
+
+    #reticle-tooltip.visible {
+      opacity: 1;
+    }
+
+    /* Bottom Info & Shortcuts Bar */
+    footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      font-size: 0.72rem;
+      color: #94a3b8;
+    }
+
+    .hint-pill {
+      padding: 8px 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .hint-pill kbd {
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 4px;
+      padding: 2px 5px;
+      font-family: var(--font-cyber);
+      font-size: 0.62rem;
+      color: var(--primary);
+    }
+
+    /* Responsive Adjustments */
+    @media (max-width: 860px) {
+      .control-sidebar {
+        width: 270px;
+        padding: 12px;
+      }
+      .telemetry-bar {
+        display: none;
+      }
+      .actions-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Background Particle Stars Canvas -->
+  <canvas id="bg-stars"></canvas>
+
+  <!-- 3D WebGL Rendering Container for XTK -->
+  <div id="renderer-container"></div>
+
+  <!-- Interactive 3D Cursor Reticle / Tooltip -->
+  <div id="reticle-tooltip">
+    <div style="color:var(--primary); font-weight:800;" id="tooltip-title">CUBE #0</div>
+    <div id="tooltip-coords" style="color:#94a3b8;">X: 0 | Y: 0 | Z: 0</div>
+    <div id="tooltip-energy" style="color:var(--accent);">ENERGY: 100%</div>
+  </div>
+
+  <!-- HUD Interface Layer -->
+  <div id="ui-layer">
+    <!-- Top Header -->
+    <header>
+      <div class="brand-section glass-panel">
+        <div class="logo-cube">
+          <div class="front"></div>
+          <div class="back"></div>
+          <div class="right"></div>
+          <div class="left"></div>
+          <div class="top"></div>
+          <div class="bottom"></div>
+        </div>
+        <div class="title-group">
+          <h1>CYBERCUBE // 3D ART</h1>
+          <p>XTK WebGL Kinetic Art Installation</p>
+        </div>
+      </div>
+
+      <div class="telemetry-bar glass-panel">
+        <div class="stat-item">
+          <span class="stat-label">FPS</span>
+          <span class="stat-val" id="stat-fps">60</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">CUBES</span>
+          <span class="stat-val" id="stat-cubes">260</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">FORMATION</span>
+          <span class="stat-val" id="stat-formation">WAVE</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">SYNTH BEAT</span>
+          <canvas id="audio-canvas" width="70" height="24"></canvas>
+        </div>
+      </div>
+    </header>
+
+    <!-- Workspace Sidebar Panel -->
+    <div class="workspace-area">
+      <aside class="control-sidebar glass-panel">
+        <!-- Formations -->
+        <div class="panel-section-title">Art Formations</div>
+        <div class="formation-grid">
+          <button class="btn-cyber active" data-mode="0">
+            <span>🌊 Wave Matrix</span>
+            <span class="key-badge">1</span>
+          </button>
+          <button class="btn-cyber" data-mode="1">
+            <span>🌀 Cosmic Vortex</span>
+            <span class="key-badge">2</span>
+          </button>
+          <button class="btn-cyber" data-mode="2">
+            <span>💎 4D Hypercube</span>
+            <span class="key-badge">3</span>
+          </button>
+          <button class="btn-cyber" data-mode="3">
+            <span>🌪️ Helix Cyclone</span>
+            <span class="key-badge">4</span>
+          </button>
+          <button class="btn-cyber" data-mode="4" style="grid-column: span 2;">
+            <span>⚡ Audio Beat Dome</span>
+            <span class="key-badge">5</span>
+          </button>
+        </div>
+
+        <!-- Color Themes -->
+        <div class="panel-section-title" style="margin-top:4px;">Color Schemes</div>
+        <div class="palette-pills">
+          <button class="palette-btn active" data-palette="0">
+            <span class="swatch" style="background:linear-gradient(45deg,#00f0ff,#ff007f);"></span>
+            <span>Cyber</span>
+          </button>
+          <button class="palette-btn" data-palette="1">
+            <span class="swatch" style="background:linear-gradient(45deg,#00ff87,#60efff);"></span>
+            <span>Aurora</span>
+          </button>
+          <button class="palette-btn" data-palette="2">
+            <span class="swatch" style="background:linear-gradient(45deg,#ff6e7f,#fbc7a7);"></span>
+            <span>Sunset</span>
+          </button>
+          <button class="palette-btn" data-palette="3">
+            <span class="swatch" style="background:linear-gradient(45deg,#ffd200,#ff5722);"></span>
+            <span>Inferno</span>
+          </button>
+          <button class="palette-btn" data-palette="4">
+            <span class="swatch" style="background:linear-gradient(45deg,#00ff66,#05d550);"></span>
+            <span>Matrix</span>
+          </button>
+          <button class="palette-btn" data-palette="5">
+            <span class="swatch" style="background:linear-gradient(45deg,#ff0000,#00ffff);"></span>
+            <span>Prism</span>
+          </button>
+        </div>
+
+        <!-- Dynamic Parameter Sliders -->
+        <div class="panel-section-title" style="margin-top:4px;">Dynamics & Form</div>
+        <div class="slider-group">
+          <div class="slider-row">
+            <div class="slider-header">
+              <span>Wave Amplitude / Height</span>
+              <span id="val-amplitude">1.0x</span>
+            </div>
+            <input type="range" id="slider-amplitude" min="0.2" max="2.8" step="0.1" value="1.0">
+          </div>
+          <div class="slider-row">
+            <div class="slider-header">
+              <span>Animation Flow Speed</span>
+              <span id="val-speed">1.0x</span>
+            </div>
+            <input type="range" id="slider-speed" min="0.2" max="2.5" step="0.1" value="1.0">
+          </div>
+          <div class="slider-row">
+            <div class="slider-header">
+              <span>Flying Swarm Velocity</span>
+              <span id="val-flyspeed">1.2x</span>
+            </div>
+            <input type="range" id="slider-flyspeed" min="0.3" max="3.0" step="0.1" value="1.2">
+          </div>
+          <div class="slider-row">
+            <div class="slider-header">
+              <span>Cube Dimensional Scale</span>
+              <span id="val-cubescale">1.0x</span>
+            </div>
+            <input type="range" id="slider-cubescale" min="0.4" max="1.8" step="0.1" value="1.0">
+          </div>
+        </div>
+
+        <!-- Action Triggers -->
+        <div class="panel-section-title" style="margin-top:4px;">Creative Triggers</div>
+        <div class="actions-grid">
+          <button class="btn-action" id="btn-explode">
+            <span>💥 Supernova</span>
+            <span class="key-badge">E</span>
+          </button>
+          <button class="btn-action" id="btn-launch">
+            <span>🚀 Fire Cube</span>
+            <span class="key-badge">Space</span>
+          </button>
+          <button class="btn-action" id="btn-singularity">
+            <span>🌀 Singularity</span>
+            <span class="key-badge">G</span>
+          </button>
+          <button class="btn-action" id="btn-camera">
+            <span>🎥 Auto-Orbit</span>
+            <span class="key-badge">A</span>
+          </button>
+          <button class="btn-action" id="btn-audio" style="grid-column: span 2;">
+            <span>🎵 Generative Synth Music</span>
+            <span class="key-badge">M</span>
+          </button>
+        </div>
+      </aside>
+    </div>
+
+    <!-- Footer Controls & Hints -->
+    <footer>
+      <div class="hint-pill glass-panel">
+        <span><kbd>Click Scene</kbd> or <kbd>Space</kbd> Fire Flying Cube</span>
+        <span><kbd>Drag</kbd> Orbit 3D</span>
+        <span><kbd>Scroll</kbd> Zoom</span>
+        <span><kbd>C</kbd> Cycle Colors</span>
+        <span><kbd>H</kbd> Hide UI</span>
+        <span><kbd>R</kbd> Reset View</span>
+      </div>
+      <div class="hint-pill glass-panel" style="font-family:var(--font-cyber);">
+        <span>CS460 WEBGL EXHIBITION</span>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Main JavaScript Application Logic -->
+  <script type="text/javascript">
+    /**
+     * CYBERCUBE // Interactive WebGL Cube-Art Visualization
+     * Built on XTK (The X Toolkit) 3D framework
+     */
+
+    // --- Configuration & Constants ---
+    const GRID_SIZE = 15; // 15x15 = 225 grid cubes
+    const TOTAL_GRID = GRID_SIZE * GRID_SIZE;
+    const NUM_FLYING = 30; // Dedicated autonomous flying cubes
+    const NUM_PROJECTILES = 12; // Recyclable projectile cubes pool
+    const TOTAL_CUBES = TOTAL_GRID + NUM_FLYING + NUM_PROJECTILES;
+
+    // --- State Variables ---
+    let currentMode = 0;       // 0: Wave, 1: Vortex, 2: Hypercube, 3: Helix, 4: Audio
+    let currentPalette = 0;    // 0: Cyber, 1: Aurora, 2: Sunset, 3: Inferno, 4: Matrix, 5: Prism
+    let waveAmplitude = 1.0;
+    let flowSpeed = 1.0;
+    let flySpeed = 1.2;
+    let cubeScaleGlobal = 1.0;
+    let autoOrbit = true;
+    let uiVisible = true;
+
+    // Supernova / Explosion Physics State
+    let isExploding = false;
+    let explosionTime = 0.0;
+    const EXPLOSION_DURATION = 2.4; // Seconds for outward burst and recoil reassembly
+
+    // Singularity Gravitational State
+    let isSingularity = false;
+    let singularityStrength = 0.0;
+
+    // Shockwave Ripples from fired cubes
+    let ripples = []; // Array of { x, y, z, time, maxRadius, speed }
+
+    // XTK Renderer & Objects
+    let renderer = null;
+    let gridCubes = [];
+    let flyingCubes = [];
+    let projectileCubes = [];
+    let cubeVelocities = []; // Physics velocities for explosion simulation
+
+    // Color Palettes (Normalized RGB [0.0 - 1.0])
+    const PALETTES = [
+      // 0: Cyberpunk Neon
+      [
+        [0.0, 0.94, 1.0],  // Cyan
+        [1.0, 0.0, 0.5],   // Hot Magenta
+        [0.55, 0.0, 1.0],  // Neon Violet
+        [1.0, 0.85, 0.0]   // Electric Yellow
+      ],
+      // 1: Aurora Borealis
+      [
+        [0.0, 1.0, 0.53],  // Mint Green
+        [0.38, 0.94, 1.0], // Ice Blue
+        [0.62, 0.31, 0.87],// Ethereal Violet
+        [0.0, 0.75, 0.8]   // Deep Aqua
+      ],
+      // 2: Sunset Vaporwave
+      [
+        [1.0, 0.43, 0.5],  // Coral Pink
+        [0.98, 0.78, 0.65],// Golden Peach
+        [0.5, 0.15, 0.85], // Twilight Indigo
+        [1.0, 0.0, 0.4]    // Fuchsia
+      ],
+      // 3: Solar Inferno
+      [
+        [1.0, 0.82, 0.0],  // Molten Gold
+        [1.0, 0.25, 0.05], // Blaze Crimson
+        [1.0, 0.55, 0.0],  // Plasma Orange
+        [1.0, 0.95, 0.85]  // White Hot
+      ],
+      // 4: Matrix Terminal
+      [
+        [0.0, 1.0, 0.4],   // Digital Green
+        [0.02, 0.84, 0.31],// Deep Emerald
+        [0.31, 0.98, 0.48],// Phosphor Mint
+        [0.75, 1.0, 0.15]  // Acid Lime
+      ]
+    ];
+
+    // Helper: Interpolate palette colors
+    function getPaletteColor(paletteId, t) {
+      if (paletteId === 5) {
+        // Continuous Prismatic Rainbow
+        const hue = (t % 1.0 + 1.0) % 1.0;
+        return hslToRgb(hue, 0.9, 0.55);
+      }
+      const pal = PALETTES[paletteId];
+      const scaled = (t % 1.0 + 1.0) % 1.0 * pal.length;
+      const idx1 = Math.floor(scaled) % pal.length;
+      const idx2 = (idx1 + 1) % pal.length;
+      const frac = scaled - Math.floor(scaled);
+      const c1 = pal[idx1];
+      const c2 = pal[idx2];
+      return [
+        c1[0] + (c2[0] - c1[0]) * frac,
+        c1[1] + (c2[1] - c1[1]) * frac,
+        c1[2] + (c2[2] - c1[2]) * frac
+      ];
+    }
+
+    function hslToRgb(h, s, l) {
+      let r, g, b;
+      if (s === 0) {
+        r = g = b = l;
+      } else {
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        const p = 2 * l - q;
+        r = hue2rgb(p, q, h + 1/3);
+        g = hue2rgb(p, q, h);
+        b = hue2rgb(p, q, h - 1/3);
+      }
+      return [r, g, b];
+    }
+
+    function hue2rgb(p, q, t) {
+      if (t < 0) t += 1;
+      if (t > 1) t -= 1;
+      if (t < 1/6) return p + (q - p) * 6 * t;
+      if (t < 1/2) return q;
+      if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+      return p;
+    }
+
+    // Helper: Fast matrix update for XTK cube transform
+    function setCubeTransform(cube, px, py, pz, rx, ry, rz, scale) {
+      const m = cube.transform.matrix;
+      const cx = Math.cos(rx), sx = Math.sin(rx);
+      const cy = Math.cos(ry), sy = Math.sin(ry);
+      const cz = Math.cos(rz), sz = Math.sin(rz);
+
+      m[0]  = (cy * cz) * scale;
+      m[1]  = (cx * sz + sx * sy * cz) * scale;
+      m[2]  = (sx * sz - cx * sy * cz) * scale;
+      m[3]  = 0;
+
+      m[4]  = (-cy * sz) * scale;
+      m[5]  = (cx * cz - sx * sy * sz) * scale;
+      m[6]  = (sx * cz + cx * sy * sz) * scale;
+      m[7]  = 0;
+
+      m[8]  = sy * scale;
+      m[9]  = (-sx * cy) * scale;
+      m[10] = (cx * cy) * scale;
+      m[11] = 0;
+
+      m[12] = px;
+      m[13] = py;
+      m[14] = pz;
+      m[15] = 1.0;
+
+      cube.transform.modified();
+    }
+
+    // --- Web Audio Generative Synthesizer ---
+    let audioCtx = null;
+    let isAudioPlaying = false;
+    let analyser = null;
+    let audioDataArray = null;
+    let synthTimer = null;
+    let audioBeatLevel = 0.0;
+
+    function initAudio() {
+      if (audioCtx) return;
+      try {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContextClass();
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 64;
+        audioDataArray = new Uint8Array(analyser.frequencyBinCount);
+      } catch (err) {
+        console.warn("Web Audio API not supported", err);
+      }
+    }
+
+    function toggleAudio() {
+      initAudio();
+      if (!audioCtx) return;
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+
+      isAudioPlaying = !isAudioPlaying;
+      const btn = document.getElementById('btn-audio');
+      if (isAudioPlaying) {
+        btn.classList.add('active');
+        btn.querySelector('span:first-child').innerText = '🔊 Synth Music (ON)';
+        startGenerativeMusic();
+      } else {
+        btn.classList.remove('active');
+        btn.querySelector('span:first-child').innerText = '🎵 Generative Synth Music';
+        stopGenerativeMusic();
+      }
+    }
+
+    function startGenerativeMusic() {
+      if (synthTimer) clearInterval(synthTimer);
+      // Ambient Chords Scale (Minor Pentatonic in D: D, F, G, A, C)
+      const scale = [146.83, 174.61, 196.00, 220.00, 261.63, 293.66, 349.23, 392.00, 440.00, 523.25];
+      let step = 0;
+
+      // Sub-bass drone
+      const droneOsc = audioCtx.createOscillator();
+      const droneGain = audioCtx.createGain();
+      droneOsc.type = 'sawtooth';
+      droneOsc.frequency.setValueAtTime(73.42, audioCtx.currentTime); // D2
+      const filter = audioCtx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(180, audioCtx.currentTime);
+
+      droneGain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+      droneOsc.connect(filter);
+      filter.connect(droneGain);
+      droneGain.connect(analyser);
+      analyser.connect(audioCtx.destination);
+      droneOsc.start();
+
+      // Store drone for teardown
+      window._droneOsc = droneOsc;
+      window._droneGain = droneGain;
+
+      // Procedural Arpeggios & Beat
+      synthTimer = setInterval(() => {
+        if (!isAudioPlaying) return;
+        const now = audioCtx.currentTime;
+
+        // Kick pulse every 4 steps
+        if (step % 4 === 0) {
+          const kickOsc = audioCtx.createOscillator();
+          const kickGain = audioCtx.createGain();
+          kickOsc.frequency.setValueAtTime(130, now);
+          kickOsc.frequency.exponentialRampToValueAtTime(35, now + 0.12);
+          kickGain.gain.setValueAtTime(0.35, now);
+          kickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+          kickOsc.connect(kickGain);
+          kickGain.connect(analyser);
+          kickOsc.start(now);
+          kickOsc.stop(now + 0.25);
+          audioBeatLevel = 1.0; // Trigger visual kick pulse
+        }
+
+        // Melodic note
+        const noteIdx = (step * 3 + Math.floor(Math.random() * 3)) % scale.length;
+        const freq = scale[noteIdx];
+        const noteOsc = audioCtx.createOscillator();
+        const noteGain = audioCtx.createGain();
+        noteOsc.type = 'triangle';
+        noteOsc.frequency.setValueAtTime(freq, now);
+
+        noteGain.gain.setValueAtTime(0.08, now);
+        noteGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.45);
+
+        noteOsc.connect(noteGain);
+        noteGain.connect(analyser);
+        noteOsc.start(now);
+        noteOsc.stop(now + 0.5);
+
+        step++;
+      }, 240); // ~125 BPM sixteenth notes
+    }
+
+    function stopGenerativeMusic() {
+      if (synthTimer) clearInterval(synthTimer);
+      if (window._droneOsc) {
+        try { window._droneOsc.stop(); } catch(e){}
+      }
+    }
+
+    // --- Background Cosmic Dust Stars ---
+    function initBackgroundStars() {
+      const starCanvas = document.getElementById('bg-stars');
+      const ctx = starCanvas.getContext('2d');
+      let w = starCanvas.width = window.innerWidth;
+      let h = starCanvas.height = window.innerHeight;
+
+      const stars = [];
+      for (let i = 0; i < 140; i++) {
+        stars.push({
+          x: Math.random() * w,
+          y: Math.random() * h,
+          r: Math.random() * 1.5 + 0.4,
+          alpha: Math.random() * 0.8 + 0.2,
+          speed: Math.random() * 0.25 + 0.05
+        });
+      }
+
+      window.addEventListener('resize', () => {
+        w = starCanvas.width = window.innerWidth;
+        h = starCanvas.height = window.innerHeight;
+      });
+
+      function animateStars() {
+        ctx.clearRect(0, 0, w, h);
+        for (let s of stars) {
+          s.y += s.speed;
+          if (s.y > h) s.y = 0;
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(0, 240, 255, ${s.alpha * 0.7})`;
+          ctx.fill();
+        }
+        requestAnimationFrame(animateStars);
+      }
+      animateStars();
+    }
+
+    // --- Main XTK Initialization ---
+    window.onload = function() {
+      initBackgroundStars();
+
+      // Check if XTK loaded properly
+      if (typeof X === 'undefined' || !X.renderer3D) {
+        console.error("XTK failed to load from HTTPS CDN.");
+        document.body.innerHTML += `<div style="position:fixed;top:40%;left:50%;transform:translate(-50%,-50%);padding:24px;background:#200;border:2px solid red;color:#fff;font-family:sans-serif;border-radius:12px;z-index:9999;">
+          <h2>XTK WebGL Framework Loading Error</h2>
+          <p>Unable to load XTK library from <code>https://get.goXTK.com/xtk_edge.js</code>.</p>
+        </div>`;
+        return;
+      }
+
+      // 1. Create and configure XTK 3D Renderer
+      renderer = new X.renderer3D();
+      renderer.container = 'renderer-container';
+      renderer.bgColor = [0.015, 0.02, 0.04]; // Deep space obsidian
+      renderer.init();
+
+      // Set initial camera view
+      renderer.camera.position = [0, 90, 290];
+
+      // 2. Instantiate and add Main Grid Cubes (15x15 = 225)
+      const baseSpacing = 16;
+      const offset = ((GRID_SIZE - 1) * baseSpacing) / 2;
+
+      for (let i = 0; i < TOTAL_GRID; i++) {
+        const gx = i % GRID_SIZE;
+        const gz = Math.floor(i / GRID_SIZE);
+        const posX = gx * baseSpacing - offset;
+        const posZ = gz * baseSpacing - offset;
+
+        const cube = new X.cube();
+        cube.center = [0, 0, 0];
+        cube.lengthX = cube.lengthY = cube.lengthZ = 9;
+        cube.color = getPaletteColor(0, i / TOTAL_GRID);
+        cube.opacity = 1.0;
+        cube.caption = `Matrix Cube #${i} [${gx}, ${gz}]`;
+
+        // Store custom simulation properties
+        cube._gx = gx;
+        cube._gz = gz;
+        cube._baseX = posX;
+        cube._baseZ = posZ;
+        cube._origPos = [posX, 0, posZ];
+        cube._index = i;
+        cube._type = 'grid';
+
+        renderer.add(cube);
+        gridCubes.push(cube);
+
+        // Precompute randomized explosion velocity
+        const angle = Math.random() * Math.PI * 2;
+        const elevation = (Math.random() - 0.5) * Math.PI;
+        const speed = 70 + Math.random() * 110;
+        cubeVelocities.push([
+          Math.cos(elevation) * Math.cos(angle) * speed,
+          Math.sin(elevation) * speed + 30,
+          Math.cos(elevation) * Math.sin(angle) * speed
+        ]);
+      }
+
+      // 3. Instantiate Flying Swarm Cubes (30)
+      for (let k = 0; k < NUM_FLYING; k++) {
+        const fc = new X.cube();
+        fc.center = [0, 0, 0];
+        fc.lengthX = fc.lengthY = fc.lengthZ = 12;
+        fc.color = [1.0, 0.8, 0.1];
+        fc.opacity = 0.95;
+        fc.caption = `Flying Scout #${k}`;
+
+        fc._type = 'flying';
+        fc._index = TOTAL_GRID + k;
+        fc._orbitRadius = 75 + (k % 6) * 22;
+        fc._orbitSpeed = (0.6 + (k % 4) * 0.3) * (k % 2 === 0 ? 1 : -1);
+        fc._orbitPhase = (k / NUM_FLYING) * Math.PI * 2;
+        fc._flightPattern = k % 3; // 0: Orbit, 1: Lorenz, 2: Swoop
+        fc._lorenz = { x: 0.1 * (k + 1), y: 0, z: 0 };
+
+        renderer.add(fc);
+        flyingCubes.push(fc);
+
+        cubeVelocities.push([
+          (Math.random() - 0.5) * 160,
+          Math.random() * 120 + 40,
+          (Math.random() - 0.5) * 160
+        ]);
+      }
+
+      // 4. Instantiate Projectile Cubes Pool (12)
+      for (let p = 0; p < NUM_PROJECTILES; p++) {
+        const pc = new X.cube();
+        pc.center = [0, 0, 0];
+        pc.lengthX = pc.lengthY = pc.lengthZ = 10;
+        pc.color = [1.0, 1.0, 1.0];
+        pc.caption = `Plasma Torpedo #${p}`;
+        pc._type = 'projectile';
+        pc._active = false;
+        pc._pos = [0, 0, 0];
+        pc._vel = [0, 0, 0];
+        pc._life = 0;
+
+        // Position far away initially
+        setCubeTransform(pc, 99999, 99999, 99999, 0, 0, 0, 0.001);
+        renderer.add(pc);
+        projectileCubes.push(pc);
+
+        cubeVelocities.push([0, 0, 0]);
+      }
+
+      // Initial Scene Render
+      renderer.render();
+
+      // --- Animation Loop ---
+      let clock = 0;
+      let lastTimestamp = performance.now();
+      let frameCount = 0;
+      let lastFpsTime = performance.now();
+
+      renderer.onRender = function() {
+        const now = performance.now();
+        const delta = Math.min((now - lastTimestamp) / 1000, 0.1);
+        lastTimestamp = now;
+        clock += delta * flowSpeed;
+
+        // FPS Calculation
+        frameCount++;
+        if (now - lastFpsTime >= 500) {
+          const fps = Math.round((frameCount * 1000) / (now - lastFpsTime));
+          document.getElementById('stat-fps').innerText = fps;
+          frameCount = 0;
+          lastFpsTime = now;
+        }
+
+        // Camera Auto-Orbit
+        if (autoOrbit) {
+          renderer.camera.rotate([0.35, 0]);
+        }
+
+        // Audio Frequency Level Analysis
+        let audioMod = 0;
+        if (analyser && isAudioPlaying) {
+          analyser.getByteFrequencyData(audioDataArray);
+          let sum = 0;
+          for (let i = 0; i < audioDataArray.length; i++) {
+            sum += audioDataArray[i];
+          }
+          audioMod = (sum / audioDataArray.length) / 255.0;
+          drawAudioOscilloscope();
+        }
+        audioBeatLevel = Math.max(0, audioBeatLevel - delta * 3.5);
+
+        // Update Supernova / Explosion Physics
+        if (isExploding) {
+          explosionTime += delta;
+          if (explosionTime >= EXPLOSION_DURATION) {
+            isExploding = false;
+            explosionTime = 0.0;
+          }
+        }
+
+        // Update Active Shockwave Ripples
+        for (let rIdx = ripples.length - 1; rIdx >= 0; rIdx--) {
+          const rip = ripples[rIdx];
+          rip.time += delta;
+          if (rip.time * rip.speed > rip.maxRadius) {
+            ripples.splice(rIdx, 1);
+          }
+        }
+
+        // 1. ANIMATE GRID CUBES
+        for (let i = 0; i < TOTAL_GRID; i++) {
+          const cube = gridCubes[i];
+          const gx = cube._gx;
+          const gz = cube._gz;
+          const bx = cube._baseX;
+          const bz = cube._baseZ;
+          const distFromCenter = Math.hypot(bx, bz);
+
+          let px = bx, py = 0, pz = bz;
+          let rx = 0, ry = 0, rz = 0;
+          let scale = cubeScaleGlobal;
+          let colorFactor = 0;
+
+          // Compute Base Formation Position
+          if (currentMode === 0) {
+            // MODE 0: QUANTUM WAVE MATRIX
+            const freq = 0.07;
+            const wave1 = Math.sin(bx * freq + clock * 2.2) * Math.cos(bz * freq + clock * 1.8);
+            const wave2 = Math.sin(distFromCenter * 0.055 - clock * 3.0);
+            py = (wave1 * 26 + wave2 * 18) * waveAmplitude;
+
+            // Tilt cubes according to local gradient
+            const dx = Math.cos(bx * freq + clock * 2.2) * freq * 26;
+            const dz = -Math.sin(bz * freq + clock * 1.8) * freq * 26;
+            rx = dz * 0.04;
+            rz = -dx * 0.04;
+            ry = clock * 0.5 + (bx + bz) * 0.01;
+
+            colorFactor = (py / (45 * waveAmplitude) + 0.5) + clock * 0.1;
+
+          } else if (currentMode === 1) {
+            // MODE 1: COSMIC VORTEX (Fibonacci Spiral Swarm)
+            const phi = i * 0.381966; // Golden spiral angle
+            const radius = Math.sqrt(i / TOTAL_GRID) * 135 + 8;
+            const vortexSpeed = (85 / (radius + 20)) * 1.2;
+            const theta = phi + clock * vortexSpeed;
+
+            px = Math.cos(theta) * radius;
+            pz = Math.sin(theta) * radius;
+            py = Math.sin(radius * 0.08 - clock * 2.5) * (18 * waveAmplitude) + Math.cos(theta * 3) * 6;
+
+            rx = clock * 1.2 + i * 0.1;
+            ry = -theta;
+            rz = clock * 0.8;
+
+            colorFactor = (radius / 140) + clock * 0.15;
+
+          } else if (currentMode === 2) {
+            // MODE 2: 4D HYPERCUBE TESSERACT CORE
+            // Organize into concentric 3D cubic lattices
+            const layer = Math.floor(i / 75); // 3 concentric tiers
+            const subIdx = i % 75;
+            const row = subIdx % 5;
+            const col = Math.floor(subIdx / 5) % 5;
+            const dep = Math.floor(subIdx / 25);
+
+            const tesseractBreath = 1.0 + 0.35 * Math.sin(clock * 2.0 + layer * 1.2);
+            const span = (18 + layer * 26) * tesseractBreath;
+
+            px = (row - 2) * span;
+            py = (col - 2) * span;
+            pz = (dep - 1) * span;
+
+            // Synchronized hyper-rotations
+            const rotSpeed = 0.8 + layer * 0.4;
+            rx = clock * rotSpeed;
+            ry = clock * (rotSpeed * 0.7);
+            rz = clock * (rotSpeed * 0.5);
+
+            colorFactor = (layer / 3) + clock * 0.12;
+
+          } else if (currentMode === 3) {
+            // MODE 3: HELIX CYCLONE TORNADO
+            const tParam = (i / TOTAL_GRID) * Math.PI * 8;
+            const heightRange = (i / TOTAL_GRID - 0.5) * 190;
+            const funnelRadius = (20 + (i / TOTAL_GRID) * 65) * (1 + 0.2 * Math.sin(clock * 3 + heightRange * 0.05));
+            const angle = tParam + clock * 2.4;
+
+            px = Math.cos(angle) * funnelRadius;
+            pz = Math.sin(angle) * funnelRadius;
+            py = heightRange + Math.sin(clock * 4 + i * 0.2) * 8;
+
+            rx = angle;
+            ry = clock * 2.0;
+            rz = Math.sin(clock * 2 + i);
+
+            colorFactor = (i / TOTAL_GRID) + clock * 0.2;
+
+          } else if (currentMode === 4) {
+            // MODE 4: AUDIO BEAT DOME (Equalizer Amphitheater)
+            const ring = Math.floor(distFromCenter / 18);
+            const angle = Math.atan2(bz, bx);
+            const eqFreq = Math.abs(Math.sin(ring * 1.2 + angle * 2.0 + clock * 3.0));
+            const totalEq = eqFreq * (0.6 + audioMod * 1.5 + audioBeatLevel * 1.8);
+
+            py = totalEq * (42 * waveAmplitude);
+            scale = cubeScaleGlobal * (0.85 + totalEq * 0.45);
+
+            rx = totalEq * 0.5;
+            ry = clock + angle;
+            rz = 0;
+
+            colorFactor = totalEq * 0.8 + (ring / 8);
+          }
+
+          // Apply Shockwave Ripples from fired projectiles
+          for (let rip of ripples) {
+            const d = Math.hypot(px - rip.x, pz - rip.z);
+            const waveFront = rip.time * rip.speed;
+            const diff = Math.abs(d - waveFront);
+            if (diff < 22) {
+              const rippleAmp = (1 - diff / 22) * Math.max(0, 1 - waveFront / rip.maxRadius) * 28;
+              py += Math.sin(diff * 0.3) * rippleAmp;
+              rx += rippleAmp * 0.05;
+            }
+          }
+
+          // Apply Singularity Physics
+          if (isSingularity) {
+            const pull = 0.88;
+            px *= (1 - pull * 0.08);
+            py *= (1 - pull * 0.08);
+            pz *= (1 - pull * 0.08);
+            rx += clock * 4.0;
+            ry += clock * 5.0;
+          }
+
+          // Apply Supernova Explosion Physics
+          if (isExploding) {
+            const vel = cubeVelocities[i];
+            const t = explosionTime;
+            // Outward burst then spring damped return
+            if (t < EXPLOSION_DURATION * 0.45) {
+              const burstProgress = t / (EXPLOSION_DURATION * 0.45);
+              const easeOut = Math.sin(burstProgress * Math.PI * 0.5);
+              px += vel[0] * easeOut;
+              py += vel[1] * easeOut;
+              pz += vel[2] * easeOut;
+              rx += vel[0] * 0.02 * t;
+              ry += vel[1] * 0.02 * t;
+              rz += vel[2] * 0.02 * t;
+            } else {
+              // Elastic Recoil to formation
+              const returnProgress = (t - EXPLOSION_DURATION * 0.45) / (EXPLOSION_DURATION * 0.55);
+              const spring = Math.cos(returnProgress * Math.PI * 2.5) * Math.exp(-returnProgress * 3.5);
+              px += vel[0] * spring;
+              py += vel[1] * spring;
+              pz += vel[2] * spring;
+              rx += vel[0] * 0.02 * spring;
+              ry += vel[1] * 0.02 * spring;
+            }
+          }
+
+          // Apply transform to cube
+          setCubeTransform(cube, px, py, pz, rx, ry, rz, scale);
+
+          // Update dynamic color gradient
+          const dynamicColor = getPaletteColor(currentPalette, colorFactor);
+          cube.color = dynamicColor;
+        }
+
+        // 2. ANIMATE AUTONOMOUS FLYING CUBES
+        for (let k = 0; k < NUM_FLYING; k++) {
+          const fc = flyingCubes[k];
+          let fx = 0, fy = 0, fz = 0;
+          let frx = 0, fry = 0, frz = 0;
+          const kSpeed = flySpeed * fc._orbitSpeed;
+
+          if (fc._flightPattern === 0) {
+            // Tilted 3D Orbit
+            const angle = clock * kSpeed + fc._orbitPhase;
+            const r = fc._orbitRadius;
+            const tilt = 0.55 + (k % 4) * 0.2;
+            fx = Math.cos(angle) * r;
+            fz = Math.sin(angle) * r;
+            fy = Math.sin(angle * 2.0) * (r * 0.45 * Math.sin(tilt));
+
+            frx = clock * 3.0 + k;
+            fry = -angle;
+            frz = clock * 2.5;
+
+          } else if (fc._flightPattern === 1) {
+            // Lorenz Chaotic Attractor Flow
+            const l = fc._lorenz;
+            const sigma = 10, rho = 28, beta = 8/3;
+            const dt = delta * flySpeed * 0.6;
+            const dx = sigma * (l.y - l.x) * dt;
+            const dy = (l.x * (rho - l.z) - l.y) * dt;
+            const dz = (l.x * l.y - beta * l.z) * dt;
+            l.x += dx; l.y += dy; l.z += dz;
+
+            fx = l.x * 4.2;
+            fy = (l.z - 25) * 4.2;
+            fz = l.y * 4.2;
+
+            frx = clock * 4.0;
+            fry = clock * 3.0;
+            frz = clock * 2.0;
+
+          } else {
+            // Camera Swoop Flyby & Slingshot
+            const swoopPeriod = 4.5 / flySpeed;
+            const sTime = (clock + fc._orbitPhase * 2.0) % swoopPeriod;
+            const sProgress = sTime / swoopPeriod; // 0 to 1
+
+            // Fly past the camera and curve back
+            const zTrack = (1 - sProgress * 2) * 260;
+            const xTrack = Math.sin(sProgress * Math.PI * 2) * (80 + k * 2);
+            const yTrack = Math.cos(sProgress * Math.PI) * 60 + 20;
+
+            fx = xTrack;
+            fy = yTrack;
+            fz = zTrack;
+
+            // Bank roll like an acrobatic aircraft
+            frx = Math.atan2(fy, fz);
+            fry = clock * 3.0;
+            frz = -Math.cos(sProgress * Math.PI * 2) * 1.2;
+          }
+
+          if (isExploding) {
+            const vel = cubeVelocities[TOTAL_GRID + k];
+            const t = explosionTime;
+            const disp = Math.sin(t / EXPLOSION_DURATION * Math.PI) * 120;
+            fx += vel[0] * (disp / 100);
+            fy += vel[1] * (disp / 100);
+            fz += vel[2] * (disp / 100);
+          }
+
+          setCubeTransform(fc, fx, fy, fz, frx, fry, frz, cubeScaleGlobal * 1.15);
+          fc.color = getPaletteColor(currentPalette, (k / NUM_FLYING) + clock * 0.35);
+        }
+
+        // 3. ANIMATE PROJECTILE FLYING CUBES (TORPEDOES)
+        for (let p = 0; p < NUM_PROJECTILES; p++) {
+          const pc = projectileCubes[p];
+          if (!pc._active) continue;
+
+          pc._life += delta;
+          pc._pos[0] += pc._vel[0] * delta;
+          pc._pos[1] += pc._vel[1] * delta;
+          pc._pos[2] += pc._vel[2] * delta;
+
+          // High speed tumbling spin
+          const spin = pc._life * 14.0;
+          setCubeTransform(pc, pc._pos[0], pc._pos[1], pc._pos[2], spin, spin * 1.3, spin * 0.7, cubeScaleGlobal * 1.2);
+
+          // Check if torpedo has reached the matrix plane (near Y=0 or distance threshold)
+          if (Math.abs(pc._pos[1]) < 15 || pc._life > 2.2) {
+            // Trigger shockwave ripple
+            ripples.push({
+              x: pc._pos[0],
+              y: pc._pos[1],
+              z: pc._pos[2],
+              time: 0,
+              maxRadius: 130,
+              speed: 95
+            });
+
+            // Deactivate and recycle
+            pc._active = false;
+            setCubeTransform(pc, 99999, 99999, 99999, 0, 0, 0, 0.001);
+          }
+        }
+      };
+
+      // --- Interactive Projectile Cube Cannon ---
+      function launchProjectileCube(targetX, targetY) {
+        // Find an inactive projectile cube in the pool
+        let bullet = projectileCubes.find(c => !c._active);
+        if (!bullet) {
+          bullet = projectileCubes[0]; // Recycle oldest
+        }
+
+        const camPos = renderer.camera.position;
+        bullet._active = true;
+        bullet._life = 0;
+        bullet._pos = [camPos[0], camPos[1] - 8, camPos[2] - 15];
+
+        // Compute direction towards target in world space
+        // Default target center if unassigned
+        const tx = targetX !== undefined ? (targetX - window.innerWidth / 2) * 0.4 : (Math.random() - 0.5) * 60;
+        const ty = targetY !== undefined ? -(targetY - window.innerHeight / 2) * 0.4 : 0;
+        const tz = 0;
+
+        const dirX = tx - camPos[0];
+        const dirY = ty - camPos[1];
+        const dirZ = tz - camPos[2];
+        const len = Math.hypot(dirX, dirY, dirZ) || 1;
+        const speed = 240;
+
+        bullet._vel = [
+          (dirX / len) * speed,
+          (dirY / len) * speed,
+          (dirZ / len) * speed
+        ];
+
+        bullet.color = [1.0, 0.9, 0.2]; // Glowing white-gold plasma
+      }
+
+      // --- Trigger Functions ---
+      function triggerExplosion() {
+        isExploding = true;
+        explosionTime = 0.0;
+        const btn = document.getElementById('btn-explode');
+        btn.style.transform = 'scale(1.15)';
+        setTimeout(() => btn.style.transform = '', 200);
+      }
+
+      function triggerSingularity() {
+        isSingularity = !isSingularity;
+        const btn = document.getElementById('btn-singularity');
+        if (isSingularity) {
+          btn.classList.add('active');
+          btn.style.boxShadow = '0 0 20px #00f0ff';
+        } else {
+          btn.classList.remove('active');
+          btn.style.boxShadow = '';
+        }
+      }
+
+      function resetCamera() {
+        renderer.camera.position = [0, 90, 290];
+        renderer.camera.focus = [0, 0, 0];
+        renderer.camera.up = [0, 1, 0];
+      }
+
+      // --- Audio Visualizer Oscilloscope Canvas ---
+      function drawAudioOscilloscope() {
+        const c = document.getElementById('audio-canvas');
+        if (!c) return;
+        const ctx = c.getContext('2d');
+        const w = c.width;
+        const h = c.height;
+
+        ctx.clearRect(0, 0, w, h);
+        if (!audioDataArray) return;
+
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = '#00f0ff';
+        ctx.beginPath();
+
+        const sliceWidth = w / audioDataArray.length;
+        let x = 0;
+        for (let i = 0; i < audioDataArray.length; i++) {
+          const v = audioDataArray[i] / 255.0;
+          const y = h - (v * (h - 4)) - 2;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+          x += sliceWidth;
+        }
+        ctx.stroke();
+      }
+
+      // --- UI Event Listeners & Binding ---
+
+      // Formation Buttons
+      const modeButtons = document.querySelectorAll('.btn-cyber[data-mode]');
+      modeButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          modeButtons.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          currentMode = parseInt(btn.dataset.mode);
+          const names = ["WAVE", "VORTEX", "HYPERCUBE", "CYCLONE", "BEAT DOME"];
+          document.getElementById('stat-formation').innerText = names[currentMode];
+        });
+      });
+
+      // Palette Buttons
+      const paletteButtons = document.querySelectorAll('.palette-btn[data-palette]');
+      paletteButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          paletteButtons.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          currentPalette = parseInt(btn.dataset.palette);
+        });
+      });
+
+      // Sliders
+      const sliderAmp = document.getElementById('slider-amplitude');
+      sliderAmp.addEventListener('input', (e) => {
+        waveAmplitude = parseFloat(e.target.value);
+        document.getElementById('val-amplitude').innerText = waveAmplitude.toFixed(1) + 'x';
+      });
+
+      const sliderSpeed = document.getElementById('slider-speed');
+      sliderSpeed.addEventListener('input', (e) => {
+        flowSpeed = parseFloat(e.target.value);
+        document.getElementById('val-speed').innerText = flowSpeed.toFixed(1) + 'x';
+      });
+
+      const sliderFlySpeed = document.getElementById('slider-flyspeed');
+      sliderFlySpeed.addEventListener('input', (e) => {
+        flySpeed = parseFloat(e.target.value);
+        document.getElementById('val-flyspeed').innerText = flySpeed.toFixed(1) + 'x';
+      });
+
+      const sliderCubeScale = document.getElementById('slider-cubescale');
+      sliderCubeScale.addEventListener('input', (e) => {
+        cubeScaleGlobal = parseFloat(e.target.value);
+        document.getElementById('val-cubescale').innerText = cubeScaleGlobal.toFixed(1) + 'x';
+      });
+
+      // Action Buttons
+      document.getElementById('btn-explode').addEventListener('click', triggerExplosion);
+      document.getElementById('btn-launch').addEventListener('click', () => launchProjectileCube());
+      document.getElementById('btn-singularity').addEventListener('click', triggerSingularity);
+      document.getElementById('btn-audio').addEventListener('click', toggleAudio);
+
+      const btnCamera = document.getElementById('btn-camera');
+      btnCamera.classList.add('active');
+      btnCamera.addEventListener('click', () => {
+        autoOrbit = !autoOrbit;
+        btnCamera.classList.toggle('active', autoOrbit);
+      });
+
+      // --- Mouse / Touch Interactivity for Canvas ---
+      const container = document.getElementById('renderer-container');
+      const tooltip = document.getElementById('reticle-tooltip');
+      let downX = 0, downY = 0;
+
+      container.addEventListener('mousedown', (e) => {
+        downX = e.clientX;
+        downY = e.clientY;
+      });
+
+      container.addEventListener('mouseup', (e) => {
+        const dist = Math.hypot(e.clientX - downX, e.clientY - downY);
+        // If minimal mouse movement, treat as Click -> fire projectile cube
+        if (dist < 6) {
+          launchProjectileCube(e.clientX, e.clientY);
+        }
+      });
+
+      container.addEventListener('mousemove', (e) => {
+        tooltip.style.left = e.clientX + 'px';
+        tooltip.style.top = e.clientY + 'px';
+
+        // XTK Picking Test
+        if (renderer && renderer.pick) {
+          try {
+            const pickedId = renderer.pick(e.clientX, e.clientY);
+            if (pickedId > 0) {
+              const obj = renderer.get(pickedId);
+              if (obj && obj.caption) {
+                tooltip.classList.add('visible');
+                document.getElementById('tooltip-title').innerText = obj.caption;
+                const m = obj.transform ? obj.transform.matrix : null;
+                if (m) {
+                  document.getElementById('tooltip-coords').innerText = 
+                    `X: ${m[12].toFixed(1)} | Y: ${m[13].toFixed(1)} | Z: ${m[14].toFixed(1)}`;
+                }
+                return;
+              }
+            }
+          } catch(err) {}
+        }
+        tooltip.classList.remove('visible');
+      });
+
+      // --- Keyboard Shortcut Bindings ---
+      window.addEventListener('keydown', (e) => {
+        // Prevent default spacebar scrolling
+        if (e.code === 'Space') {
+          e.preventDefault();
+          launchProjectileCube();
+          return;
+        }
+
+        const key = e.key.toUpperCase();
+        if (key >= '1' && key <= '5') {
+          const modeIdx = parseInt(key) - 1;
+          const targetBtn = document.querySelector(`.btn-cyber[data-mode="${modeIdx}"]`);
+          if (targetBtn) targetBtn.click();
+        } else if (key === 'E') {
+          triggerExplosion();
+        } else if (key === 'G') {
+          triggerSingularity();
+        } else if (key === 'A') {
+          btnCamera.click();
+        } else if (key === 'M') {
+          toggleAudio();
+        } else if (key === 'C') {
+          // Cycle Color Palette
+          const nextPalette = (currentPalette + 1) % 6;
+          const targetPalette = document.querySelector(`.palette-btn[data-palette="${nextPalette}"]`);
+          if (targetPalette) targetPalette.click();
+        } else if (key === 'R') {
+          resetCamera();
+        } else if (key === 'H') {
+          // Toggle UI Visibility for Clean View / Screenshots
+          uiVisible = !uiVisible;
+          document.getElementById('ui-layer').classList.toggle('hidden', !uiVisible);
+        }
+      });
+    };
+  </script>
+</body>
+</html>

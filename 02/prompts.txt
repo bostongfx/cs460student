@@ -1,0 +1,81 @@
+1. The prompt I gave to See what Antigravity can do:
+
+"I want to work with the XTK WebGL framework.
+Create a cool interactive cube-art visualization with animations,
+changing colors, flying cubes, and other creative effects.
+
+Save the result as agent.html in the current 02 folder.
+Use XTK and HTTPS URLs for external dependencies.
+Make it work as a static page on GitHub Pages." 
+
+However, the file that was produced by AGY did not correctly represent the cubes on the screen,
+as all I could see and change the interactive panel.  
+
+So I gave this prompt for it to fix the errors:
+"The page loads and displays its interface, but the 3D cubes are missing.
+  
+  Please diagnose and fix the existing page. Check that:
+  - The XTK library loads successfully over HTTPS.
+  - The rendering container has a nonzero width and height.
+  - The renderer initializes and the cubes are added to it.
+  - Rendering starts and the camera can see the cubes.
+  - There are no JavaScript errors preventing the scene from loading.
+  
+  Keep using XTK and preserve the intended design."
+ But then I ran out of tokens again.
+
+After switching the model for the 3rd time, I prompted AGY "Please open 460_artwork.JPG in the current 02 folder.
+  This is my hand-drawn design for an interactive cube bouquet.
+  
+  Describe what you see first so I can confirm you understand it."
+But I ran out of tokens again, so i will use a different agent to complete this assignment. I
+decided to go with codex (chatgbt) coding agent. I gave this prompt to codex:
+
+"Please debug my existing 02/index.html. The page and control
+panel appear, but the 3D cubes and flowers are missing.
+
+First identify and fix the rendering problem:
+- Check that the XTK library loads successfully.
+- Check for JavaScript errors.
+- Check that the renderer's container has a visible width and height.
+- Check that the renderer initializes and the cube objects are
+  added to the scene.
+- Check the camera position, target, and clipping so the entire
+  flower is visible.
+- First verify that one stationary cube renders, then restore
+  the complete flower and animation.
+- Keep using XTK.
+
+Implement the following design once rendering works:
+
+INITIAL FLOWER
+- Start with one complete flower centered in the 3D viewing area.
+- Arrange 12 small blue cubes in a ring around one larger gold
+  cube to form the flower head.
+- Place a green stem beneath the flower head, made from cubes
+  slightly smaller than the petal cubes.
+- Initially show the flower upright, with its entire head and
+  stem visible from a mostly front-facing view.
+
+ANIMATION
+- Move the 12 blue petal cubes slowly around the gold center.
+- Slowly rotate each petal cube around its own center.
+- Make the stem sway gently back and forth.
+- Let the flower head follow the stem's movement so the flower
+  remains connected.
+- Keep the movement subtle enough to recognize the flower.
+
+COLORS AND CONTROLS
+- Keep the existing control panel.
+- Allow the user to add and change flowers using blue, red,
+  pink, baby pink, green, and forest green.
+- Preserve the initial blue petals, gold center, and green stem.
+- Keep the maximum of five flowers.
+- Preserve Add flower and Remove last.
+- Reset should restore the single initial flower and camera view.
+- Dragging should rotate the view, including to a bird's-eye view.
+- Scrolling should zoom toward or away from the flower.
+- Clicking the panel should not move the camera.
+
+Preserve agent.html.
+"

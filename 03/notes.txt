@@ -1,0 +1,7 @@
+Which parameter changes the overall size?  radius 
+
+Which changes the tube’s thickness?  tube 
+
+Which two control how finely the surface is divided?  tubularSegments and radialSegments 
+
+What do p and q control? the shape of the surface 
