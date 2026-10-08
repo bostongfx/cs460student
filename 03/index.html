@@ -1,0 +1,177 @@
+<html>
+
+<head>
+    <style>
+        html,
+        body {
+            background-color: #000;
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden !important;
+        }
+    </style>
+    <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@latest/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@latest/examples/jsm/"
+      }
+    }
+    </script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        var renderer, controls, scene, camera;
+        var LASTOBJECT = null;
+        var isScaling = false;
+
+        // Global variables for flickering state and toruses list
+        var FLICKERING = false;
+        var TORUSES = [];
+
+        window.onload = function () {
+
+            // Three.js code goes here
+            scene = new THREE.Scene();
+
+            // setup the camera
+            var fov = 75;
+            var ratio = window.innerWidth / window.innerHeight;
+            var zNear = 1;
+            var zFar = 10000;
+            camera = new THREE.PerspectiveCamera(fov, ratio, zNear, zFar);
+            camera.position.set(0, 0, 100);
+
+            // create renderer and setup the canvas
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+            // flicker with f
+            window.onkeypress = function (e) {
+                if (e.key === 'f' || e.key === 'F') {
+                    FLICKERING = !FLICKERING;
+
+                    if (!FLICKERING) {
+                        for (var i = 0; i < TORUSES.length; i++) {
+                            TORUSES[i].material.opacity = 1.0;
+                            TORUSES[i].material.needsUpdate = true;
+                        }
+                    }
+                }
+                // BONUS
+                if (e.key === 'w' || e.key === 'W') {
+                    if (LASTOBJECT) {
+                        LASTOBJECT.material.wireframe = !LASTOBJECT.material.wireframe;
+                    }
+                }
+            };
+
+            renderer.domElement.onmousedown = function (e) {
+                if (e.shiftKey) {
+                    controls.enabled = false;
+
+                    console.log('Yay! We clicked with Shift!');
+                    var pixel_coords = new THREE.Vector2(e.clientX, e.clientY);
+                    var vp_coords = new THREE.Vector2(
+                        (pixel_coords.x / window.innerWidth) * 2 - 1,  //X
+                        -(pixel_coords.y / window.innerHeight) * 2 + 1) // Y
+                    var vp_coords_near = new THREE.Vector3(vp_coords.x, vp_coords.y, 0);
+                    var raycaster = new THREE.Raycaster();
+                    raycaster.setFromCamera(vp_coords_near, camera);
+                    var intersects = raycaster.intersectObject(invisible_plane);
+
+                    if (intersects.length > 0) {
+                        console.log('Ray to Invisible Plane', intersects[0].point);
+
+                        // create a new hotpink torus (#ff69b4)
+                        var geometry = new THREE.TorusKnotGeometry(10, 3, 100, 16);
+                        var material = new THREE.MeshStandardMaterial({
+                            color: 0xff69b4,
+                            transparent: true, // enable transparency support
+                            wireframe: true
+                        });
+                        var torus = new THREE.Mesh(geometry, material);
+                        torus.position.set(intersects[0].point.x, intersects[0].point.y, intersects[0].point.z);
+                        scene.add(torus);
+
+                        // Add the new torus to the tracking array
+                        TORUSES.push(torus);
+
+                        // Track the last placed object and enable scaling mode
+                        LASTOBJECT = torus;
+                        isScaling = true;
+                    }
+                }
+            };
+
+            renderer.domElement.onmousemove = function (e) {
+                if (isScaling && LASTOBJECT) {
+                    var Delta = -e.movementY * 0.05;
+                    var oldScale = LASTOBJECT.scale.x;
+                    var newScale = oldScale + Delta;
+
+                    if (Math.sign(oldScale) !== Math.sign(newScale) && Math.sign(newScale) !== 0) {
+                        LASTOBJECT.userData.isPink = !LASTOBJECT.userData.isPink;
+
+                        if (LASTOBJECT.userData.isPink) {
+                            LASTOBJECT.material.color.set(0xff69b4);
+                        } else {
+                            LASTOBJECT.material.color.set(0xffff10);
+                        }
+                    }
+
+                    LASTOBJECT.scale.set(newScale, newScale, newScale);
+                }
+            };
+
+            renderer.domElement.onmouseup = function (e) {
+                controls.enabled = true;
+                isScaling = false; // Stop scaling on mouse release
+            };
+
+            // setup lights
+            var ambientLight = new THREE.AmbientLight();
+            scene.add(ambientLight);
+            var light = new THREE.DirectionalLight(0xffffff, 5.0);
+            light.position.set(10, 100, 10);
+            scene.add(light);
+
+            // The invisible plane
+            var geometry = new THREE.PlaneGeometry(10000, 10000);
+            var material = new THREE.MeshBasicMaterial({
+                visible: false
+            });
+            var invisible_plane = new THREE.Mesh(geometry, material);
+            scene.add(invisible_plane);
+
+            // interaction
+            controls = new OrbitControls(camera, renderer.domElement);
+
+            // call animation/rendering loop
+            animate();
+        };
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // If FLICKERING is enabled, update every torus with a random opacity
+            if (FLICKERING) {
+                for (var i = 0; i < TORUSES.length; i++) {
+                    TORUSES[i].material.opacity = Math.random();
+                    TORUSES[i].material.needsUpdate = true;
+                }
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        };
+    </script>
+</head>
+
+<body></body>
+
+</html>
