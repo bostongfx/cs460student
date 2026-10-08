@@ -1,0 +1,1604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>XTK // Quantum Cube Visualization</title>
+  
+  <!-- XTK Core Framework -->
+  <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+  
+  <!-- CS460 Scene Loader / Exporter (download & upload) -->
+  <script type="text/javascript" src="loader.js"></script>
+
+  <style>
+    :root {
+      --primary: #00f3ff;
+      --primary-glow: rgba(0, 243, 255, 0.45);
+      --secondary: #ff007f;
+      --secondary-glow: rgba(255, 0, 127, 0.45);
+      --accent: #ffaa00;
+      --bg-dark: #050811;
+      --panel-bg: rgba(10, 16, 30, 0.78);
+      --panel-border: rgba(0, 243, 255, 0.22);
+      --panel-hover: rgba(0, 243, 255, 0.35);
+      --text: #e2f1ff;
+      --text-muted: #8ca3be;
+      --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --font-mono: "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden !important;
+      background-color: var(--bg-dark);
+      background-image: 
+        radial-gradient(circle at 50% 50%, rgba(20, 36, 68, 0.4) 0%, rgba(5, 8, 17, 0.95) 85%),
+        linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+      background-size: 100% 100%, 40px 40px, 40px 40px;
+      font-family: var(--font-ui);
+      color: var(--text);
+    }
+
+    /* WebGL Canvas Container */
+    #container {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 1;
+      cursor: grab;
+    }
+
+    #container:active {
+      cursor: grabbing;
+    }
+
+    /* HUD Overlay */
+    .hud-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 10;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 18px 24px;
+      transition: opacity 0.35s ease;
+    }
+
+    .hud-layer.hidden {
+      opacity: 0;
+      pointer-events: none !important;
+    }
+
+    .interactive {
+      pointer-events: auto;
+    }
+
+    /* Header Bar */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--panel-bg);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--panel-border);
+      border-radius: 14px;
+      padding: 12px 22px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), inset 0 0 15px rgba(0, 243, 255, 0.05);
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-icon {
+      width: 32px;
+      height: 32px;
+      border: 2px solid var(--primary);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 243, 255, 0.12);
+      box-shadow: 0 0 16px var(--primary-glow);
+      position: relative;
+      animation: pulseBrand 3s infinite ease-in-out;
+    }
+
+    .brand-icon::after {
+      content: '';
+      width: 12px;
+      height: 12px;
+      background: var(--secondary);
+      border-radius: 3px;
+      box-shadow: 0 0 10px var(--secondary-glow);
+    }
+
+    @keyframes pulseBrand {
+      0%, 100% { transform: scale(1) rotate(0deg); }
+      50% { transform: scale(1.06) rotate(6deg); }
+    }
+
+    .brand-text h1 {
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      background: linear-gradient(90deg, #fff, var(--primary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .brand-badge {
+      font-size: 10px;
+      padding: 2px 7px;
+      border-radius: 6px;
+      background: rgba(0, 243, 255, 0.18);
+      color: var(--primary);
+      border: 1px solid rgba(0, 243, 255, 0.35);
+      font-family: var(--font-mono);
+      letter-spacing: 0.5px;
+      -webkit-text-fill-color: var(--primary);
+    }
+
+    .brand-subtitle {
+      font-size: 11px;
+      color: var(--text-muted);
+      letter-spacing: 0.8px;
+    }
+
+    .telemetry-group {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+    }
+
+    .telem-item {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+    }
+
+    .telem-label {
+      font-size: 9px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+
+    .telem-value {
+      color: var(--primary);
+      font-weight: 700;
+      text-shadow: 0 0 10px var(--primary-glow);
+    }
+
+    /* Floating Control Deck */
+    .control-deck {
+      position: absolute;
+      top: 90px;
+      right: 24px;
+      width: 320px;
+      max-height: calc(100vh - 170px);
+      overflow-y: auto;
+      background: var(--panel-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--panel-border);
+      border-radius: 14px;
+      padding: 18px;
+      box-shadow: 0 12px 35px rgba(0, 0, 0, 0.55);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--panel-border) transparent;
+      transition: transform 0.3s ease, opacity 0.3s ease;
+    }
+
+    .control-deck::-webkit-scrollbar {
+      width: 5px;
+    }
+    .control-deck::-webkit-scrollbar-thumb {
+      background: var(--panel-border);
+      border-radius: 4px;
+    }
+
+    .deck-section {
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+    }
+
+    .section-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 4px;
+      font-weight: 600;
+    }
+
+    /* Button Grids */
+    .btn-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 7px;
+    }
+
+    .btn-grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+    }
+
+    button.btn {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: var(--font-ui);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 8px 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+      text-align: center;
+    }
+
+    button.btn:hover {
+      background: rgba(0, 243, 255, 0.12);
+      border-color: var(--primary);
+      color: #fff;
+      box-shadow: 0 0 12px var(--primary-glow);
+      transform: translateY(-1px);
+    }
+
+    button.btn.active {
+      background: linear-gradient(135deg, rgba(0, 243, 255, 0.3), rgba(255, 0, 127, 0.3));
+      border-color: var(--primary);
+      color: #fff;
+      box-shadow: 0 0 14px var(--primary-glow);
+    }
+
+    button.btn-primary {
+      background: rgba(0, 243, 255, 0.15);
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+
+    button.btn-accent {
+      background: rgba(255, 0, 127, 0.15);
+      border-color: var(--secondary);
+      color: #ff55a3;
+    }
+    button.btn-accent:hover {
+      background: rgba(255, 0, 127, 0.3);
+      border-color: var(--secondary);
+      box-shadow: 0 0 14px var(--secondary-glow);
+    }
+
+    /* Slider Rows */
+    .slider-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .slider-header span.val {
+      font-family: var(--font-mono);
+      color: var(--primary);
+      font-weight: 600;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 5px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+      outline: none;
+      transition: background 0.2s;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: var(--primary);
+      box-shadow: 0 0 8px var(--primary-glow);
+      cursor: pointer;
+      transition: transform 0.15s, background 0.15s;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.25);
+      background: #fff;
+    }
+
+    /* Color Palettes Swatches */
+    .palette-row {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 6px;
+    }
+
+    .swatch {
+      height: 26px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+      position: relative;
+    }
+
+    .swatch:hover {
+      transform: scale(1.12);
+      box-shadow: 0 0 10px rgba(255, 255, 255, 0.4);
+    }
+
+    .swatch.active {
+      border: 2px solid #fff;
+      transform: scale(1.15);
+      box-shadow: 0 0 12px var(--primary-glow);
+    }
+
+    /* Footer Cheat Sheet */
+    footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--panel-bg);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--panel-border);
+      border-radius: 12px;
+      padding: 10px 18px;
+      font-size: 11px;
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
+    }
+
+    .badges-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .key-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .key {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: #fff;
+      font-weight: 600;
+    }
+
+    .footer-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    /* Floating Minimal Toggle when HUD is hidden */
+    #hud-toggle-btn {
+      position: absolute;
+      top: 18px;
+      right: 24px;
+      z-index: 20;
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      background: var(--panel-bg);
+      backdrop-filter: blur(14px);
+      border: 1px solid var(--panel-border);
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+      transition: all 0.2s ease;
+    }
+
+    #hud-toggle-btn:hover {
+      background: rgba(0, 243, 255, 0.2);
+      transform: scale(1.08);
+      box-shadow: 0 0 16px var(--primary-glow);
+    }
+
+    /* Notification Toast */
+    #toast {
+      position: absolute;
+      bottom: 75px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: rgba(10, 20, 36, 0.9);
+      border: 1px solid var(--primary);
+      box-shadow: 0 0 20px var(--primary-glow);
+      backdrop-filter: blur(12px);
+      padding: 9px 20px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #fff;
+      letter-spacing: 0.6px;
+      pointer-events: none;
+      opacity: 0;
+      transition: all 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+      z-index: 100;
+    }
+
+    #toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* Fallback / Loading Banner */
+    #loading-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: var(--bg-dark);
+      z-index: 200;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      transition: opacity 0.5s ease;
+    }
+
+    .spinner {
+      width: 50px;
+      height: 50px;
+      border: 3px solid rgba(0, 243, 255, 0.15);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 1s infinite linear;
+    }
+
+    @keyframes spin {
+      100% { transform: rotate(360deg); }
+    }
+
+    #loading-text {
+      font-size: 13px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--primary);
+      font-family: var(--font-mono);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Loading State -->
+  <div id="loading-overlay">
+    <div class="spinner"></div>
+    <div id="loading-text">Initializing XTK Quantum Engine...</div>
+  </div>
+
+  <!-- HUD Toggle Button (always accessible) -->
+  <div id="hud-toggle-btn" class="interactive" title="Toggle HUD Display [H]">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M4.93 19.07l14.14-14.14"/>
+    </svg>
+  </div>
+
+  <!-- Main HUD Layer -->
+  <div class="hud-layer" id="hud">
+    
+    <!-- Top Header -->
+    <header class="interactive">
+      <div class="brand-group">
+        <div class="brand-icon"></div>
+        <div class="brand-text">
+          <h1>XTK Hypercube <span class="brand-badge">PRO v2.0</span></h1>
+          <div class="brand-subtitle">Kinetic 3D Matrix & Chrono-Tesseract Visualizer</div>
+        </div>
+      </div>
+
+      <div class="telemetry-group">
+        <div class="telem-item">
+          <span class="telem-label">FPS</span>
+          <span class="telem-value" id="telem-fps">60</span>
+        </div>
+        <div class="telem-item">
+          <span class="telem-label">Objects</span>
+          <span class="telem-value" id="telem-objs">51</span>
+        </div>
+        <div class="telem-item">
+          <span class="telem-label">Formation</span>
+          <span class="telem-value" id="telem-mode">Orbitals</span>
+        </div>
+        <div class="telem-item">
+          <span class="telem-label">Phase Time</span>
+          <span class="telem-value" id="telem-time">0.0s</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Floating Control Deck -->
+    <div class="control-deck interactive" id="deck">
+      
+      <!-- Section: Playback -->
+      <div class="deck-section">
+        <div class="section-title">
+          <span>Simulation Engine</span>
+          <span style="color: var(--primary);">● RUNNING</span>
+        </div>
+        <div class="btn-grid">
+          <button class="btn btn-primary" id="btn-playpause">⏸ Pause</button>
+          <button class="btn btn-accent" id="btn-shockwave">💥 Shockwave [E]</button>
+        </div>
+        <div class="slider-row">
+          <div class="slider-header">
+            <span>Rotation Velocity</span>
+            <span class="val" id="val-speed">1.0x</span>
+          </div>
+          <input type="range" id="slider-speed" min="0" max="3" step="0.1" value="1.0">
+        </div>
+      </div>
+
+      <!-- Section: Visual Formations -->
+      <div class="deck-section">
+        <div class="section-title">Kinetic Formations [1 - 6]</div>
+        <div class="btn-grid">
+          <button class="btn active" data-mode="0">1. Orbitals</button>
+          <button class="btn" data-mode="1">2. Wave Grid</button>
+          <button class="btn" data-mode="2">3. DNA Helix</button>
+          <button class="btn" data-mode="3">4. Supernova</button>
+          <button class="btn" data-mode="4">5. Equalizer</button>
+          <button class="btn" data-mode="5">6. Rubik Cube</button>
+        </div>
+      </div>
+
+      <!-- Section: Color Schemes -->
+      <div class="deck-section">
+        <div class="section-title">
+          <span>Chromatic Themes [C]</span>
+          <span id="theme-name" style="font-family: var(--font-mono); color: var(--primary);">CYBERPUNK</span>
+        </div>
+        <div class="palette-row" id="palette-container">
+          <div class="swatch active" data-theme="0" style="background: linear-gradient(135deg, #00f3ff, #ff007f);" title="Cyberpunk Neon"></div>
+          <div class="swatch" data-theme="1" style="background: linear-gradient(135deg, #00ff66, #004422);" title="Matrix Emerald"></div>
+          <div class="swatch" data-theme="2" style="background: linear-gradient(135deg, #ff2a85, #ff7300);" title="Synthwave Sunset"></div>
+          <div class="swatch" data-theme="3" style="background: linear-gradient(135deg, #00aaff, #bf55ec);" title="Cosmic Nebula"></div>
+          <div class="swatch" data-theme="4" style="background: linear-gradient(135deg, #ffd700, #ff2200);" title="Molten Magma"></div>
+          <div class="swatch" data-theme="5" style="background: linear-gradient(135deg, #ff0055, #00ffcc, #ffdd00);" title="Prismatic Rainbow"></div>
+        </div>
+        <div class="btn-grid">
+          <button class="btn" id="btn-magic">✨ Magic Mode [M]</button>
+          <button class="btn" id="btn-audio">🔇 Sound: OFF [A]</button>
+        </div>
+      </div>
+
+      <!-- Section: Dynamics -->
+      <div class="deck-section">
+        <div class="section-title">Dynamics & Geometry</div>
+        <div class="slider-row">
+          <div class="slider-header">
+            <span>Wave Amplitude</span>
+            <span class="val" id="val-amplitude">35</span>
+          </div>
+          <input type="range" id="slider-amplitude" min="5" max="80" step="1" value="35">
+        </div>
+        <div class="slider-row">
+          <div class="slider-header">
+            <span>Swarm Dispersion</span>
+            <span class="val" id="val-spread">120</span>
+          </div>
+          <input type="range" id="slider-spread" min="60" max="220" step="5" value="120">
+        </div>
+        <div class="slider-row">
+          <div class="slider-header">
+            <span>Outer Shell Opacity</span>
+            <span class="val" id="val-opacity">0.45</span>
+          </div>
+          <input type="range" id="slider-opacity" min="0.1" max="1.0" step="0.05" value="0.45">
+        </div>
+      </div>
+
+      <!-- Section: Camera & Scene Presets -->
+      <div class="deck-section">
+        <div class="section-title">Camera & Perspective</div>
+        <div class="btn-grid-3">
+          <button class="btn" id="cam-iso">Isometric</button>
+          <button class="btn" id="cam-top">Top</button>
+          <button class="btn" id="cam-front">Front</button>
+          <button class="btn" id="cam-side">Profile</button>
+          <button class="btn" id="cam-orbit">Auto-Orbit [O]</button>
+          <button class="btn" id="cam-reset">Reset [R]</button>
+        </div>
+      </div>
+
+      <!-- Section: CS460 Scene Persistence -->
+      <div class="deck-section">
+        <div class="section-title">Scene I/O (CS460 Loader)</div>
+        <div class="btn-grid">
+          <button class="btn" id="btn-export">📥 Export JSON</button>
+          <button class="btn" id="btn-import">📤 Import JSON</button>
+        </div>
+        <input type="file" id="file-importer" accept=".json" style="display: none;">
+      </div>
+
+    </div>
+
+    <!-- Bottom HUD Bar -->
+    <footer class="interactive">
+      <div class="badges-group">
+        <div class="key-badge"><span class="key">SPACE</span> Play/Pause</div>
+        <div class="key-badge"><span class="key">1-6</span> Formations</div>
+        <div class="key-badge"><span class="key">C</span> Themes</div>
+        <div class="key-badge"><span class="key">E</span> Shockwave</div>
+        <div class="key-badge"><span class="key">M</span> Magic</div>
+        <div class="key-badge"><span class="key">A</span> Audio</div>
+        <div class="key-badge"><span class="key">O</span> Auto-Orbit</div>
+        <div class="key-badge"><span class="key">R</span> Reset View</div>
+        <div class="key-badge"><span class="key">H</span> Toggle HUD</div>
+        <div class="key-badge"><span class="key">F</span> Fullscreen</div>
+      </div>
+
+      <div class="footer-actions" style="display: flex; gap: 10px; align-items: center;">
+        <a href="index.html" style="color: var(--primary); text-decoration: none; font-size: 11px; font-weight: 600;">➔ Physical Sandbox (Sketch)</a>
+        <button class="btn btn-primary" id="btn-fullscreen" style="padding: 4px 10px; font-size: 10px;">⛶ Fullscreen</button>
+      </div>
+    </footer>
+
+  </div>
+
+  <!-- Notification Toast -->
+  <div id="toast">Notification text</div>
+
+  <!-- Audio Synthesizer Class (Web Audio API) -->
+  <script type="text/javascript">
+    class HoloAudioSynth {
+      constructor() {
+        this.ctx = null;
+        this.enabled = false;
+        this.droneGain = null;
+        this.filter = null;
+        this.osc1 = null;
+        this.osc2 = null;
+      }
+
+      init() {
+        if (this.ctx) return;
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) return;
+        this.ctx = new AudioContextClass();
+
+        this.masterGain = this.ctx.createGain();
+        this.masterGain.gain.value = 0.25;
+        this.masterGain.connect(this.ctx.destination);
+
+        // Ambient Drone Loop
+        this.droneGain = this.ctx.createGain();
+        this.droneGain.gain.value = 0.0;
+
+        this.filter = this.ctx.createBiquadFilter();
+        this.filter.type = 'lowpass';
+        this.filter.frequency.value = 350;
+        this.filter.Q.value = 5.0;
+
+        this.osc1 = this.ctx.createOscillator();
+        this.osc1.type = 'sawtooth';
+        this.osc1.frequency.value = 55; // A1
+
+        this.osc2 = this.ctx.createOscillator();
+        this.osc2.type = 'triangle';
+        this.osc2.frequency.value = 82.4; // E2 (Harmonic fifth)
+
+        this.osc1.connect(this.filter);
+        this.osc2.connect(this.filter);
+        this.filter.connect(this.droneGain);
+        this.droneGain.connect(this.masterGain);
+
+        this.osc1.start();
+        this.osc2.start();
+      }
+
+      toggle() {
+        this.init();
+        if (!this.ctx) return false;
+        if (this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+        this.enabled = !this.enabled;
+        const now = this.ctx.currentTime;
+        this.droneGain.gain.cancelScheduledValues(now);
+        this.droneGain.gain.linearRampToValueAtTime(this.enabled ? 0.18 : 0.0, now + 0.35);
+        return this.enabled;
+      }
+
+      modulateDrone(velocity) {
+        if (!this.enabled || !this.filter || !this.ctx) return;
+        const targetFreq = 220 + Math.min(1000, velocity * 350);
+        this.filter.frequency.setTargetAtTime(targetFreq, this.ctx.currentTime, 0.1);
+      }
+
+      playTone(freq, type = 'sine', duration = 0.4, vol = 0.2) {
+        if (!this.enabled || !this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = type;
+        const now = this.ctx.currentTime;
+        osc.frequency.setValueAtTime(freq, now);
+        gain.gain.setValueAtTime(vol, now);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+        osc.start();
+        osc.stop(now + duration);
+      }
+
+      playWarpChord() {
+        if (!this.enabled || !this.ctx) return;
+        const notes = [440, 554.37, 659.25, 880]; // A major
+        notes.forEach((freq, idx) => {
+          setTimeout(() => {
+            this.playTone(freq, 'triangle', 0.5, 0.12);
+          }, idx * 60);
+        });
+      }
+
+      playShockwaveBoom() {
+        if (!this.enabled || !this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        const now = this.ctx.currentTime;
+        osc.frequency.setValueAtTime(160, now);
+        osc.frequency.exponentialRampToValueAtTime(28, now + 0.85);
+        gain.gain.setValueAtTime(0.45, now);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.85);
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+        osc.start();
+        osc.stop(now + 0.85);
+      }
+
+      playChime() {
+        if (!this.enabled) return;
+        this.playTone(784, 'sine', 0.4, 0.18); // G5
+      }
+    }
+  </script>
+
+  <!-- Main XTK Visualization Script -->
+  <script type="text/javascript">
+    // Global XTK Renderer Reference (required for CS460 loader.js)
+    var r = null;
+    var CAMERAS = [];
+
+    // Application State
+    const App = {
+      running: true,
+      mode: 0, // 0: Orbitals, 1: Wave Grid, 2: DNA Helix, 3: Supernova, 4: Equalizer, 5: Rubik
+      themeIndex: 0,
+      magicMode: false,
+      autoOrbit: false,
+      speedMultiplier: 1.0,
+      amplitude: 35.0,
+      spread: 120.0,
+      opacity: 0.45,
+      shockwaveIntensity: 0.0,
+      time: 0.0,
+      lastFrameTime: performance.now(),
+      fpsHistory: [],
+      hudVisible: true,
+      audio: new HoloAudioSynth()
+    };
+
+    // Color Palette Definitions
+    const Themes = [
+      {
+        name: "CYBERPUNK NEON",
+        core: [0.0, 0.95, 1.0],      // Neon Cyan
+        mid: [1.0, 0.05, 0.55],       // Neon Magenta
+        inner: [1.0, 0.85, 0.1],      // Electric Gold
+        swarm: [
+          [0.0, 0.95, 1.0],
+          [1.0, 0.05, 0.55],
+          [0.55, 0.15, 1.0],
+          [0.1, 0.8, 0.9]
+        ]
+      },
+      {
+        name: "MATRIX BIOSPHERE",
+        core: [0.1, 1.0, 0.4],       // Matrix Lime
+        mid: [0.0, 0.7, 0.25],        // Emerald
+        inner: [0.3, 1.0, 0.85],      // Mint Phosphor
+        swarm: [
+          [0.1, 1.0, 0.4],
+          [0.0, 0.8, 0.3],
+          [0.2, 0.95, 0.7],
+          [0.05, 0.5, 0.2]
+        ]
+      },
+      {
+        name: "SYNTHWAVE SUNSET",
+        core: [1.0, 0.3, 0.05],      // Sunset Orange
+        mid: [1.0, 0.1, 0.55],        // Hot Rose
+        inner: [1.0, 0.8, 0.2],       // Solar Flare
+        swarm: [
+          [1.0, 0.15, 0.55],
+          [1.0, 0.45, 0.05],
+          [0.6, 0.05, 0.85],
+          [1.0, 0.75, 0.15]
+        ]
+      },
+      {
+        name: "COSMIC NEBULA",
+        core: [0.2, 0.65, 1.0],      // Nebula Blue
+        mid: [0.75, 0.25, 0.95],     // Starlight Violet
+        inner: [0.95, 0.95, 1.0],     // White Dwarf
+        swarm: [
+          [0.1, 0.5, 1.0],
+          [0.75, 0.25, 0.95],
+          [0.35, 0.85, 1.0],
+          [0.9, 0.9, 1.0]
+        ]
+      },
+      {
+        name: "MOLTEN MAGMA",
+        core: [1.0, 0.85, 0.4],      // White Hot Flame
+        mid: [1.0, 0.3, 0.0],         // Molten Lava
+        inner: [0.95, 0.05, 0.1],     // Core Fire
+        swarm: [
+          [1.0, 0.25, 0.0],
+          [0.95, 0.05, 0.1],
+          [1.0, 0.75, 0.2],
+          [0.7, 0.1, 0.05]
+        ]
+      },
+      {
+        name: "PRISMATIC AURORA",
+        core: [1.0, 1.0, 1.0],
+        mid: [0.5, 1.0, 0.9],
+        inner: [1.0, 0.6, 0.9],
+        swarm: [] // Computed procedurally via HSL
+      }
+    ];
+
+    // Objects Registry
+    let outerCoreCube = null;
+    let midCoreCube = null;
+    let innerCoreCube = null;
+    const satelliteCubes = [];
+    const NUM_SATELLITES = 48;
+
+    // Toast Notification Utility
+    let toastTimeout = null;
+    function showToast(msg) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.classList.add('show');
+      clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        el.classList.remove('show');
+      }, 2200);
+    }
+
+    // Helper: Convert HSL to RGB [0..1]
+    function hslToRgb(h, s, l) {
+      let r, g, b;
+      if (s === 0) {
+        r = g = b = l;
+      } else {
+        const hue2rgb = (p, q, t) => {
+          if (t < 0) t += 1;
+          if (t > 1) t -= 1;
+          if (t < 1/6) return p + (q - p) * 6 * t;
+          if (t < 1/2) return q;
+          if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+          return p;
+        };
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        const p = 2 * l - q;
+        r = hue2rgb(p, q, h + 1/3);
+        g = hue2rgb(p, q, h);
+        b = hue2rgb(p, q, h - 1/3);
+      }
+      return [r, g, b];
+    }
+
+    // Initialize Visualization
+    window.onload = function() {
+      // Check XTK availability
+      if (typeof X === 'undefined' || typeof X.renderer3D === 'undefined') {
+        const loadingText = document.getElementById('loading-text');
+        loadingText.innerHTML = "Error loading XTK from CDN.<br><span style='font-size:10px;color:#ff5555;'>Please ensure network connection to https://get.goXTK.com/xtk_edge.js</span>";
+        return;
+      }
+
+      // Initialize X.renderer3D
+      r = new X.renderer3D();
+      r.init();
+
+      // Set initial camera perspective
+      r.camera.position = [0, 0, 360];
+
+      // Build Central Tesseract (Nested Cubes)
+      createTesseractCore();
+
+      // Build Satellite Cube Swarm
+      createSatelliteSwarm();
+
+      // Initial Render Call
+      r.render();
+
+      // Hide Loading Overlay
+      const loader = document.getElementById('loading-overlay');
+      loader.style.opacity = '0';
+      setTimeout(() => loader.style.display = 'none', 500);
+
+      // Register Native Render Hook
+      r.onRender = onRenderFrame;
+
+      // Wire DOM UI & Keyboard Listeners
+      setupUIEventListeners();
+      setupKeyboardListeners();
+
+      showToast("Quantum Visualizer Initialized. Press [H] for HUD, [1-6] for Formations.");
+    };
+
+    // 1. Create Nested Chrono-Tesseract Core
+    function createTesseractCore() {
+      const theme = Themes[App.themeIndex];
+
+      // Outer Translucent Cube Shell
+      outerCoreCube = new X.cube();
+      outerCoreCube.lengthX = outerCoreCube.lengthY = outerCoreCube.lengthZ = 64;
+      outerCoreCube.color = theme.core.slice();
+      outerCoreCube.opacity = App.opacity;
+      r.add(outerCoreCube);
+
+      // Middle Counter-Rotating Gyro Cube
+      midCoreCube = new X.cube();
+      midCoreCube.lengthX = midCoreCube.lengthY = midCoreCube.lengthZ = 42;
+      midCoreCube.color = theme.mid.slice();
+      midCoreCube.opacity = 0.72;
+      r.add(midCoreCube);
+
+      // Inner Solid Quantum Core
+      innerCoreCube = new X.cube();
+      innerCoreCube.lengthX = innerCoreCube.lengthY = innerCoreCube.lengthZ = 20;
+      innerCoreCube.color = theme.inner.slice();
+      innerCoreCube.opacity = 1.0;
+      r.add(innerCoreCube);
+    }
+
+    // 2. Create Satellite Swarm Cubes
+    function createSatelliteSwarm() {
+      const theme = Themes[App.themeIndex];
+
+      for (let i = 0; i < NUM_SATELLITES; i++) {
+        const cube = new X.cube();
+        const size = 7 + (i % 4) * 2;
+        cube.lengthX = cube.lengthY = cube.lengthZ = size;
+
+        // Color selection
+        let col = theme.swarm.length > 0 
+          ? theme.swarm[i % theme.swarm.length].slice()
+          : hslToRgb((i / NUM_SATELLITES), 0.9, 0.6);
+        cube.color = col;
+        cube.opacity = 0.85;
+
+        // Metadata for smooth animations
+        const satData = {
+          mesh: cube,
+          index: i,
+          size: size,
+          curX: 0,
+          curY: 0,
+          curZ: 0,
+          targetX: 0,
+          targetY: 0,
+          targetZ: 0,
+          rotSpeedX: (Math.sin(i * 1.3) * 1.5 + 0.8),
+          rotSpeedY: (Math.cos(i * 1.7) * 1.5 + 0.8),
+          rotSpeedZ: (Math.sin(i * 2.1) * 1.2),
+          ringIndex: i % 3,
+          phaseOffset: (i / NUM_SATELLITES) * Math.PI * 2
+        };
+
+        // Compute initial target
+        const initPos = computeTargetPosition(satData, 0, 0);
+        satData.curX = satData.targetX = initPos[0];
+        satData.curY = satData.targetY = initPos[1];
+        satData.curZ = satData.targetZ = initPos[2];
+
+        // Apply matrix translation
+        cube.transform.matrix[12] = initPos[0];
+        cube.transform.matrix[13] = initPos[1];
+        cube.transform.matrix[14] = initPos[2];
+
+        r.add(cube);
+        satelliteCubes.push(satData);
+      }
+    }
+
+    // 3. Mathematical Formation Position Generator
+    function computeTargetPosition(sat, mode, t) {
+      const i = sat.index;
+      const N = NUM_SATELLITES;
+      const spread = App.spread;
+      const amp = App.amplitude;
+
+      let x = 0, y = 0, z = 0;
+
+      switch(mode) {
+        // Mode 0: Chrono-Tesseract & Gyro-Orbital Rings
+        case 0: {
+          const ring = i % 3;
+          const countPerRing = N / 3;
+          const ringIdx = Math.floor(i / 3);
+          const angle = (ringIdx / countPerRing) * Math.PI * 2 + t * (1.2 - ring * 0.35);
+          const radius = spread * (0.65 + ring * 0.32) + Math.sin(t * 2 + i * 0.5) * 8;
+
+          const rawX = Math.cos(angle) * radius;
+          const rawZ = Math.sin(angle) * radius;
+
+          if (ring === 0) {
+            // Equatorial Plane
+            x = rawX;
+            y = Math.sin(t * 3 + angle * 2) * (amp * 0.3);
+            z = rawZ;
+          } else if (ring === 1) {
+            // Inclined 55 deg
+            const inc = 55 * Math.PI / 180;
+            x = rawX * Math.cos(inc);
+            y = rawX * Math.sin(inc);
+            z = rawZ;
+          } else {
+            // Counter-Inclined -55 deg
+            const inc = -55 * Math.PI / 180;
+            x = rawX;
+            y = rawZ * Math.sin(inc);
+            z = rawZ * Math.cos(inc);
+          }
+          break;
+        }
+
+        // Mode 1: Quantum 3D Wave Grid (7x7 Undulation Matrix)
+        case 1: {
+          const cols = 7;
+          const col = (i % cols) - 3;
+          const row = Math.floor(i / cols) - 3;
+          const spacing = spread * 0.28;
+
+          x = col * spacing;
+          z = row * spacing;
+          const dist = Math.sqrt(x * x + z * z);
+          y = Math.sin(t * 3.2 - dist * 0.04) * amp + Math.cos(t * 1.8 + col * 0.35) * (amp * 0.4);
+          break;
+        }
+
+        // Mode 2: DNA Double Helix
+        case 2: {
+          const strandCount = 20;
+          if (i < 40) {
+            const isStrandB = i >= strandCount;
+            const step = isStrandB ? (i - strandCount) : i;
+            const theta = (step / strandCount) * Math.PI * 4 + (isStrandB ? Math.PI : 0) + t * 1.5;
+            const radius = spread * 0.55;
+            x = Math.cos(theta) * radius;
+            z = Math.sin(theta) * radius;
+            y = (step - (strandCount / 2)) * (spread * 0.14) + Math.sin(t * 2 + step) * 5;
+          } else {
+            // Connecting Rungs
+            const rungStep = i - 40;
+            const pairStep = Math.floor(rungStep * 2.4);
+            const theta = (pairStep / strandCount) * Math.PI * 4 + t * 1.5;
+            const radius = spread * 0.25;
+            x = Math.cos(theta) * radius;
+            z = Math.sin(theta) * radius;
+            y = (pairStep - (strandCount / 2)) * (spread * 0.14);
+          }
+          break;
+        }
+
+        // Mode 3: Supernova Accordion Explosion
+        case 3: {
+          // Fibonacci Sphere Distribution with Pulsar Radius
+          const phi = Math.acos(1 - 2 * (i + 0.5) / N);
+          const theta = Math.PI * (1 + Math.sqrt(5)) * (i + 0.5) + t * 0.4;
+          const pulse = Math.pow(Math.abs(Math.sin(t * 2.2)), 2.5);
+          const radius = spread * (0.45 + pulse * 1.15);
+
+          x = radius * Math.sin(phi) * Math.cos(theta);
+          y = radius * Math.cos(phi);
+          z = radius * Math.sin(phi) * Math.sin(theta);
+          break;
+        }
+
+        // Mode 4: Audio Spectrum / Radial Equalizer
+        case 4: {
+          const angle = (i / N) * Math.PI * 2 + t * 0.5;
+          const radius = spread * 0.75;
+          x = Math.cos(angle) * radius;
+          z = Math.sin(angle) * radius;
+
+          // Simulated Audio Frequency Waves
+          const freqBand = Math.sin(t * 5.0 + (i % 8) * 1.2);
+          const beatKick = Math.pow(Math.max(0, Math.sin(t * 3.0)), 6) * 1.5;
+          y = (Math.abs(freqBand) * 0.7 + beatKick) * amp * 1.6 - (amp * 0.4);
+          break;
+        }
+
+        // Mode 5: Rubik's Quantum Matrix (3x3x3 Dissected Cube)
+        case 5: {
+          if (i < 27) {
+            const rx = (i % 3) - 1;
+            const ry = (Math.floor(i / 3) % 3) - 1;
+            const rz = Math.floor(i / 9) - 1;
+
+            // Exploded slice separation
+            const explode = 1.0 + Math.max(0, Math.sin(t * 1.5)) * 0.8;
+            const spacing = spread * 0.24 * explode;
+
+            x = rx * spacing;
+            y = ry * spacing;
+            z = rz * spacing;
+          } else {
+            // Surrounding Halo Satellites
+            const rem = i - 27;
+            const remTotal = N - 27;
+            const angle = (rem / remTotal) * Math.PI * 2 - t * 1.1;
+            const radius = spread * 1.1;
+            x = Math.cos(angle) * radius;
+            y = Math.sin(t * 2.5 + rem) * (amp * 0.5);
+            z = Math.sin(angle) * radius;
+          }
+          break;
+        }
+      }
+
+      // Add Shockwave Impulse Offset
+      if (App.shockwaveIntensity > 0.005) {
+        const dist = Math.sqrt(x * x + y * y + z * z) + 0.01;
+        const wave = Math.sin(t * 12 - dist * 0.08) * App.shockwaveIntensity * 45;
+        x += (x / dist) * wave;
+        y += (y / dist) * wave;
+        z += (z / dist) * wave;
+      }
+
+      return [x, y, z];
+    }
+
+    // 4. Main Render Loop Callback (r.onRender)
+    function onRenderFrame() {
+      const now = performance.now();
+      const delta = (now - App.lastFrameTime) / 1000.0;
+      App.lastFrameTime = now;
+
+      // Calculate & update FPS
+      if (delta > 0) {
+        const curFps = Math.round(1.0 / delta);
+        App.fpsHistory.push(curFps);
+        if (App.fpsHistory.length > 20) App.fpsHistory.shift();
+        const avgFps = Math.round(App.fpsHistory.reduce((a, b) => a + b, 0) / App.fpsHistory.length);
+        document.getElementById('telem-fps').textContent = avgFps;
+      }
+
+      // If Paused, skip kinematic progression
+      if (!App.running) return;
+
+      const dt = delta * App.speedMultiplier;
+      App.time += dt;
+
+      // Update Phase Time Telemetry
+      document.getElementById('telem-time').textContent = App.time.toFixed(1) + 's';
+
+      // Modulate audio filter with rotation speed
+      App.audio.modulateDrone(App.speedMultiplier);
+
+      // Decaying shockwave intensity
+      if (App.shockwaveIntensity > 0.001) {
+        App.shockwaveIntensity *= 0.94;
+      }
+
+      // Dynamic Central Tesseract Rotation
+      const rotMult = App.speedMultiplier * (1.0 + App.shockwaveIntensity * 4.0);
+
+      outerCoreCube.transform.rotateX(0.6 * rotMult);
+      outerCoreCube.transform.rotateY(0.85 * rotMult);
+
+      midCoreCube.transform.rotateY(-1.1 * rotMult);
+      midCoreCube.transform.rotateZ(0.75 * rotMult);
+
+      innerCoreCube.transform.rotateX(1.4 * rotMult);
+      innerCoreCube.transform.rotateZ(-1.2 * rotMult);
+
+      // Camera Auto-Orbit mode
+      if (App.autoOrbit && r.camera) {
+        r.camera.rotate([0.65 * App.speedMultiplier, 0]);
+      }
+
+      // Smooth Morphing & Animation for Satellites
+      const lerpRate = Math.min(1.0, 0.08 * (App.speedMultiplier > 0.1 ? App.speedMultiplier : 1.0));
+      const currentTheme = Themes[App.themeIndex];
+
+      for (let i = 0; i < satelliteCubes.length; i++) {
+        const sat = satelliteCubes[i];
+        const mesh = sat.mesh;
+
+        // Compute Target Position
+        const target = computeTargetPosition(sat, App.mode, App.time);
+        sat.targetX = target[0];
+        sat.targetY = target[1];
+        sat.targetZ = target[2];
+
+        // Linear Interpolation (LERP) for fluid morphing
+        sat.curX += (sat.targetX - sat.curX) * lerpRate;
+        sat.curY += (sat.targetY - sat.curY) * lerpRate;
+        sat.curZ += (sat.targetZ - sat.curZ) * lerpRate;
+
+        // Satellite Local Rotation
+        mesh.transform.rotateX(sat.rotSpeedX * rotMult);
+        mesh.transform.rotateY(sat.rotSpeedY * rotMult);
+        mesh.transform.rotateZ(sat.rotSpeedZ * rotMult);
+
+        // Position Satellite in 3D Space via Matrix Translation
+        mesh.transform.matrix[12] = sat.curX;
+        mesh.transform.matrix[13] = sat.curY;
+        mesh.transform.matrix[14] = sat.curZ;
+
+        // Real-Time Chromatic Wave for Prismatic Theme
+        if (App.themeIndex === 5 && !App.magicMode) {
+          const hue = ((App.time * 0.15 + (i / NUM_SATELLITES)) % 1.0);
+          mesh.color = hslToRgb(hue, 0.9, 0.55);
+        }
+      }
+    }
+
+    // 5. Update Color Palette Across All Objects
+    function applyTheme(themeIdx) {
+      App.themeIndex = themeIdx;
+      const theme = Themes[themeIdx];
+      document.getElementById('theme-name').textContent = theme.name;
+
+      // Update Swatches UI
+      document.querySelectorAll('.swatch').forEach(s => {
+        s.classList.toggle('active', parseInt(s.dataset.theme) === themeIdx);
+      });
+
+      // Update Tesseract Colors
+      outerCoreCube.color = theme.core.slice();
+      midCoreCube.color = theme.mid.slice();
+      innerCoreCube.color = theme.inner.slice();
+
+      // Update Satellite Colors
+      for (let i = 0; i < satelliteCubes.length; i++) {
+        const sat = satelliteCubes[i];
+        if (themeIdx === 5) {
+          // Prismatic initial color
+          sat.mesh.color = hslToRgb((i / NUM_SATELLITES), 0.9, 0.55);
+        } else {
+          sat.mesh.color = theme.swarm[i % theme.swarm.length].slice();
+        }
+      }
+
+      App.audio.playChime();
+      showToast(`Theme: ${theme.name}`);
+    }
+
+    // 6. Set Visualization Formation Mode
+    function setMode(modeIdx) {
+      App.mode = modeIdx;
+      const modeNames = ["Orbitals", "Wave Grid", "DNA Helix", "Supernova", "Equalizer", "Rubik Cube"];
+      document.getElementById('telem-mode').textContent = modeNames[modeIdx];
+
+      // Update Button Active States
+      document.querySelectorAll('[data-mode]').forEach(b => {
+        b.classList.toggle('active', parseInt(b.dataset.mode) === modeIdx);
+      });
+
+      App.audio.playWarpChord();
+      showToast(`Formation: ${modeNames[modeIdx]}`);
+    }
+
+    // 7. Trigger Shockwave Ripple Effect
+    function triggerShockwave() {
+      App.shockwaveIntensity = 1.0;
+      App.audio.playShockwaveBoom();
+      showToast("💥 Shockwave Pulse Triggered!");
+    }
+
+    // 8. Toggle Magic Mode (XTK native polygon multi-color)
+    function toggleMagicMode() {
+      App.magicMode = !App.magicMode;
+      const btn = document.getElementById('btn-magic');
+      btn.classList.toggle('active', App.magicMode);
+
+      outerCoreCube.magicmode = App.magicMode;
+      midCoreCube.magicmode = App.magicMode;
+      innerCoreCube.magicmode = App.magicMode;
+
+      for (let i = 0; i < satelliteCubes.length; i++) {
+        satelliteCubes[i].mesh.magicmode = App.magicMode;
+      }
+
+      // Re-apply normal theme colors if turned off
+      if (!App.magicMode) {
+        applyTheme(App.themeIndex);
+      }
+
+      App.audio.playChime();
+      showToast(`Magic Mode: ${App.magicMode ? "ON" : "OFF"}`);
+    }
+
+    // 9. Setup UI Control Listeners
+    function setupUIEventListeners() {
+      // Play / Pause
+      const btnPlay = document.getElementById('btn-playpause');
+      btnPlay.onclick = () => {
+        App.running = !App.running;
+        btnPlay.textContent = App.running ? "⏸ Pause" : "▶ Resume";
+        btnPlay.classList.toggle('btn-primary', App.running);
+        showToast(App.running ? "Resumed Simulation" : "Paused Simulation");
+      };
+
+      // Shockwave Button
+      document.getElementById('btn-shockwave').onclick = triggerShockwave;
+
+      // Speed Slider
+      const sliderSpeed = document.getElementById('slider-speed');
+      const valSpeed = document.getElementById('val-speed');
+      sliderSpeed.oninput = (e) => {
+        App.speedMultiplier = parseFloat(e.target.value);
+        valSpeed.textContent = App.speedMultiplier.toFixed(1) + 'x';
+      };
+
+      // Formation Mode Buttons
+      document.querySelectorAll('[data-mode]').forEach(btn => {
+        btn.onclick = () => setMode(parseInt(btn.dataset.mode));
+      });
+
+      // Palette Swatches
+      document.querySelectorAll('.swatch').forEach(swatch => {
+        swatch.onclick = () => applyTheme(parseInt(swatch.dataset.theme));
+      });
+
+      // Magic Mode Button
+      document.getElementById('btn-magic').onclick = toggleMagicMode;
+
+      // Audio Toggle Button
+      const btnAudio = document.getElementById('btn-audio');
+      btnAudio.onclick = () => {
+        const isAudioOn = App.audio.toggle();
+        btnAudio.textContent = isAudioOn ? "🔊 Sound: ON [A]" : "🔇 Sound: OFF [A]";
+        btnAudio.classList.toggle('active', isAudioOn);
+        showToast(`Synthesizer Audio: ${isAudioOn ? "ENABLED" : "MUTED"}`);
+      };
+
+      // Amplitude Slider
+      const sliderAmp = document.getElementById('slider-amplitude');
+      const valAmp = document.getElementById('val-amplitude');
+      sliderAmp.oninput = (e) => {
+        App.amplitude = parseFloat(e.target.value);
+        valAmp.textContent = App.amplitude;
+      };
+
+      // Spread Slider
+      const sliderSpread = document.getElementById('slider-spread');
+      const valSpread = document.getElementById('val-spread');
+      sliderSpread.oninput = (e) => {
+        App.spread = parseFloat(e.target.value);
+        valSpread.textContent = App.spread;
+      };
+
+      // Opacity Slider
+      const sliderOpacity = document.getElementById('slider-opacity');
+      const valOpacity = document.getElementById('val-opacity');
+      sliderOpacity.oninput = (e) => {
+        App.opacity = parseFloat(e.target.value);
+        valOpacity.textContent = App.opacity.toFixed(2);
+        outerCoreCube.opacity = App.opacity;
+      };
+
+      // Camera Presets
+      document.getElementById('cam-iso').onclick = () => {
+        r.camera.position = [220, 220, 280];
+        r.camera.up = [0, 1, 0];
+        showToast("Camera: Isometric View");
+      };
+      document.getElementById('cam-top').onclick = () => {
+        r.camera.position = [0, 420, 0];
+        r.camera.up = [0, 0, -1];
+        showToast("Camera: Top-Down View");
+      };
+      document.getElementById('cam-front').onclick = () => {
+        r.camera.position = [0, 0, 380];
+        r.camera.up = [0, 1, 0];
+        showToast("Camera: Front View");
+      };
+      document.getElementById('cam-side').onclick = () => {
+        r.camera.position = [380, 0, 0];
+        r.camera.up = [0, 1, 0];
+        showToast("Camera: Profile View");
+      };
+
+      // Auto-Orbit Toggle
+      const btnOrbit = document.getElementById('cam-orbit');
+      btnOrbit.onclick = () => {
+        App.autoOrbit = !App.autoOrbit;
+        btnOrbit.classList.toggle('active', App.autoOrbit);
+        showToast(`Auto-Orbit: ${App.autoOrbit ? "ON" : "OFF"}`);
+      };
+
+      // Reset Camera
+      document.getElementById('cam-reset').onclick = () => {
+        r.camera.position = [0, 0, 360];
+        r.camera.up = [0, 1, 0];
+        showToast("Camera: Reset to Default");
+      };
+
+      // Fullscreen
+      document.getElementById('btn-fullscreen').onclick = toggleFullscreen;
+
+      // HUD Visibility Toggle
+      document.getElementById('hud-toggle-btn').onclick = toggleHUD;
+
+      // CS460 Scene Loader Integration
+      document.getElementById('btn-export').onclick = () => {
+        if (typeof download === 'function') {
+          download();
+          showToast("Exporting Scene JSON via CS460 loader.js...");
+        } else {
+          showToast("loader.js export not available");
+        }
+      };
+
+      const fileImporter = document.getElementById('file-importer');
+      document.getElementById('btn-import').onclick = () => fileImporter.click();
+      fileImporter.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const blobUrl = URL.createObjectURL(file);
+        if (typeof upload === 'function') {
+          upload(blobUrl);
+          showToast(`Uploaded ${file.name}`);
+        }
+      };
+
+      // Double Click canvas for Shockwave
+      window.ondblclick = (e) => {
+        if (!e.target.closest('#deck') && !e.target.closest('header') && !e.target.closest('footer')) {
+          triggerShockwave();
+        }
+      };
+    }
+
+    // 10. Setup Keyboard Shortcuts
+    function setupKeyboardListeners() {
+      window.addEventListener('keydown', (e) => {
+        // Prevent interfering when typing in potential text inputs
+        if (e.target.tagName === 'INPUT' && e.target.type === 'text') return;
+
+        const key = e.key.toUpperCase();
+
+        switch(e.key) {
+          case ' ': // Space: Play/Pause
+            e.preventDefault();
+            document.getElementById('btn-playpause').click();
+            break;
+          case '1':
+          case '2':
+          case '3':
+          case '4':
+          case '5':
+          case '6':
+            setMode(parseInt(e.key) - 1);
+            break;
+          case 'c':
+          case 'C': // Cycle Theme
+            applyTheme((App.themeIndex + 1) % Themes.length);
+            break;
+          case 'e':
+          case 'E': // Shockwave
+            triggerShockwave();
+            break;
+          case 'm':
+          case 'M': // Magic Mode
+            toggleMagicMode();
+            break;
+          case 'a':
+          case 'A': // Audio
+            document.getElementById('btn-audio').click();
+            break;
+          case 'o':
+          case 'O': // Auto-Orbit
+            document.getElementById('cam-orbit').click();
+            break;
+          case 'r':
+          case 'R': // Reset Camera
+            document.getElementById('cam-reset').click();
+            break;
+          case 'h':
+          case 'H': // Toggle HUD
+            toggleHUD();
+            break;
+          case 'f':
+          case 'F': // Fullscreen
+            toggleFullscreen();
+            break;
+        }
+      });
+    }
+
+    // 11. Toggle HUD
+    function toggleHUD() {
+      App.hudVisible = !App.hudVisible;
+      document.getElementById('hud').classList.toggle('hidden', !App.hudVisible);
+      showToast(App.hudVisible ? "HUD Visible [H]" : "HUD Hidden [H to Restore]");
+    }
+
+    // 12. Fullscreen Toggle
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+        showToast("Fullscreen Mode");
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen().catch(() => {});
+          showToast("Windowed Mode");
+        }
+      }
+    }
+  </script>
+</body>
+</html>

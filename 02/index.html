@@ -1,2 +1,1472 @@
-Ready for assignment 2.
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CS460 - Physical Superflat Cube Sandbox</title>
+  
+  <!-- Three.js (r128) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  
+  <!-- OrbitControls -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  
+  <!-- Cannon.js Rigid Body Physics -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"></script>
 
+  <style>
+    :root {
+      --primary: #00d2ff;
+      --primary-glow: rgba(0, 210, 255, 0.4);
+      --secondary: #ff3366;
+      --accent: #ffbb00;
+      --bg-dark: #0a0e17;
+      --panel-bg: rgba(13, 20, 36, 0.82);
+      --panel-border: rgba(0, 210, 255, 0.25);
+      --text: #e8f4fc;
+      --text-muted: #8ca3be;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --font-mono: "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: var(--bg-dark);
+      font-family: var(--font);
+      color: var(--text);
+    }
+
+    #webgl-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      z-index: 1;
+    }
+
+    /* HUD Layer */
+    .hud-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 10;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 18px 24px;
+      transition: opacity 0.3s ease;
+    }
+
+    .interactive {
+      pointer-events: auto;
+    }
+
+    /* Header Bar */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--panel-bg);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--panel-border);
+      border-radius: 14px;
+      padding: 12px 22px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .brand-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-cube-icon {
+      width: 28px;
+      height: 28px;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      border-radius: 6px;
+      box-shadow: 0 0 12px var(--primary-glow);
+      transform: rotate(12deg);
+      transition: transform 0.3s ease;
+    }
+
+    .brand-cube-icon:hover {
+      transform: rotate(45deg) scale(1.1);
+    }
+
+    .brand-text h1 {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      background: linear-gradient(90deg, #fff, var(--primary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .sketch-tag {
+      font-size: 10px;
+      padding: 2px 7px;
+      border-radius: 6px;
+      background: rgba(0, 210, 255, 0.15);
+      color: var(--primary);
+      border: 1px solid rgba(0, 210, 255, 0.35);
+      font-family: var(--font-mono);
+      -webkit-text-fill-color: var(--primary);
+    }
+
+    .brand-subtitle {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .telemetry-row {
+      display: flex;
+      gap: 18px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+    }
+
+    .telem-box {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+    }
+
+    .telem-label {
+      font-size: 9px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+
+    .telem-val {
+      color: var(--primary);
+      font-weight: 700;
+    }
+
+    /* Control Deck Sidebar */
+    .control-deck {
+      position: absolute;
+      top: 86px;
+      right: 24px;
+      width: 320px;
+      max-height: calc(100vh - 165px);
+      overflow-y: auto;
+      background: var(--panel-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--panel-border);
+      border-radius: 14px;
+      padding: 18px;
+      box-shadow: 0 12px 35px rgba(0, 0, 0, 0.55);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--panel-border) transparent;
+      transition: transform 0.3s ease, opacity 0.3s ease;
+    }
+
+    .control-deck::-webkit-scrollbar {
+      width: 5px;
+    }
+    .control-deck::-webkit-scrollbar-thumb {
+      background: var(--panel-border);
+      border-radius: 4px;
+    }
+
+    .section-head {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      font-weight: 600;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 4px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .btn-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 7px;
+    }
+
+    .btn-grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+    }
+
+    button.btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 8px 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+
+    button.btn:hover {
+      background: rgba(0, 210, 255, 0.15);
+      border-color: var(--primary);
+      color: #fff;
+      box-shadow: 0 0 10px var(--primary-glow);
+      transform: translateY(-1px);
+    }
+
+    button.btn:active {
+      transform: translateY(1px);
+    }
+
+    button.btn-primary {
+      background: rgba(0, 210, 255, 0.18);
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+
+    button.btn-accent {
+      background: rgba(255, 51, 102, 0.18);
+      border-color: var(--secondary);
+      color: #ff5588;
+    }
+    button.btn-accent:hover {
+      background: rgba(255, 51, 102, 0.3);
+      box-shadow: 0 0 12px rgba(255, 51, 102, 0.4);
+    }
+
+    button.btn.active {
+      background: linear-gradient(135deg, rgba(0, 210, 255, 0.35), rgba(255, 51, 102, 0.35));
+      border-color: var(--primary);
+      color: #fff;
+    }
+
+    /* Sliders */
+    .slider-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .slider-label-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .slider-label-row span.val {
+      font-family: var(--font-mono);
+      color: var(--primary);
+      font-weight: 600;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 5px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: var(--primary);
+      box-shadow: 0 0 8px var(--primary-glow);
+      cursor: pointer;
+    }
+
+    /* Color Swatches & Picker */
+    .color-picker-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .color-swatches {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 6px;
+      flex: 1;
+    }
+
+    .color-chip {
+      height: 24px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      cursor: pointer;
+      transition: transform 0.15s, border-color 0.15s;
+    }
+
+    .color-chip:hover {
+      transform: scale(1.15);
+      border-color: #fff;
+    }
+
+    .color-chip.active {
+      border: 2px solid #fff;
+      box-shadow: 0 0 8px #fff;
+    }
+
+    input[type="color"] {
+      -webkit-appearance: none;
+      border: none;
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      cursor: pointer;
+      background: transparent;
+    }
+
+    input[type="color"]::-webkit-color-swatch-wrapper {
+      padding: 0;
+    }
+
+    input[type="color"]::-webkit-color-swatch {
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 6px;
+    }
+
+    /* Footer Guide */
+    footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--panel-bg);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--panel-border);
+      border-radius: 12px;
+      padding: 10px 18px;
+      font-size: 11px;
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
+    }
+
+    .hints-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      color: var(--text-muted);
+    }
+
+    .hint-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .kbd {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: #fff;
+      font-weight: 600;
+    }
+
+    /* Notification Toast */
+    #toast {
+      position: absolute;
+      bottom: 75px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: rgba(13, 20, 36, 0.92);
+      border: 1px solid var(--primary);
+      box-shadow: 0 0 20px var(--primary-glow);
+      backdrop-filter: blur(12px);
+      padding: 9px 20px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #fff;
+      pointer-events: none;
+      opacity: 0;
+      transition: all 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+      z-index: 100;
+    }
+
+    #toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* Drag crosshair reticle */
+    #reticle {
+      position: absolute;
+      width: 24px;
+      height: 24px;
+      border: 2px solid var(--primary);
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      z-index: 5;
+      display: none;
+      box-shadow: 0 0 10px var(--primary-glow);
+      animation: reticlePulse 1.2s infinite ease-in-out;
+    }
+
+    @keyframes reticlePulse {
+      0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.9; }
+      50% { transform: translate(-50%, -50%) scale(1.25); opacity: 0.5; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- WebGL Rendering Canvas -->
+  <canvas id="webgl-canvas"></canvas>
+
+  <!-- Interactive Drag Reticle -->
+  <div id="reticle"></div>
+
+  <!-- HUD Overlay -->
+  <div class="hud-layer">
+    
+    <!-- Top Header -->
+    <header class="interactive">
+      <div class="brand-title">
+        <div class="brand-cube-icon"></div>
+        <div class="brand-text">
+          <h1>Superflat World <span class="sketch-tag">From Sketch.HEIC</span></h1>
+          <div class="brand-subtitle">Real 3D Rigid Body Physics Sandbox with Dynamic Spawning</div>
+        </div>
+      </div>
+
+      <div class="telemetry-row">
+        <div class="telem-box">
+          <span class="telem-label">Physics FPS</span>
+          <span class="telem-val" id="telem-fps">60</span>
+        </div>
+        <div class="telem-box">
+          <span class="telem-label">Active Cubes</span>
+          <span class="telem-val" id="telem-count">1</span>
+        </div>
+        <div class="telem-box">
+          <span class="telem-label">Gravity</span>
+          <span class="telem-val" id="telem-grav">-9.82 m/s²</span>
+        </div>
+        <div class="telem-box">
+          <span class="telem-label">Target State</span>
+          <span class="telem-val" id="telem-state">IDLE</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Control Deck -->
+    <div class="control-deck interactive">
+      
+      <!-- Section 1: Spawning Tools -->
+      <div class="section-head">
+        <span>1. Summon Cubes [Sketch #3]</span>
+        <span style="color: var(--primary);">● READY</span>
+      </div>
+      
+      <div class="btn-grid">
+        <button class="btn btn-primary" id="btn-summon">📦 Summon Cube</button>
+        <button class="btn btn-primary" id="btn-summon-random">🎲 Random Cube</button>
+      </div>
+
+      <div class="btn-grid">
+        <button class="btn" id="btn-summon-tower">🗼 Stack Tower</button>
+        <button class="btn" id="btn-summon-cluster">🧱 2x2 Cluster</button>
+      </div>
+
+      <!-- Section 2: Shape & Size Customization -->
+      <div class="section-head">Cube Shape & Proportions</div>
+      <div class="btn-grid-3" id="shape-selector">
+        <button class="btn active" data-shape="cube">Cube</button>
+        <button class="btn" data-shape="pillar">Pillar</button>
+        <button class="btn" data-shape="slab">Slab</button>
+        <button class="btn" data-shape="beam">Beam</button>
+        <button class="btn" data-shape="giant">Giant</button>
+        <button class="btn" data-shape="random">Random</button>
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-label-row">
+          <span>Scale Multiplier</span>
+          <span class="val" id="val-scale">1.0x</span>
+        </div>
+        <input type="range" id="slider-scale" min="0.5" max="3.0" step="0.1" value="1.0">
+      </div>
+
+      <!-- Section 3: Color Selection -->
+      <div class="section-head">Color Palette</div>
+      <div class="color-picker-row">
+        <div class="color-swatches" id="color-swatches">
+          <div class="color-chip active" data-color="#ff5722" style="background: #ff5722;" title="Flame Orange"></div>
+          <div class="color-chip" data-color="#00d2ff" style="background: #00d2ff;" title="Neon Cyan"></div>
+          <div class="color-chip" data-color="#00e676" style="background: #00e676;" title="Lime Emerald"></div>
+          <div class="color-chip" data-color="#e91e63" style="background: #e91e63;" title="Vivid Pink"></div>
+          <div class="color-chip" data-color="#ffeb3b" style="background: #ffeb3b;" title="Electric Gold"></div>
+        </div>
+        <input type="color" id="custom-color" value="#ff5722" title="Pick custom color">
+      </div>
+
+      <!-- Section 4: Real Physics Parameters -->
+      <div class="section-head">2. Real Physics [Sketch #2]</div>
+      <div class="slider-group">
+        <div class="slider-label-row">
+          <span>Gravity Field</span>
+          <span class="val" id="val-gravity">-9.8 m/s²</span>
+        </div>
+        <input type="range" id="slider-gravity" min="-25" max="5" step="0.5" value="-9.8">
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-label-row">
+          <span>Bounciness (Restitution)</span>
+          <span class="val" id="val-bounce">0.45</span>
+        </div>
+        <input type="range" id="slider-bounce" min="0.0" max="0.9" step="0.05" value="0.45">
+      </div>
+
+      <div class="btn-grid">
+        <button class="btn btn-accent" id="btn-blast">💥 Shockwave Blast</button>
+        <button class="btn" id="btn-walls">🛡️ Edge Walls: ON</button>
+      </div>
+
+      <!-- Section 5: World & Audio Controls -->
+      <div class="section-head">Superflat World [Sketch #1]</div>
+      <div class="btn-grid">
+        <button class="btn" id="btn-clear">🧹 Clear Extras</button>
+        <button class="btn" id="btn-reset">🔄 Reset Scene</button>
+      </div>
+
+      <div class="btn-grid">
+        <button class="btn" id="btn-audio">🔊 Sound: ON</button>
+        <button class="btn" id="btn-camera-reset">🎥 Reset View</button>
+      </div>
+
+    </div>
+
+    <!-- Bottom Guide Bar -->
+    <footer class="interactive">
+      <div class="hints-group">
+        <div class="hint-item"><span class="kbd">Left-Drag</span> Drag cube with real physics</div>
+        <div class="hint-item"><span class="kbd">Right-Drag</span> Orbit Camera</div>
+        <div class="hint-item"><span class="kbd">Shift + Click</span> Summon at cursor point</div>
+        <div class="hint-item"><span class="kbd">Space</span> Blast shockwave</div>
+        <div class="hint-item"><span class="kbd">C</span> Summon random</div>
+        <div class="hint-item"><span class="kbd">T</span> Spawn tower</div>
+        <div class="hint-item"><span class="kbd">R</span> Reset world</div>
+      </div>
+      <div>
+        <a href="agent.html" style="color: var(--primary); text-decoration: none; font-size: 11px; font-weight: 600;">➔ Open XTK Visualizer</a>
+      </div>
+    </footer>
+
+  </div>
+
+  <!-- Notification Toast -->
+  <div id="toast">Ready</div>
+
+  <!-- Procedural Web Audio Sound FX -->
+  <script>
+    class PhysicsSoundEngine {
+      constructor() {
+        this.ctx = null;
+        this.enabled = true;
+      }
+
+      init() {
+        if (this.ctx) return;
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        this.ctx = new AudioCtx();
+      }
+
+      toggle() {
+        this.init();
+        this.enabled = !this.enabled;
+        return this.enabled;
+      }
+
+      playImpact(velocity) {
+        if (!this.enabled) return;
+        this.init();
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+
+        const intensity = Math.min(1.0, velocity / 15.0);
+        if (intensity < 0.08) return;
+
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        // Realistic low impact thud
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(120 + Math.random() * 40, now);
+        osc.frequency.exponentialRampToValueAtTime(30, now + 0.12);
+
+        const vol = 0.25 * intensity;
+        gain.gain.setValueAtTime(vol, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start();
+        osc.stop(now + 0.12);
+      }
+
+      playSpawn() {
+        if (!this.enabled) return;
+        this.init();
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(380, now);
+        osc.frequency.exponentialRampToValueAtTime(650, now + 0.18);
+
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start();
+        osc.stop(now + 0.18);
+      }
+
+      playBlast() {
+        if (!this.enabled) return;
+        this.init();
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(150, now);
+        osc.frequency.exponentialRampToValueAtTime(25, now + 0.6);
+
+        gain.gain.setValueAtTime(0.4, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start();
+        osc.stop(now + 0.6);
+      }
+    }
+  </script>
+
+  <!-- Main Three.js + Cannon.js Physics Sandbox Script -->
+  <script>
+    // Global Application State
+    const App = {
+      shape: 'cube',
+      scale: 1.0,
+      color: '#ff5722',
+      gravity: -9.82,
+      restitution: 0.45,
+      edgeWalls: true,
+      audio: new PhysicsSoundEngine()
+    };
+
+    // Three.js variables
+    let scene, camera, renderer, controls;
+    let groundMesh, edgeWallMeshes = [];
+    let springLineMesh;
+
+    // Cannon.js variables
+    let world;
+    let defaultMaterial, contactMaterial;
+    let groundBody, edgeWallBodies = [];
+
+    // Interactive Dragging variables
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    let isDragging = false;
+    let draggedBody = null;
+    let mouseConstraint = null;
+    let mouseBody = null;
+    let dragPlane = new THREE.Plane();
+    let planeIntersect = new THREE.Vector3();
+    let hoveredMesh = null;
+
+    // Active Objects Registry
+    const physicsObjects = [];
+    const MAX_BODIES = 120;
+
+    // Toast Utility
+    let toastTimer = null;
+    function showToast(msg) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.classList.remove('show'), 2000);
+    }
+
+    // Initialize Sandbox
+    window.addEventListener('DOMContentLoaded', () => {
+      initThree();
+      initCannon();
+      createSuperflatWorld();
+      createVisualSpringLine();
+      createInitialPhysicalCube();
+      setupMouseInteraction();
+      setupUI();
+      setupKeyboard();
+      animate();
+
+      showToast("Superflat World Ready! Left-Click & Drag cubes with real physics.");
+    });
+
+    // 1. Initialize Three.js Scene, Camera, Lights
+    function initThree() {
+      const canvas = document.getElementById('webgl-canvas');
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x0a0f1d);
+      scene.fog = new THREE.FogExp2(0x0a0f1d, 0.015);
+
+      camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+      camera.position.set(24, 22, 28);
+
+      renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+      // OrbitControls (Right click / empty drag)
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+      controls.maxPolarAngle = Math.PI / 2 - 0.05; // Don't dip below ground
+      controls.minDistance = 6;
+      controls.maxDistance = 90;
+      controls.target.set(0, 2, 0);
+
+      // Soft Ambient & Directional Sunlight
+      const hemiLight = new THREE.HemisphereLight(0xddeeff, 0x111625, 0.6);
+      scene.add(hemiLight);
+
+      const dirLight = new THREE.DirectionalLight(0xffffff, 0.95);
+      dirLight.position.set(25, 45, 20);
+      dirLight.castShadow = true;
+      dirLight.shadow.mapSize.width = 2048;
+      dirLight.shadow.mapSize.height = 2048;
+      dirLight.shadow.camera.near = 1;
+      dirLight.shadow.camera.far = 100;
+      dirLight.shadow.camera.left = -25;
+      dirLight.shadow.camera.right = 25;
+      dirLight.shadow.camera.top = 25;
+      dirLight.shadow.camera.bottom = -25;
+      dirLight.shadow.bias = -0.0006;
+      scene.add(dirLight);
+
+      // Subtle cyan accent fill
+      const accentLight = new THREE.DirectionalLight(0x00d2ff, 0.35);
+      accentLight.position.set(-20, 15, -20);
+      scene.add(accentLight);
+
+      window.addEventListener('resize', onWindowResize);
+    }
+
+    // 2. Initialize Cannon.js Physics Engine
+    function initCannon() {
+      world = new CANNON.World();
+      world.gravity.set(0, App.gravity, 0);
+      world.broadphase = new CANNON.NaiveBroadphase();
+      world.solver.iterations = 12;
+
+      defaultMaterial = new CANNON.Material('default');
+      contactMaterial = new CANNON.ContactMaterial(defaultMaterial, defaultMaterial, {
+        friction: 0.4,
+        restitution: App.restitution,
+        contactEquationStiffness: 1e7,
+        contactEquationRelaxation: 3
+      });
+      world.addContactMaterial(contactMaterial);
+      world.defaultContactMaterial = contactMaterial;
+
+      // Mouse kinematic joint body
+      mouseBody = new CANNON.Body({
+        mass: 0,
+        type: CANNON.Body.KINEMATIC,
+        collisionFilterGroup: 0, // No collisions with scene
+        collisionFilterMask: 0
+      });
+      world.addBody(mouseBody);
+    }
+
+    // 3. Create Superflat World Platform (Sketch Step 1)
+    function createSuperflatWorld() {
+      const worldSize = 38;
+      const worldDepth = 1.5;
+
+      // Visual Floating Superflat Slab
+      const slabGeo = new THREE.BoxGeometry(worldSize, worldDepth, worldSize);
+      const slabMat = new THREE.MeshStandardMaterial({
+        color: 0x162035,
+        roughness: 0.6,
+        metalness: 0.15
+      });
+      groundMesh = new THREE.Mesh(slabGeo, slabMat);
+      groundMesh.position.set(0, -worldDepth / 2, 0);
+      groundMesh.receiveShadow = true;
+      scene.add(groundMesh);
+
+      // Top surface grid texture
+      const grid = new THREE.GridHelper(worldSize, 38, 0x00d2ff, 0x223555);
+      grid.position.y = 0.01;
+      scene.add(grid);
+
+      // Subtle glowing perimeter border
+      const borderGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(worldSize + 0.05, 0.1, worldSize + 0.05));
+      const borderMat = new THREE.LineBasicMaterial({ color: 0x00d2ff, transparent: true, opacity: 0.5 });
+      const borderLine = new THREE.LineSegments(borderGeo, borderMat);
+      borderLine.position.y = 0.05;
+      scene.add(borderLine);
+
+      // Physics Rigid Body for Ground
+      const groundShape = new CANNON.Box(new CANNON.Vec3(worldSize / 2, worldDepth / 2, worldSize / 2));
+      groundBody = new CANNON.Body({
+        mass: 0, // Static
+        material: defaultMaterial
+      });
+      groundBody.addShape(groundShape);
+      groundBody.position.set(0, -worldDepth / 2, 0);
+      world.addBody(groundBody);
+
+      // Invisible Edge Safety Walls
+      createEdgeWalls(worldSize);
+    }
+
+    // Edge Walls to prevent cubes falling off accidentally
+    function createEdgeWalls(size) {
+      const wallH = 12;
+      const wallThick = 2;
+      const halfS = size / 2;
+
+      const configs = [
+        { pos: [0, wallH / 2, halfS + wallThick / 2], size: [size, wallH, wallThick] },
+        { pos: [0, wallH / 2, -halfS - wallThick / 2], size: [size, wallH, wallThick] },
+        { pos: [halfS + wallThick / 2, wallH / 2, 0], size: [wallThick, wallH, size] },
+        { pos: [-halfS - wallThick / 2, wallH / 2, 0], size: [wallThick, wallH, size] }
+      ];
+
+      configs.forEach(cfg => {
+        const shape = new CANNON.Box(new CANNON.Vec3(cfg.size[0] / 2, cfg.size[1] / 2, cfg.size[2] / 2));
+        const body = new CANNON.Body({ mass: 0, material: defaultMaterial });
+        body.addShape(shape);
+        body.position.set(...cfg.pos);
+        world.addBody(body);
+        edgeWallBodies.push(body);
+      });
+    }
+
+    function toggleEdgeWalls() {
+      App.edgeWalls = !App.edgeWalls;
+      edgeWallBodies.forEach(b => {
+        if (App.edgeWalls) world.addBody(b);
+        else world.remove(b);
+      });
+      document.getElementById('btn-walls').textContent = `🛡️ Edge Walls: ${App.edgeWalls ? 'ON' : 'OFF'}`;
+      showToast(`Edge Boundary Walls: ${App.edgeWalls ? 'ENABLED' : 'DISABLED'}`);
+    }
+
+    // 4. Create Visual Spring Indicator Line
+    function createVisualSpringLine() {
+      const lineGeo = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(0, 0, 0),
+        new THREE.Vector3(0, 0, 0)
+      ]);
+      const lineMat = new THREE.LineBasicMaterial({
+        color: 0x00f3ff,
+        linewidth: 2,
+        transparent: true,
+        opacity: 0.85
+      });
+      springLineMesh = new THREE.Line(lineGeo, lineMat);
+      springLineMesh.visible = false;
+      scene.add(springLineMesh);
+    }
+
+    // 5. Create Initial Physical Cube (Sketch Step 2)
+    function createInitialPhysicalCube() {
+      summonCube({
+        shape: 'cube',
+        scale: 1.2,
+        color: '#ff5722',
+        position: new THREE.Vector3(0, 5, 0),
+        isHero: true
+      });
+    }
+
+    // 6. Universal Cube Summoning Factory (Sketch Step 3)
+    function summonCube(options = {}) {
+      if (physicsObjects.length >= MAX_BODIES) {
+        removeOldestNonHeroObject();
+      }
+
+      const shapeType = options.shape || App.shape;
+      const scaleMult = options.scale !== undefined ? options.scale : App.scale;
+      const hexColor = options.color || App.color;
+
+      // Determine Dimensions (X, Y, Z)
+      let w = 2, h = 2, d = 2;
+      const base = 2.0 * scaleMult;
+
+      switch(shapeType) {
+        case 'cube':
+          w = h = d = base;
+          break;
+        case 'pillar':
+          w = base * 0.75;
+          h = base * 2.2;
+          d = base * 0.75;
+          break;
+        case 'slab':
+          w = base * 1.8;
+          h = base * 0.45;
+          d = base * 1.8;
+          break;
+        case 'beam':
+          w = base * 2.4;
+          h = base * 0.8;
+          d = base * 0.8;
+          break;
+        case 'giant':
+          w = h = d = base * 2.0;
+          break;
+        case 'random':
+          w = base * (0.6 + Math.random() * 1.2);
+          h = base * (0.6 + Math.random() * 1.2);
+          d = base * (0.6 + Math.random() * 1.2);
+          break;
+      }
+
+      // Physics Rigid Body
+      const halfExtents = new CANNON.Vec3(w / 2, h / 2, d / 2);
+      const boxShape = new CANNON.Box(halfExtents);
+      const volume = w * h * d;
+      const mass = volume * 1.5;
+
+      const body = new CANNON.Body({
+        mass: mass,
+        material: defaultMaterial,
+        linearDamping: 0.05,
+        angularDamping: 0.15
+      });
+      body.addShape(boxShape);
+
+      // Spawn Position
+      if (options.position) {
+        body.position.set(options.position.x, options.position.y, options.position.z);
+      } else {
+        const rx = (Math.random() - 0.5) * 16;
+        const rz = (Math.random() - 0.5) * 16;
+        body.position.set(rx, 9 + Math.random() * 5, rz);
+      }
+
+      // Initial small angular tumble
+      body.angularVelocity.set(
+        (Math.random() - 0.5) * 3,
+        (Math.random() - 0.5) * 3,
+        (Math.random() - 0.5) * 3
+      );
+
+      world.addBody(body);
+
+      // Collision Sound Listener
+      body.addEventListener('collide', (e) => {
+        const relVel = e.contact.getImpactVelocityAlongNormal();
+        if (Math.abs(relVel) > 1.2) {
+          App.audio.playImpact(Math.abs(relVel));
+        }
+      });
+
+      // Three.js Visual Mesh
+      const geometry = new THREE.BoxGeometry(w, h, d);
+      const material = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(hexColor),
+        roughness: 0.35,
+        metalness: 0.15
+      });
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      scene.add(mesh);
+
+      // Subtle edge wireframe for crisp silhouette
+      const edges = new THREE.LineSegments(
+        new THREE.EdgesGeometry(geometry),
+        new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.25 })
+      );
+      mesh.add(edges);
+
+      // Store reference
+      const objData = {
+        mesh: mesh,
+        body: body,
+        isHero: options.isHero || false,
+        baseColor: new THREE.Color(hexColor)
+      };
+      mesh.userData = objData;
+      physicsObjects.push(objData);
+
+      updateObjectCount();
+      App.audio.playSpawn();
+
+      return objData;
+    }
+
+    // Remove oldest object if hitting memory/physics limit
+    function removeOldestNonHeroObject() {
+      const idx = physicsObjects.findIndex(o => !o.isHero);
+      if (idx !== -1) {
+        removeObjectAt(idx);
+      }
+    }
+
+    function removeObjectAt(idx) {
+      const obj = physicsObjects[idx];
+      world.remove(obj.body);
+      scene.remove(obj.mesh);
+      obj.mesh.geometry.dispose();
+      obj.mesh.material.dispose();
+      physicsObjects.splice(idx, 1);
+      updateObjectCount();
+    }
+
+    function updateObjectCount() {
+      document.getElementById('telem-count').textContent = physicsObjects.length;
+    }
+
+    // 7. Interactive Physics Dragging Setup (Sketch Step 2)
+    function setupMouseInteraction() {
+      const canvas = renderer.domElement;
+      const reticle = document.getElementById('reticle');
+
+      canvas.addEventListener('mousemove', (e) => {
+        mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+        if (isDragging) {
+          // Raycast against the drag plane to update mouseBody position
+          raycaster.setFromCamera(mouse, camera);
+          if (raycaster.ray.intersectPlane(dragPlane, planeIntersect)) {
+            mouseBody.position.set(planeIntersect.x, planeIntersect.y, planeIntersect.z);
+
+            // Update Spring Line
+            const positions = springLineMesh.geometry.attributes.position.array;
+            positions[0] = planeIntersect.x;
+            positions[1] = planeIntersect.y;
+            positions[2] = planeIntersect.z;
+
+            // Anchor point on the dragged mesh in world coords
+            const anchor = new THREE.Vector3(
+              mouseConstraint.pivotA.x,
+              mouseConstraint.pivotA.y,
+              mouseConstraint.pivotA.z
+            );
+            anchor.applyQuaternion(draggedBody.mesh.quaternion);
+            anchor.add(draggedBody.mesh.position);
+
+            positions[3] = anchor.x;
+            positions[4] = anchor.y;
+            positions[5] = anchor.z;
+            springLineMesh.geometry.attributes.position.needsUpdate = true;
+          }
+          reticle.style.left = e.clientX + 'px';
+          reticle.style.top = e.clientY + 'px';
+        } else {
+          // Hover detection
+          raycaster.setFromCamera(mouse, camera);
+          const intersects = raycaster.intersectObjects(physicsObjects.map(o => o.mesh));
+
+          if (intersects.length > 0) {
+            const hitMesh = intersects[0].object;
+            if (hoveredMesh !== hitMesh) {
+              if (hoveredMesh) hoveredMesh.material.emissive.setHex(0x000000);
+              hoveredMesh = hitMesh;
+              hoveredMesh.material.emissive.setHex(0x334466);
+              canvas.style.cursor = 'grab';
+              document.getElementById('telem-state').textContent = 'READY TO GRAB';
+            }
+          } else {
+            if (hoveredMesh) {
+              hoveredMesh.material.emissive.setHex(0x000000);
+              hoveredMesh = null;
+              canvas.style.cursor = 'default';
+              document.getElementById('telem-state').textContent = 'IDLE';
+            }
+          }
+        }
+      });
+
+      canvas.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return; // Only Left Click
+
+        raycaster.setFromCamera(mouse, camera);
+
+        // Check Shift + Click to summon on ground point
+        if (e.shiftKey) {
+          const groundHits = raycaster.intersectObject(groundMesh);
+          if (groundHits.length > 0) {
+            const pt = groundHits[0].point;
+            summonCube({
+              position: new THREE.Vector3(pt.x, pt.y + 2, pt.z)
+            });
+            showToast("Summoned cube at cursor point");
+            return;
+          }
+        }
+
+        // Raycast against physical cubes
+        const intersects = raycaster.intersectObjects(physicsObjects.map(o => o.mesh));
+        if (intersects.length > 0) {
+          const hit = intersects[0];
+          const hitObj = hit.object.userData;
+
+          isDragging = true;
+          draggedBody = hitObj;
+          controls.enabled = false; // Disable camera orbit while dragging cube!
+
+          // Position mouse body at hit point
+          mouseBody.position.set(hit.point.x, hit.point.y, hit.point.z);
+
+          // Compute local pivot on the hit body
+          const localPivot = new CANNON.Vec3();
+          hitObj.body.pointToLocalFrame(new CANNON.Vec3(hit.point.x, hit.point.y, hit.point.z), localPivot);
+
+          // Add Cannon.js PointToPoint Spring Constraint
+          mouseConstraint = new CANNON.PointToPointConstraint(
+            hitObj.body,
+            localPivot,
+            mouseBody,
+            new CANNON.Vec3(0, 0, 0),
+            1e5 // Max force
+          );
+          world.addConstraint(mouseConstraint);
+
+          // Setup dynamic drag plane facing camera at intersection depth
+          dragPlane.setFromNormalAndCoplanarPoint(
+            camera.getWorldDirection(new THREE.Vector3()).negate(),
+            hit.point
+          );
+
+          // Visuals
+          springLineMesh.visible = true;
+          canvas.style.cursor = 'grabbing';
+          reticle.style.display = 'block';
+          reticle.style.left = e.clientX + 'px';
+          reticle.style.top = e.clientY + 'px';
+          document.getElementById('telem-state').textContent = 'DRAGGING CUBE';
+
+          showToast("Dragging physical cube. Release to fling!");
+        }
+      });
+
+      window.addEventListener('mouseup', () => {
+        if (isDragging) {
+          isDragging = false;
+          if (mouseConstraint) {
+            world.removeConstraint(mouseConstraint);
+            mouseConstraint = null;
+          }
+          draggedBody = null;
+          controls.enabled = true; // Re-enable camera orbit
+          springLineMesh.visible = false;
+          reticle.style.display = 'none';
+          canvas.style.cursor = hoveredMesh ? 'grab' : 'default';
+          document.getElementById('telem-state').textContent = 'IDLE';
+        }
+      });
+    }
+
+    // 8. Preset Spawning Helpers (Towers, Clusters)
+    function summonTower() {
+      const count = 5;
+      const baseHeight = 1.2;
+      const x = (Math.random() - 0.5) * 6;
+      const z = (Math.random() - 0.5) * 6;
+
+      for (let i = 0; i < count; i++) {
+        setTimeout(() => {
+          summonCube({
+            shape: 'cube',
+            scale: 0.9,
+            color: getRandomPaletteColor(),
+            position: new THREE.Vector3(x, (i + 1) * 2.2, z)
+          });
+        }, i * 70);
+      }
+      showToast("Summoned 5-Cube Physics Tower!");
+    }
+
+    function summonCluster() {
+      const positions = [
+        [-2, 6, -2],
+        [2, 6, -2],
+        [-2, 6, 2],
+        [2, 6, 2]
+      ];
+      positions.forEach((pos, idx) => {
+        setTimeout(() => {
+          summonCube({
+            shape: App.shape,
+            scale: App.scale,
+            color: getRandomPaletteColor(),
+            position: new THREE.Vector3(pos[0], pos[1], pos[2])
+          });
+        }, idx * 60);
+      });
+      showToast("Summoned 4-Cube Cluster!");
+    }
+
+    function triggerRadialBlast() {
+      App.audio.playBlast();
+      const origin = new CANNON.Vec3(0, 1, 0);
+      const blastPower = 180;
+
+      physicsObjects.forEach(obj => {
+        const delta = new CANNON.Vec3();
+        obj.body.position.vsub(origin, delta);
+        const dist = delta.norm() + 0.5;
+        delta.normalize();
+
+        const force = blastPower / (dist * 0.7);
+        delta.scale(force, delta);
+        delta.y += force * 0.5; // Upward kick
+
+        obj.body.applyImpulse(delta, obj.body.position);
+      });
+
+      showToast("💥 Radial Physics Shockwave Fired!");
+    }
+
+    function getRandomPaletteColor() {
+      const palette = ['#ff5722', '#00d2ff', '#00e676', '#e91e63', '#ffeb3b', '#9c27b0', '#ff9800'];
+      return palette[Math.floor(Math.random() * palette.length)];
+    }
+
+    // 9. Setup UI Controls
+    function setupUI() {
+      // Summon Buttons
+      document.getElementById('btn-summon').onclick = () => {
+        summonCube();
+        showToast("Summoned Cube");
+      };
+
+      document.getElementById('btn-summon-random').onclick = () => {
+        summonCube({
+          shape: 'random',
+          scale: 0.6 + Math.random() * 1.5,
+          color: getRandomPaletteColor()
+        });
+        showToast("Summoned Random Cube");
+      };
+
+      document.getElementById('btn-summon-tower').onclick = summonTower;
+      document.getElementById('btn-summon-cluster').onclick = summonCluster;
+      document.getElementById('btn-blast').onclick = triggerRadialBlast;
+      document.getElementById('btn-walls').onclick = toggleEdgeWalls;
+
+      // Shape selector buttons
+      document.querySelectorAll('#shape-selector button').forEach(btn => {
+        btn.onclick = () => {
+          document.querySelectorAll('#shape-selector button').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          App.shape = btn.dataset.shape;
+          showToast(`Shape preset: ${App.shape.toUpperCase()}`);
+        };
+      });
+
+      // Scale slider
+      const sliderScale = document.getElementById('slider-scale');
+      const valScale = document.getElementById('val-scale');
+      sliderScale.oninput = (e) => {
+        App.scale = parseFloat(e.target.value);
+        valScale.textContent = App.scale.toFixed(1) + 'x';
+      };
+
+      // Gravity slider
+      const sliderGrav = document.getElementById('slider-gravity');
+      const valGrav = document.getElementById('val-gravity');
+      sliderGrav.oninput = (e) => {
+        App.gravity = parseFloat(e.target.value);
+        world.gravity.set(0, App.gravity, 0);
+        valGrav.textContent = App.gravity.toFixed(1) + ' m/s²';
+        document.getElementById('telem-grav').textContent = App.gravity.toFixed(1) + ' m/s²';
+      };
+
+      // Bounciness slider
+      const sliderBounce = document.getElementById('slider-bounce');
+      const valBounce = document.getElementById('val-bounce');
+      sliderBounce.oninput = (e) => {
+        App.restitution = parseFloat(e.target.value);
+        contactMaterial.restitution = App.restitution;
+        valBounce.textContent = App.restitution.toFixed(2);
+      };
+
+      // Color Swatches
+      document.querySelectorAll('.color-chip').forEach(chip => {
+        chip.onclick = () => {
+          document.querySelectorAll('.color-chip').forEach(c => c.classList.remove('active'));
+          chip.classList.add('active');
+          App.color = chip.dataset.color;
+          document.getElementById('custom-color').value = App.color;
+          showToast(`Selected Color: ${App.color}`);
+        };
+      });
+
+      document.getElementById('custom-color').oninput = (e) => {
+        App.color = e.target.value;
+        document.querySelectorAll('.color-chip').forEach(c => c.classList.remove('active'));
+      };
+
+      // Clear & Reset
+      document.getElementById('btn-clear').onclick = () => {
+        for (let i = physicsObjects.length - 1; i >= 0; i--) {
+          if (!physicsObjects[i].isHero) {
+            removeObjectAt(i);
+          }
+        }
+        showToast("Cleared extra cubes (Hero cube preserved)");
+      };
+
+      document.getElementById('btn-reset').onclick = () => {
+        for (let i = physicsObjects.length - 1; i >= 0; i--) {
+          removeObjectAt(i);
+        }
+        createInitialPhysicalCube();
+        showToast("World Reset to Original State");
+      };
+
+      // Camera Reset
+      document.getElementById('btn-camera-reset').onclick = () => {
+        camera.position.set(24, 22, 28);
+        controls.target.set(0, 2, 0);
+        showToast("Camera Reset");
+      };
+
+      // Audio Toggle
+      const btnAudio = document.getElementById('btn-audio');
+      btnAudio.onclick = () => {
+        const on = App.audio.toggle();
+        btnAudio.textContent = on ? "🔊 Sound: ON" : "🔇 Sound: OFF";
+        showToast(`Sound Effects: ${on ? 'ENABLED' : 'MUTED'}`);
+      };
+    }
+
+    // 10. Keyboard Shortcuts
+    function setupKeyboard() {
+      window.addEventListener('keydown', (e) => {
+        if (e.target.tagName === 'INPUT') return;
+
+        switch(e.key.toLowerCase()) {
+          case ' ':
+            e.preventDefault();
+            triggerRadialBlast();
+            break;
+          case 'c':
+            document.getElementById('btn-summon-random').click();
+            break;
+          case 't':
+            summonTower();
+            break;
+          case 'r':
+            document.getElementById('btn-reset').click();
+            break;
+        }
+      });
+    }
+
+    // 11. Window Resize
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    // 12. Main Animation & Physics Loop
+    let lastTime = performance.now();
+    let frameCount = 0;
+    let fpsAccum = 0;
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      const time = performance.now();
+      const dt = (time - lastTime) / 1000;
+      lastTime = time;
+
+      // Update FPS Telemetry
+      frameCount++;
+      fpsAccum += dt;
+      if (fpsAccum >= 0.5) {
+        document.getElementById('telem-fps').textContent = Math.round(frameCount / fpsAccum);
+        frameCount = 0;
+        fpsAccum = 0;
+      }
+
+      // Step Cannon.js Physics World (Fixed 60Hz step with interpolation)
+      world.step(1 / 60, Math.min(dt, 0.1), 3);
+
+      // Synchronize Three.js Meshes with Cannon.js Rigid Bodies
+      for (let i = 0; i < physicsObjects.length; i++) {
+        const obj = physicsObjects[i];
+        obj.mesh.position.copy(obj.body.position);
+        obj.mesh.quaternion.copy(obj.body.quaternion);
+
+        // Respawn if falling into the deep void below y = -40
+        if (obj.body.position.y < -40) {
+          obj.body.position.set((Math.random() - 0.5) * 10, 15, (Math.random() - 0.5) * 10);
+          obj.body.velocity.set(0, 0, 0);
+          obj.body.angularVelocity.set(0, 0, 0);
+        }
+      }
+
+      controls.update();
+      renderer.render(scene, camera);
+    }
+  </script>
+</body>
+</html>
