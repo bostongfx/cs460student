@@ -1,2 +1,1151 @@
-Ready for assignment 2.
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>CS460 - Interactive 3D Balls (Soccer, Basketball, Football)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <style>
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    html, body {
+      background: radial-gradient(circle at 50% 40%, #1a233a 0%, #0c101c 60%, #05070c 100%);
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: #fff;
+    }
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      cursor: grab;
+    }
+    canvas:active {
+      cursor: grabbing;
+    }
 
+    /* Top HUD Header */
+    #hud {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      right: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      pointer-events: none;
+      z-index: 10;
+    }
+    .hud-card {
+      background: rgba(18, 24, 40, 0.75);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 14px;
+      padding: 14px 20px;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+      pointer-events: auto;
+    }
+    #ball-info h1 {
+      margin: 0 0 4px 0;
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    #ball-subtitle {
+      margin: 0;
+      font-size: 13px;
+      color: #8da2c0;
+      font-weight: 500;
+      letter-spacing: 0.3px;
+    }
+    .badge {
+      display: inline-block;
+      padding: 3px 9px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-left: 8px;
+    }
+    .badge-soccer {
+      background: rgba(255, 255, 255, 0.15);
+      color: #fff;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+    .badge-basketball {
+      background: rgba(245, 124, 0, 0.25);
+      color: #ff9800;
+      border: 1px solid rgba(245, 124, 0, 0.5);
+    }
+    .badge-football {
+      background: rgba(141, 74, 30, 0.3);
+      color: #e09f67;
+      border: 1px solid rgba(210, 114, 53, 0.5);
+    }
+
+    /* Status & Controls */
+    #status-card {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 8px;
+    }
+    .state-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #a4b8d5;
+    }
+    .state-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #4caf50;
+      box-shadow: 0 0 10px #4caf50;
+      transition: background 0.3s, box-shadow 0.3s;
+    }
+    .state-dot.exploding {
+      background: #ff5722;
+      box-shadow: 0 0 14px #ff5722;
+      animation: pulse 1s infinite alternate;
+    }
+    @keyframes pulse {
+      from { transform: scale(0.9); opacity: 0.8; }
+      to { transform: scale(1.3); opacity: 1; }
+    }
+
+    /* Bottom Control Bar */
+    #controls-bar {
+      position: absolute;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 12px;
+      background: rgba(18, 24, 40, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 30px;
+      padding: 8px 14px;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
+      z-index: 10;
+    }
+    .btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 20px;
+      color: #fff;
+      padding: 9px 18px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+      border-color: rgba(255, 255, 255, 0.4);
+      transform: translateY(-2px);
+    }
+    .btn:active {
+      transform: translateY(0);
+    }
+    .btn.active {
+      background: #2563eb;
+      border-color: #3b82f6;
+      box-shadow: 0 0 16px rgba(59, 130, 246, 0.5);
+    }
+
+    /* Help Instructions Floating Pill */
+    #instructions-pill {
+      position: absolute;
+      bottom: 86px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(10, 14, 25, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+      padding: 6px 16px;
+      font-size: 12px;
+      color: #94a3b8;
+      backdrop-filter: blur(10px);
+      pointer-events: none;
+      display: flex;
+      gap: 16px;
+      z-index: 10;
+      white-space: nowrap;
+    }
+    .help-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .help-icon {
+      font-size: 14px;
+    }
+
+    /* Audio Toggle */
+    .icon-btn {
+      width: 38px;
+      height: 38px;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+    }
+
+    @media (max-width: 768px) {
+      #hud {
+        flex-direction: column;
+        gap: 10px;
+      }
+      #status-card {
+        align-items: flex-start;
+      }
+      #controls-bar {
+        width: 90%;
+        justify-content: space-around;
+        padding: 6px 8px;
+      }
+      .btn {
+        padding: 8px 12px;
+        font-size: 12px;
+      }
+      #instructions-pill {
+        display: none;
+      }
+    }
+  </style>
+  <!-- XTK framework script from official goXTK CDN -->
+  <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+  <!-- Starter loader script for CS460 Assignment 2 -->
+  <script type="text/javascript" src="loader.js"></script>
+</head>
+<body>
+  <!-- HUD Header Overlay -->
+  <div id="hud">
+    <div class="hud-card" id="ball-info">
+      <h1 id="ball-title">
+        <span id="ball-icon">⚽</span>
+        <span id="ball-name">SOCCER BALL</span>
+        <span class="badge badge-soccer" id="ball-badge">Classic 32-Panel</span>
+      </h1>
+      <p id="ball-subtitle">Black pentagons &amp; white hexagons &bull; Rolling spin with curve</p>
+    </div>
+
+    <div class="hud-card" id="status-card">
+      <div class="state-indicator">
+        <div class="state-dot" id="state-dot"></div>
+        <span id="state-text">Assembled (Hover to Explode)</span>
+      </div>
+      <div class="state-indicator">
+        <span id="rotation-text">Rotation: Rolling Spin &bull; 60 FPS</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Instruction tips -->
+  <div id="instructions-pill">
+    <div class="help-item">
+      <span class="help-icon">👆</span>
+      <span><strong>Tap Ball:</strong> Cycle ball type</span>
+    </div>
+    <div class="help-item">
+      <span class="help-icon">✨</span>
+      <span><strong>Hover:</strong> Explode panels</span>
+    </div>
+    <div class="help-item">
+      <span class="help-icon">🔄</span>
+      <span><strong>Drag:</strong> Rotate view</span>
+    </div>
+  </div>
+
+  <!-- Bottom Navigation & Controls -->
+  <div id="controls-bar">
+    <button class="btn active" id="btn-soccer" title="Switch to Soccer Ball (Press 1)">
+      <span>⚽</span>
+      <span>Soccer</span>
+    </button>
+    <button class="btn" id="btn-basketball" title="Switch to Basketball (Press 2)">
+      <span>🏀</span>
+      <span>Basketball</span>
+    </button>
+    <button class="btn" id="btn-football" title="Switch to American Football (Press 3)">
+      <span>🏈</span>
+      <span>Football</span>
+    </button>
+    <button class="btn icon-btn" id="btn-explode" title="Toggle Exploded View (Spacebar)">
+      <span id="explode-icon">💥</span>
+    </button>
+    <button class="btn icon-btn" id="btn-spin" title="Toggle Auto-Rotation (Press R)">
+      <span id="spin-icon">🔄</span>
+    </button>
+    <button class="btn icon-btn" id="btn-download" title="Download scene.json (Press D)">
+      <span>💾</span>
+    </button>
+    <button class="btn icon-btn" id="btn-upload" title="Upload scene.json (Press U)">
+      <span>📂</span>
+    </button>
+    <button class="btn icon-btn" id="btn-audio" title="Toggle Audio Synthesizer">
+      <span id="audio-icon">🔊</span>
+    </button>
+  </div>
+  <input type="file" id="scene-file-input" accept=".json" style="display:none">
+
+  <script type="text/javascript">
+    // =========================================================================
+    // AUDIO SYNTHESIZER (Web Audio API - 100% offline, zero external dependencies)
+    // =========================================================================
+    var audioCtx = null;
+    var audioEnabled = true;
+
+    function getAudioContext() {
+      if (!audioCtx) {
+        var AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioContextClass) {
+          audioCtx = new AudioContextClass();
+        }
+      }
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      return audioCtx;
+    }
+
+    function playSound(type) {
+      if (!audioEnabled) return;
+      var ctx = getAudioContext();
+      if (!ctx) return;
+
+      var now = ctx.currentTime;
+      if (type === 'tap') {
+        // Crisp sporty pop / resonant leather thump
+        var osc = ctx.createOscillator();
+        var gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(280, now);
+        osc.frequency.exponentialRampToValueAtTime(50, now + 0.12);
+        gain.gain.setValueAtTime(0.35, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.13);
+      } else if (type === 'explode') {
+        // High-tech whoosh / pneumatic burst
+        var osc2 = ctx.createOscillator();
+        var gain2 = ctx.createGain();
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(140, now);
+        osc2.frequency.exponentialRampToValueAtTime(520, now + 0.22);
+        gain2.gain.setValueAtTime(0.01, now);
+        gain2.gain.linearRampToValueAtTime(0.18, now + 0.06);
+        gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+        osc2.connect(gain2);
+        gain2.connect(ctx.destination);
+        osc2.start(now);
+        osc2.stop(now + 0.23);
+      } else if (type === 'snap') {
+        // Satisfying magnetic dock / snap click
+        var osc3 = ctx.createOscillator();
+        var gain3 = ctx.createGain();
+        osc3.type = 'sine';
+        osc3.frequency.setValueAtTime(480, now);
+        osc3.frequency.exponentialRampToValueAtTime(160, now + 0.08);
+        gain3.gain.setValueAtTime(0.2, now);
+        gain3.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+        osc3.connect(gain3);
+        gain3.connect(ctx.destination);
+        osc3.start(now);
+        osc3.stop(now + 0.09);
+      }
+    }
+
+    // =========================================================================
+    // 3D VECTOR & MATRIX MATH UTILITIES
+    // =========================================================================
+    function vNorm(v) {
+      var len = Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+      if (len === 0) return [0, 0, 1];
+      return [v[0] / len, v[1] / len, v[2] / len];
+    }
+    function vCross(a, b) {
+      return [
+        a[1] * b[2] - a[2] * b[1],
+        a[2] * b[0] - a[0] * b[2],
+        a[0] * b[1] - a[1] * b[0]
+      ];
+    }
+    function vDot(a, b) {
+      return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    }
+    function vDistSq(a, b) {
+      var dx = a[0] - b[0], dy = a[1] - b[1], dz = a[2] - b[2];
+      return dx * dx + dy * dy + dz * dz;
+    }
+    function matMulVec(m, v) {
+      // 3x3 rotation matrix (array of 9 elements: row-major)
+      return [
+        m[0] * v[0] + m[1] * v[1] + m[2] * v[2],
+        m[3] * v[0] + m[4] * v[1] + m[5] * v[2],
+        m[6] * v[0] + m[7] * v[1] + m[8] * v[2]
+      ];
+    }
+    function makeRotationMatrix(rx, ry, rz) {
+      var cx = Math.cos(rx), sx = Math.sin(rx);
+      var cy = Math.cos(ry), sy = Math.sin(ry);
+      var cz = Math.cos(rz), sz = Math.sin(rz);
+
+      // Rz * Ry * Rx
+      return [
+        cy * cz,  sx * sy * cz - cx * sz,  cx * sy * cz + sx * sz,
+        cy * sz,  sx * sy * sz + cx * cz,  cx * sy * sz - sx * cz,
+        -sy,      sx * cy,                 cx * cy
+      ];
+    }
+
+    // =========================================================================
+    // BALL GEOMETRIES BUILDERS
+    // =========================================================================
+
+    // Helper to instantiate and register a pixel voxel cube
+    function createPixelCube(r, options) {
+      var cube = new X.cube();
+      cube.lengthX = options.sizeX || options.size || 6.5;
+      cube.lengthY = options.sizeY || options.size || 6.5;
+      cube.lengthZ = options.sizeZ || 3.8;
+      cube.color = options.color;
+      cube.caption = options.caption || "Pixel";
+      r.add(cube);
+
+      var norm = vNorm(options.normal);
+      var ref = Math.abs(norm[2]) < 0.92 ? [0, 0, 1] : [0, 1, 0];
+      var t1 = options.t1 ? vNorm(options.t1) : vNorm(vCross(norm, ref));
+      var t2 = options.t2 ? vNorm(options.t2) : vNorm(vCross(norm, t1));
+
+      return {
+        obj: cube,
+        normal: norm,
+        baseRadius: options.baseRadius || 56,
+        basePos: options.basePos || null,
+        t1: t1,
+        t2: t2,
+        explosion: 0,
+        speedFactor: options.speedFactor || 1.0,
+        lerpSpeed: options.lerpSpeed || 0.15
+      };
+    }
+
+    // 1. SOCCER BALL (Truncated Icosahedron: 12 Black Pentagons & 20 White Hexagons, 480 Voxels - 100% Closed & Gapless)
+    function buildSoccerBall(r) {
+      var panels = [];
+      var phi = (1 + Math.sqrt(5)) / 2; // Golden ratio ~1.618
+
+      // The 12 vertices of an icosahedron (Centers of the 12 pentagons)
+      var icosVerts = [
+        [-1,  phi, 0], [ 1,  phi, 0], [-1, -phi, 0], [ 1, -phi, 0],
+        [ 0, -1,  phi], [ 0,  1,  phi], [ 0, -1, -phi], [ 0,  1, -phi],
+        [ phi, 0, -1], [ phi, 0,  1], [-phi, 0, -1], [-phi, 0,  1]
+      ];
+
+      var pentagonCenters = [];
+      for (var i = 0; i < icosVerts.length; i++) {
+        pentagonCenters.push(vNorm(icosVerts[i]));
+      }
+
+      // The 20 centroids of the icosahedron triangular faces (Centers of the 20 hexagons)
+      var hexagonCenters = [];
+      for (var a = 0; a < icosVerts.length; a++) {
+        for (var b = a + 1; b < icosVerts.length; b++) {
+          if (Math.abs(vDistSq(icosVerts[a], icosVerts[b]) - 4.0) > 0.3) continue;
+          for (var c = b + 1; c < icosVerts.length; c++) {
+            if (Math.abs(vDistSq(icosVerts[b], icosVerts[c]) - 4.0) > 0.3) continue;
+            if (Math.abs(vDistSq(icosVerts[c], icosVerts[a]) - 4.0) > 0.3) continue;
+
+            var hCenter = vNorm([
+              (icosVerts[a][0] + icosVerts[b][0] + icosVerts[c][0]) / 3,
+              (icosVerts[a][1] + icosVerts[b][1] + icosVerts[c][1]) / 3,
+              (icosVerts[a][2] + icosVerts[b][2] + icosVerts[c][2]) / 3
+            ]);
+            hexagonCenters.push(hCenter);
+          }
+        }
+      }
+
+      var R = 56; // Ball radius
+      var blackColor = [0.08, 0.08, 0.08]; // Dark Charcoal / Black
+      var whiteColor = [0.96, 0.96, 0.96]; // Classic White
+      var seamColor  = [0.70, 0.70, 0.72]; // Subtle Leather Seam Stitch
+
+      // Generate a dense, completely closed spherical voxel lattice (480 voxels)
+      // Fibonacci lattice guarantees perfectly uniform coverage with ZERO gaps
+      var N = 480;
+      var goldenRatioAngle = Math.PI * (3 - Math.sqrt(5)); // ~2.39996 rad
+
+      for (var i = 0; i < N; i++) {
+        var y = 1.0 - (i / (N - 1.0)) * 2.0; // from 1 to -1
+        var radiusAtY = Math.sqrt(Math.max(0.0, 1.0 - y * y));
+        var theta = goldenRatioAngle * i;
+
+        var nx = Math.cos(theta) * radiusAtY;
+        var ny = y;
+        var nz = Math.sin(theta) * radiusAtY;
+        var norm = vNorm([nx, ny, nz]);
+
+        // Find nearest pentagon center and nearest hexagon centers
+        var maxPDot = -999;
+        for (var p = 0; p < pentagonCenters.length; p++) {
+          var dotP = vDot(norm, pentagonCenters[p]);
+          if (dotP > maxPDot) maxPDot = dotP;
+        }
+
+        var maxHDot1 = -999;
+        var maxHDot2 = -999;
+        for (var h = 0; h < hexagonCenters.length; h++) {
+          var dotH = vDot(norm, hexagonCenters[h]);
+          if (dotH > maxHDot1) {
+            maxHDot2 = maxHDot1;
+            maxHDot1 = dotH;
+          } else if (dotH > maxHDot2) {
+            maxHDot2 = dotH;
+          }
+        }
+
+        var color, caption;
+        if (maxPDot > maxHDot1) {
+          // Inside a Black Pentagon panel
+          color = blackColor;
+          caption = "Soccer: Black Pentagon Voxel";
+        } else if ((maxHDot1 - maxHDot2) < 0.015) {
+          // Hexagon-to-hexagon boundary seam stitch
+          color = seamColor;
+          caption = "Soccer: Hexagon Seam Voxel";
+        } else {
+          // Inside a White Hexagon panel
+          color = whiteColor;
+          caption = "Soccer: White Hexagon Voxel";
+        }
+
+        // Cube size 10.8x10.8 with 6.0 thickness guarantees 100% closed surface with zero gaps!
+        panels.push(createPixelCube(r, {
+          normal: norm,
+          color: color,
+          sizeX: 10.8,
+          sizeY: 10.8,
+          sizeZ: 6.0,
+          baseRadius: R,
+          caption: caption,
+          speedFactor: 0.92 + 0.18 * Math.sin(i * 1.7),
+          lerpSpeed: 0.15
+        }));
+      }
+
+      // Zero inner core sphere - completely hollow inside, completely closed outside!
+      return {
+        panels: panels,
+        radius: R,
+        allObjects: panels.map(function(p) { return p.obj; })
+      };
+    }
+
+    // 2. BASKETBALL (8 Orange Leather Quadrants + Black Rubber Seam Ribs, 480 Voxels - 100% Closed & Gapless)
+    function buildBasketball(r) {
+      var panels = [];
+      var R = 56;
+      var orangeColor = [0.93, 0.42, 0.08]; // Iconic Basketball Orange Leather
+      var seamColor   = [0.06, 0.06, 0.06]; // Deep Matte Black Rubber Rib Seams
+
+      // Generate a dense, completely closed spherical voxel lattice (480 voxels)
+      // Fibonacci lattice guarantees perfectly uniform coverage with ZERO gaps
+      var N = 480;
+      var goldenRatioAngle = Math.PI * (3 - Math.sqrt(5));
+
+      for (var i = 0; i < N; i++) {
+        var y = 1.0 - (i / (N - 1.0)) * 2.0;
+        var radiusAtY = Math.sqrt(Math.max(0.0, 1.0 - y * y));
+        var theta = goldenRatioAngle * i;
+
+        var nx = Math.cos(theta) * radiusAtY;
+        var ny = y;
+        var nz = Math.sin(theta) * radiusAtY;
+        var norm = vNorm([nx, ny, nz]);
+
+        // Evaluate distance to basketball seam lines (Equator, Meridians, and Curved S-Ribs)
+        var isSeam = false;
+
+        // 1. Equator circle seam (in XZ plane, y = 0)
+        if (Math.abs(norm[1]) < 0.052) {
+          isSeam = true;
+        }
+        // 2. Prime meridian circle seam (in YZ plane, x = 0)
+        else if (Math.abs(norm[0]) < 0.052) {
+          isSeam = true;
+        }
+        // 3. Cross meridian circle seam (in XY plane, z = 0)
+        else if (Math.abs(norm[2]) < 0.052) {
+          isSeam = true;
+        }
+        // 4. Curved S-rib 1 (Iconic basketball curved seam line)
+        else {
+          var azimuth = Math.atan2(norm[2], norm[0]);
+          var rib1Y = 0.58 * Math.sin(2.0 * azimuth);
+          if (Math.abs(norm[1] - rib1Y) < 0.065) {
+            isSeam = true;
+          } else {
+            // 5. Curved S-rib 2 (Symmetrical opposing curved seam line)
+            var rib2Y = -0.58 * Math.sin(2.0 * azimuth);
+            if (Math.abs(norm[1] - rib2Y) < 0.065) {
+              isSeam = true;
+            }
+          }
+        }
+
+        var color = isSeam ? seamColor : orangeColor;
+        var caption = isSeam ? "Basketball: Black Seam Rib Voxel" : "Basketball: Orange Leather Voxel";
+        var cubeThickness = isSeam ? 6.2 : 6.0;
+
+        // Cube size 10.8x10.8 with 6.0 thickness guarantees 100% closed surface with zero gaps!
+        panels.push(createPixelCube(r, {
+          normal: norm,
+          color: color,
+          sizeX: 10.8,
+          sizeY: 10.8,
+          sizeZ: cubeThickness,
+          baseRadius: R,
+          caption: caption,
+          speedFactor: 0.92 + 0.18 * Math.sin(i * 1.5),
+          lerpSpeed: 0.15
+        }));
+      }
+
+      // Zero inner core sphere - completely hollow inside, completely closed outside!
+      return {
+        panels: panels,
+        radius: R,
+        allObjects: panels.map(function(p) { return p.obj; })
+      };
+    }
+
+    // 3. AMERICAN FOOTBALL (Prolate Spheroid, Pebble Leather, White Laces & End Stripes, 375 Voxels - 100% Closed & Gapless)
+    function buildFootball(r) {
+      var panels = [];
+      var L = 56;  // Half-length along Z axis (total length ~112)
+      var R0 = 34; // Maximum radius at waist
+
+      var brownColor = [0.46, 0.20, 0.07]; // Authentic pebbled pigskin brown
+      var whiteColor = [0.98, 0.98, 0.98]; // Crisp white laces & stripes
+
+      // 17 rings of pebbled leather pixel cubes along Z axis (340 voxels)
+      var zSteps = [-48, -42, -36, -30, -24, -18, -12, -6, 0, 6, 12, 18, 24, 30, 36, 42, 48];
+      var radialSteps = 20;
+
+      for (var zi = 0; zi < zSteps.length; zi++) {
+        var z = zSteps[zi];
+        // Prolate spheroid radius profile
+        var rz = R0 * Math.cos((Math.PI / 2) * (z / 58));
+        var drdz = -R0 * (Math.PI / 116) * Math.sin((Math.PI / 2) * (z / 58));
+        var circumSpacing = (Math.PI * 2 * rz) / radialSteps;
+        var pixelWidth = Math.max(6.0, circumSpacing * 1.18);
+
+        // Check if this ring is on one of the two white end stripes
+        var isWhiteStripeRing = (Math.abs(z - 36) < 1.0 || Math.abs(z - (-36)) < 1.0);
+
+        for (var a = 0; a < radialSteps; a++) {
+          var ang = a * (Math.PI * 2 / radialSteps);
+          var cosA = Math.cos(ang);
+          var sinA = Math.sin(ang);
+
+          var pos = [rz * cosA, rz * sinA, z];
+          var norm = vNorm([cosA, sinA, -drdz]);
+
+          var color = isWhiteStripeRing ? whiteColor : brownColor;
+          var caption = isWhiteStripeRing ? "Football: White Stripe Voxel" : "Football: Leather Voxel";
+
+          panels.push(createPixelCube(r, {
+            normal: norm,
+            basePos: pos,
+            color: color,
+            sizeX: pixelWidth,
+            sizeY: 8.0,
+            sizeZ: 6.0,
+            caption: caption,
+            speedFactor: 0.94 + 0.15 * Math.sin(zi * 0.9 + a * 1.4),
+            lerpSpeed: 0.15
+          }));
+        }
+      }
+
+      // Iconic White Laces (Centered along top ridge +Y, 35 white voxels)
+      // 1. Center spine along Z
+      var spineZs = [-20, -16, -12, -8, -4, 0, 4, 8, 12, 16, 20];
+      for (var spi = 0; spi < spineZs.length; spi++) {
+        var spz = spineZs[spi];
+        var sprz = R0 * Math.cos((Math.PI / 2) * (spz / 58)) + 2.0;
+        var spPos = [0, sprz, spz];
+        var spNorm = [0, 1, 0];
+
+        panels.push(createPixelCube(r, {
+          normal: spNorm,
+          basePos: spPos,
+          color: whiteColor,
+          sizeX: 4.2,
+          sizeY: 4.2,
+          sizeZ: 4.5,
+          caption: "Football: Lace Spine Pixel",
+          speedFactor: 1.1,
+          lerpSpeed: 0.16
+        }));
+      }
+
+      // 2. Cross stitch laces (Perpendicular to spine)
+      var stitchZs = [-14, -10, -6, -2, 2, 6, 10, 14];
+      var stitchXOffsets = [-5, 0, 5];
+      for (var sti = 0; sti < stitchZs.length; sti++) {
+        var stz2 = stitchZs[sti];
+        var strz2 = R0 * Math.cos((Math.PI / 2) * (stz2 / 58)) + 2.5;
+
+        for (var xo = 0; xo < stitchXOffsets.length; xo++) {
+          var xVal = stitchXOffsets[xo];
+          var stPos = [xVal, strz2, stz2];
+          var stNorm = vNorm([xVal * 0.15, 1, 0]);
+
+          panels.push(createPixelCube(r, {
+            normal: stNorm,
+            basePos: stPos,
+            color: whiteColor,
+            sizeX: 5.2,
+            sizeY: 4.0,
+            sizeZ: 4.0,
+            caption: "Football: Lace Stitch Pixel",
+            speedFactor: 1.12,
+            lerpSpeed: 0.16
+          }));
+        }
+      }
+
+      // Zero inner core sphere - completely hollow inside, completely closed outside!
+      return {
+        panels: panels,
+        radius: R0,
+        allObjects: panels.map(function(p) { return p.obj; })
+      };
+    }
+
+    // =========================================================================
+    // MAIN APPLICATION INITIALIZATION
+    // =========================================================================
+    window.onload = function() {
+      // Create and initialize XTK 3D Renderer
+      var r = new X.renderer3D();
+      window.r = r; // Expose globally for loader.js download() and upload()
+      r.init();
+
+      // Reposition camera for ideal viewing perspective
+      r.camera.position = [0, 0, 240];
+
+      // Build the 3 Balls in the scene
+      var soccer = buildSoccerBall(r);
+      var basketball = buildBasketball(r);
+      var football = buildFootball(r);
+
+      var balls = [soccer, basketball, football];
+      var currentBallIndex = 0; // 0 = Soccer, 1 = Basketball, 2 = Football
+
+      var ballMetadata = [
+        {
+          name: "SOCCER BALL",
+          icon: "⚽",
+          badge: "Classic 32-Panel",
+          badgeClass: "badge-soccer",
+          subtitle: "Black pentagons & white hexagons • Rolling spin with curve",
+          rotationDesc: "Rolling Spin & Curve • 60 FPS"
+        },
+        {
+          name: "BASKETBALL",
+          icon: "🏀",
+          badge: "8-Panel Leather",
+          badgeClass: "badge-basketball",
+          subtitle: "Vibrant orange leather with black seam ribs • Rapid fingertip spin",
+          rotationDesc: "Fingertip Vertical Spin • 60 FPS"
+        },
+        {
+          name: "AMERICAN FOOTBALL",
+          icon: "🏈",
+          badge: "Pebble Pigskin",
+          badgeClass: "badge-football",
+          subtitle: "Prolate spheroid with white laces & stripes • Quarterback tight spiral",
+          rotationDesc: "Quarterback Spiral Pass • 60 FPS"
+        }
+      ];
+
+      function updateActiveBall(newIndex, playAudio) {
+        currentBallIndex = (newIndex + balls.length) % balls.length;
+
+        // Hide inactive balls, show active ball
+        for (var b = 0; b < balls.length; b++) {
+          var isCurrent = (b === currentBallIndex);
+          for (var o = 0; o < balls[b].allObjects.length; o++) {
+            balls[b].allObjects[o].visible = isCurrent;
+          }
+        }
+
+        // Update HUD
+        var meta = ballMetadata[currentBallIndex];
+        document.getElementById('ball-icon').textContent = meta.icon;
+        document.getElementById('ball-name').textContent = meta.name;
+        document.getElementById('ball-badge').textContent = meta.badge;
+        document.getElementById('ball-badge').className = "badge " + meta.badgeClass;
+        document.getElementById('ball-subtitle').innerHTML = meta.subtitle;
+        document.getElementById('rotation-text').textContent = "Rotation: " + meta.rotationDesc;
+
+        // Update buttons
+        document.getElementById('btn-soccer').classList.toggle('active', currentBallIndex === 0);
+        document.getElementById('btn-basketball').classList.toggle('active', currentBallIndex === 1);
+        document.getElementById('btn-football').classList.toggle('active', currentBallIndex === 2);
+
+        if (playAudio) {
+          playSound('tap');
+        }
+      }
+
+      // Initial active ball visibility
+      updateActiveBall(0, false);
+
+      // =========================================================================
+      // INTERACTION STATES (Hover Explosion & Ball Rotation)
+      // =========================================================================
+      var isHovering = false;
+      var hoverTargetExplosion = 0.0;
+      var manualExplodeToggle = false;
+      var autoRotationEnabled = true;
+
+      // Current ball orientation Euler angles
+      var rotX = 0.0;
+      var rotY = 0.0;
+      var rotZ = 0.0;
+      var clockTime = 0.0;
+
+      // Mouse tracking for raycasting & hover detection
+      var mouseClientX = -9999;
+      var mouseClientY = -9999;
+      var canvasElem = document.querySelector('canvas') || r.container.children[0];
+
+      // Tap / Drag detection
+      var pointerDownX = 0;
+      var pointerDownY = 0;
+      var pointerDownTime = 0;
+
+      function onPointerDown(e) {
+        var clientX = e.clientX || (e.touches && e.touches[0].clientX);
+        var clientY = e.clientY || (e.touches && e.touches[0].clientY);
+        pointerDownX = clientX;
+        pointerDownY = clientY;
+        pointerDownTime = Date.now();
+      }
+
+      function onPointerUp(e) {
+        var clientX = e.clientX || (e.changedTouches && e.changedTouches[0].clientX);
+        var clientY = e.clientY || (e.changedTouches && e.changedTouches[0].clientY);
+        var dt = Date.now() - pointerDownTime;
+        var dx = clientX - pointerDownX;
+        var dy = clientY - pointerDownY;
+        var dist = Math.sqrt(dx * dx + dy * dy);
+
+        // If tap (click without significant drag within 350ms)
+        if (dt < 350 && dist < 12) {
+          // Check if tap was near center (on the ball)
+          var rect = canvasElem.getBoundingClientRect();
+          var cx = rect.left + rect.width / 2;
+          var cy = rect.top + rect.height / 2;
+          var distCenter = Math.sqrt((clientX - cx) * (clientX - cx) + (clientY - cy) * (clientY - cy));
+          var maxBallScreenRadius = Math.min(rect.width, rect.height) * 0.35;
+
+          if (distCenter < maxBallScreenRadius) {
+            // Tapped on ball -> Change to next ball!
+            updateActiveBall(currentBallIndex + 1, true);
+          }
+        }
+      }
+
+      function onMouseMove(e) {
+        mouseClientX = e.clientX;
+        mouseClientY = e.clientY;
+
+        var rect = canvasElem.getBoundingClientRect();
+        var cx = rect.left + rect.width / 2;
+        var cy = rect.top + rect.height / 2;
+        var dFromCenter = Math.sqrt((mouseClientX - cx) * (mouseClientX - cx) + (mouseClientY - cy) * (mouseClientY - cy));
+
+        // Projected ball radius on screen
+        var ballScreenRadius = Math.min(rect.width, rect.height) * 0.28;
+
+        var prevHover = isHovering;
+        if (dFromCenter < ballScreenRadius * 1.35) {
+          isHovering = true;
+          hoverTargetExplosion = 40.0; // Panels explode outward
+          if (!prevHover) {
+            playSound('explode');
+          }
+        } else {
+          isHovering = false;
+          hoverTargetExplosion = manualExplodeToggle ? 40.0 : 0.0;
+          if (prevHover && !manualExplodeToggle) {
+            playSound('snap');
+          }
+        }
+
+        // Update State HUD
+        var dot = document.getElementById('state-dot');
+        var stateText = document.getElementById('state-text');
+        if (isHovering || manualExplodeToggle) {
+          dot.classList.add('exploding');
+          stateText.textContent = "💥 Panels Exploded!";
+        } else {
+          dot.classList.remove('exploding');
+          stateText.textContent = "Assembled (Hover over ball to explode)";
+        }
+      }
+
+      function onMouseLeave() {
+        var prevHover = isHovering;
+        isHovering = false;
+        hoverTargetExplosion = manualExplodeToggle ? 40.0 : 0.0;
+        if (prevHover && !manualExplodeToggle) {
+          playSound('snap');
+        }
+        var dot = document.getElementById('state-dot');
+        var stateText = document.getElementById('state-text');
+        if (!manualExplodeToggle) {
+          dot.classList.remove('exploding');
+          stateText.textContent = "Assembled (Hover over ball to explode)";
+        }
+      }
+
+      // Attach event listeners to canvas
+      canvasElem.addEventListener('mousedown', onPointerDown, false);
+      canvasElem.addEventListener('mouseup', onPointerUp, false);
+      canvasElem.addEventListener('mousemove', onMouseMove, false);
+      canvasElem.addEventListener('mouseleave', onMouseLeave, false);
+
+      // Touch screen support
+      canvasElem.addEventListener('touchstart', onPointerDown, { passive: true });
+      canvasElem.addEventListener('touchend', onPointerUp, { passive: true });
+      canvasElem.addEventListener('touchmove', function(e) {
+        if (e.touches && e.touches[0]) {
+          onMouseMove(e.touches[0]);
+        }
+      }, { passive: true });
+
+      // =========================================================================
+      // UI BUTTON CONTROLS
+      // =========================================================================
+      document.getElementById('btn-soccer').addEventListener('click', function() {
+        updateActiveBall(0, true);
+      });
+      document.getElementById('btn-basketball').addEventListener('click', function() {
+        updateActiveBall(1, true);
+      });
+      document.getElementById('btn-football').addEventListener('click', function() {
+        updateActiveBall(2, true);
+      });
+
+      var btnExplode = document.getElementById('btn-explode');
+      btnExplode.addEventListener('click', function() {
+        manualExplodeToggle = !manualExplodeToggle;
+        btnExplode.classList.toggle('active', manualExplodeToggle);
+        hoverTargetExplosion = manualExplodeToggle ? 42.0 : 0.0;
+        playSound(manualExplodeToggle ? 'explode' : 'snap');
+
+        var dot = document.getElementById('state-dot');
+        var stateText = document.getElementById('state-text');
+        if (manualExplodeToggle) {
+          dot.classList.add('exploding');
+          stateText.textContent = "💥 Exploded View Locked";
+        } else {
+          dot.classList.remove('exploding');
+          stateText.textContent = "Assembled (Hover over ball to explode)";
+        }
+      });
+
+      var btnSpin = document.getElementById('btn-spin');
+      btnSpin.addEventListener('click', function() {
+        autoRotationEnabled = !autoRotationEnabled;
+        btnSpin.classList.toggle('active', autoRotationEnabled);
+        playSound('tap');
+      });
+
+      var btnDownload = document.getElementById('btn-download');
+      btnDownload.addEventListener('click', function() {
+        if (typeof download === 'function') {
+          download();
+          playSound('snap');
+        } else {
+          console.warn('download() not defined in loader.js');
+        }
+      });
+
+      var sceneFileInput = document.getElementById('scene-file-input');
+      var btnUpload = document.getElementById('btn-upload');
+      btnUpload.addEventListener('click', function() {
+        sceneFileInput.click();
+      });
+
+      sceneFileInput.addEventListener('change', function(e) {
+        var file = e.target.files && e.target.files[0];
+        if (file && typeof upload === 'function') {
+          var objectUrl = URL.createObjectURL(file);
+          upload(objectUrl);
+          playSound('explode');
+        }
+      });
+
+      var btnAudio = document.getElementById('btn-audio');
+      btnAudio.addEventListener('click', function() {
+        audioEnabled = !audioEnabled;
+        document.getElementById('audio-icon').textContent = audioEnabled ? "🔊" : "🔇";
+        if (audioEnabled) {
+          playSound('tap');
+        }
+      });
+
+      // Keyboard shortcuts: 1/2/3 for balls, space to explode, R for rotation, D to download, U to upload
+      window.addEventListener('keydown', function(e) {
+        if (e.key === '1') updateActiveBall(0, true);
+        else if (e.key === '2') updateActiveBall(1, true);
+        else if (e.key === '3') updateActiveBall(2, true);
+        else if (e.key === ' ') {
+          btnExplode.click();
+        } else if (e.key === 'r' || e.key === 'R') {
+          btnSpin.click();
+        } else if (e.key === 'd' || e.key === 'D') {
+          btnDownload.click();
+        } else if (e.key === 'u' || e.key === 'U' || e.key === 'o' || e.key === 'O') {
+          btnUpload.click();
+        }
+      });
+
+      // =========================================================================
+      // ANIMATION & RENDER LOOP
+      // =========================================================================
+      r.onRender = function() {
+        clockTime += 0.016; // ~60fps step
+
+        // 1. UPDATE REALISTIC BALL ROTATION DYNAMICS
+        if (autoRotationEnabled) {
+          if (currentBallIndex === 0) {
+            // SOCCER BALL: Forward rolling spin with slight curving tumble
+            rotX += 0.016;
+            rotY += 0.007;
+            rotZ += 0.004;
+          } else if (currentBallIndex === 1) {
+            // BASKETBALL: Rapid upright fingertip spin on vertical axis with gyro tilt
+            rotY += 0.052;
+            rotX = 0.07 * Math.sin(clockTime * 2.5);
+            rotZ = 0.07 * Math.cos(clockTime * 2.5);
+          } else if (currentBallIndex === 2) {
+            // FOOTBALL: Quarterback tight spiral pass along pointed Z axis with aerodynamic wobble
+            rotZ += 0.075; // Fast spiral around length
+            rotX = 0.40 + 0.06 * Math.sin(clockTime * 3.5); // Tilted into direction of flight
+            rotY = 0.22 + 0.06 * Math.cos(clockTime * 3.5); // Precession wobble
+          }
+        }
+
+        var rotMat = makeRotationMatrix(rotX, rotY, rotZ);
+
+        // 2. COMPUTE HOVER PROXIMITY VECTOR IN VIEW SPACE
+        var rect = canvasElem.getBoundingClientRect();
+        var cx = rect.left + rect.width / 2;
+        var cy = rect.top + rect.height / 2;
+        var ballScreenRadius = Math.min(rect.width, rect.height) * 0.28;
+
+        var cursorDir = [0, 0, 1];
+        if (isHovering && ballScreenRadius > 0) {
+          var mdx = (mouseClientX - cx) / ballScreenRadius;
+          var mdy = -(mouseClientY - cy) / ballScreenRadius;
+          var mr2 = mdx * mdx + mdy * mdy;
+          var mdz = Math.sqrt(Math.max(0, 1 - Math.min(1, mr2)));
+          cursorDir = vNorm([mdx, mdy, mdz]);
+        }
+
+        // 3. UPDATE ACTIVE BALL PANELS & EXPLOSION DYNAMICS
+        var currentBall = balls[currentBallIndex];
+        var panels = currentBall.panels;
+
+        for (var p = 0; p < panels.length; p++) {
+          var panel = panels[p];
+
+          var norm = panel.normal;
+          var rNorm = matMulVec(rotMat, norm);
+          var rT1 = matMulVec(rotMat, panel.t1);
+          var rT2 = matMulVec(rotMat, panel.t2);
+
+          // Proximity factor: panel facing cursor has proximity ~1.0
+          var proximity = Math.max(0, vDot(rNorm, cursorDir));
+
+          var targetExplode = 0.0;
+          if (manualExplodeToggle) {
+            var proxFactor = Math.pow(proximity, 1.2);
+            targetExplode = (32.0 + 24.0 * proxFactor) * panel.speedFactor;
+          } else if (isHovering) {
+            // Panels under the cursor burst outward the furthest with an intricate dynamic ripple
+            var proxFactor = Math.pow(proximity, 1.3);
+            targetExplode = (18.0 + 38.0 * proxFactor) * panel.speedFactor;
+          }
+
+          // Smooth spring lerp for explosion transition
+          panel.explosion += (targetExplode - panel.explosion) * panel.lerpSpeed;
+
+          var pos;
+          if (panel.basePos) {
+            // Spheroid (Football) with base position offset
+            var rBasePos = matMulVec(rotMat, panel.basePos);
+            pos = [
+              rBasePos[0] + rNorm[0] * panel.explosion,
+              rBasePos[1] + rNorm[1] * panel.explosion,
+              rBasePos[2] + rNorm[2] * panel.explosion
+            ];
+          } else {
+            // Spherical (Soccer & Basketball)
+            var currentR = panel.baseRadius + panel.explosion;
+            pos = [
+              rNorm[0] * currentR,
+              rNorm[1] * currentR,
+              rNorm[2] * currentR
+            ];
+          }
+
+          // Upload transformation matrix: orientation basis + translated position
+          panel.obj.transform.matrix = new Float32Array([
+            rT1[0],   rT1[1],   rT1[2],   0,
+            rT2[0],   rT2[1],   rT2[2],   0,
+            rNorm[0], rNorm[1], rNorm[2], 0,
+            pos[0],   pos[1],   pos[2],   1
+          ]);
+        }
+      };
+
+      // Start the XTK rendering loop
+      r.render();
+    };
+  </script>
+</body>
+</html>
