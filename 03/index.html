@@ -1,0 +1,215 @@
+<html>
+
+<head>
+    <style>
+        html,
+        body {
+            background-color: #000;
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden !important;
+        }
+    </style>
+
+    <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@latest/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@latest/examples/jsm/"
+      }
+    }
+    </script>
+
+    <script type="module">
+
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        var renderer, controls, scene, camera;
+        var lastObject = null;
+        var isDown = false;
+        var FLICKERING = false;
+        var WIREFRAME = false;
+        var allToruses = [];
+
+        window.onload = function () {
+
+            // Three.js code goes here
+            scene = new THREE.Scene();
+
+            // setup the camera
+            var fov = 75;
+            var ratio = window.innerWidth / window.innerHeight;
+            var zNear = 1;
+            var zFar = 10000;
+            camera = new THREE.PerspectiveCamera(fov, ratio, zNear, zFar);
+            camera.position.set(0, 0, 100);
+
+            // create renderer and setup the canvas
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+
+
+            renderer.domElement.onmousedown = function (e) {
+
+                // Place a geometry if shift key is held down
+                if (!e.shiftKey) {
+                    return;
+                }
+                // Turn off camera orbit controls 
+                controls.enabled = false;
+                isDown = true;
+
+                console.log('Yay! We clicked!');
+
+                var pixel_coords = new THREE.Vector2(e.clientX, e.clientY);
+
+                console.log('Pixel coords', pixel_coords);
+
+                var vp_coords = new THREE.Vector2(
+                    (pixel_coords.x / window.innerWidth) * 2 - 1,  //X
+                    -(pixel_coords.y / window.innerHeight) * 2 + 1) // Y
+
+                console.log('Viewport coords', vp_coords);
+
+                var vp_coords_near = new THREE.Vector3(vp_coords.x, vp_coords.y, 0);
+
+
+                var raycaster = new THREE.Raycaster();
+                raycaster.setFromCamera(vp_coords_near, camera);
+                var intersects = raycaster.intersectObject(invisible_plane);
+
+                console.log('Ray to Invisible Plane', intersects[0].point);
+
+                // update torus position
+                if (e.shiftKey) {
+                    var clickGeometry = new THREE.TorusKnotGeometry(10, 3, 100, 16);
+                    var clickMaterial = new THREE.MeshStandardMaterial({ color: 0xFF69B4, wireframe: false });
+                    var newTorus = new THREE.Mesh(clickGeometry, clickMaterial);
+
+                    newTorus.position.set(intersects[0].point.x, intersects[0].point.y, intersects[0].point.z);
+                    scene.add(newTorus);
+
+                    // Add to list of toruses
+                    allToruses.push(newTorus);
+
+                    // Save last torus
+                    lastObject = newTorus;
+                }
+            };
+
+
+            // Re-enable controls when releasing the click
+            renderer.domElement.onmouseup = function (e) {
+                controls.enabled = true;
+                isDown = false;
+            }
+
+            // Scale torus
+            renderer.domElement.onmousemove = function (e) {
+                if (isDown && lastObject) {
+                    var DELTA = -e.movementY * 0.05;
+                    lastObject.scale.set(lastObject.scale.x + DELTA, lastObject.scale.y + DELTA, lastObject.scale.z + DELTA);
+
+                    // Change Color by Flipping
+                    if (lastObject.scale.x < 0) {
+                        // Green
+                        lastObject.material.color.set(0x7CFC00);
+                    } else {
+                        // Hot Pink
+                        lastObject.material.color.set(0xFF69B4);
+                    }
+                }
+            }
+
+            // Flicker Torus
+            window.onkeypress = function (e) {
+                if (e.key === 'f') {
+                    FLICKERING = !FLICKERING;
+                }
+
+                // Wireframe bonus
+                if (e.key === 'w') {
+                    WIREFRAME = !WIREFRAME;
+                    for (var i = 0; i < allToruses.length; i++) {
+                        allToruses[i].material.wireframe = WIREFRAME;
+                    }
+                }
+            }
+
+
+
+            // setup lights
+            var ambientLight = new THREE.AmbientLight();
+            scene.add(ambientLight);
+
+            var light = new THREE.DirectionalLight(0xffffff, 5.0);
+            light.position.set(10, 100, 10);
+            scene.add(light);
+
+            // configure torus
+            var geometry = new THREE.TorusKnotGeometry(10, 3, 100, 16);
+            // Hot Pink Color
+            var material = new THREE.MeshStandardMaterial({ color: 0xFF69B4, wireframe: false });
+
+            var torus = new THREE.Mesh(geometry, material);
+
+            scene.add(torus);
+            allToruses.push(torus);
+
+
+
+            //
+            // The invisible plane
+            //
+            geometry = new THREE.PlaneGeometry(10000, 10000);
+            material = new THREE.MeshBasicMaterial({
+                visible: false
+            });
+
+            var invisible_plane = new THREE.Mesh(geometry, material);
+
+            scene.add(invisible_plane);
+            //
+            //
+            //
+
+
+
+            // interaction
+            controls = new OrbitControls(camera, renderer.domElement);
+
+            // call animation/rendering loop
+            animate();
+
+        };
+
+        function animate() {
+
+            requestAnimationFrame(animate);
+            // Flickering animation
+            if (FLICKERING) {
+                for (var i = 0; i < allToruses.length; i++) {
+                    allToruses[i].material.transparent = true;
+                    allToruses[i].material.opacity = Math.random();
+                    allToruses[i].material.needsUpdate = true;
+                }
+            }
+
+
+            // and here..
+            controls.update();
+            renderer.render(scene, camera);
+
+        };
+    </script>
+</head>
+
+<body></body>
+
+</html>
