@@ -1,2 +1,1682 @@
-Ready for assignment 2.
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>XTK 3D Flying Robot - Interactive Scene</title>
+  <style>
+    :root {
+      --primary: #00f0ff;
+      --primary-glow: rgba(0, 240, 255, 0.45);
+      --accent: #ff0055;
+      --accent-glow: rgba(255, 0, 85, 0.45);
+      --core-red: #ff2a2a;
+      --bg-dark: #060810;
+      --panel-bg: rgba(11, 17, 32, 0.82);
+      --panel-border: rgba(0, 240, 255, 0.28);
+      --text: #e6f1ff;
+      --text-muted: #889bb5;
+    }
 
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      background-color: var(--bg-dark);
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      width: 100%;
+      overflow: hidden !important;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      color: var(--text);
+    }
+
+    /* Ambient Sci-Fi Starfield / Grid Backdrop */
+    .space-grid {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1;
+      background:
+        radial-gradient(circle at 50% 45%, rgba(0, 60, 100, 0.15) 0%, transparent 60%),
+        radial-gradient(circle at 50% 50%, transparent 35%, rgba(3, 5, 12, 0.88) 100%),
+        linear-gradient(rgba(0, 240, 255, 0.03) 1px, transparent 1px) 0 0 / 48px 48px,
+        linear-gradient(90deg, rgba(0, 240, 255, 0.03) 1px, transparent 1px) 0 0 / 48px 48px;
+    }
+
+    /* HUD Overlay */
+    #hud {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 10;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 18px;
+      transition: opacity 0.3s ease;
+    }
+
+    .interactive {
+      pointer-events: auto;
+    }
+
+    /* Top Navigation / Header */
+    .hud-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+    }
+
+    .title-card {
+      background: var(--panel-bg);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--panel-border);
+      border-radius: 14px;
+      padding: 12px 20px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6), 0 0 15px var(--primary-glow);
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .robot-icon {
+      width: 38px;
+      height: 38px;
+      background: linear-gradient(135deg, var(--primary), #0066ff);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      box-shadow: 0 0 14px var(--primary-glow);
+    }
+
+    .title-text h1 {
+      margin: 0;
+      font-size: 16px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      font-weight: 800;
+      color: #fff;
+    }
+
+    .title-text p {
+      margin: 3px 0 0 0;
+      font-size: 11px;
+      color: var(--primary);
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+    }
+
+    /* Stats Badges */
+    .telemetry-bar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .telemetry-badge {
+      background: var(--panel-bg);
+      backdrop-filter: blur(14px);
+      border: 1px solid var(--panel-border);
+      border-radius: 10px;
+      padding: 8px 12px;
+      font-size: 11px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: 'Consolas', 'Courier New', monospace;
+    }
+
+    .badge-label {
+      color: var(--text-muted);
+      font-size: 10px;
+      text-transform: uppercase;
+    }
+
+    .badge-value {
+      font-weight: bold;
+      color: var(--primary);
+    }
+
+    .badge-value.active {
+      color: #00ff88;
+      text-shadow: 0 0 8px rgba(0, 255, 136, 0.6);
+    }
+
+    .badge-value.alert {
+      color: #ff3366;
+      text-shadow: 0 0 8px rgba(255, 51, 102, 0.6);
+    }
+
+    /* Help & Controls Panel */
+    .controls-panel {
+      position: absolute;
+      top: 86px;
+      left: 18px;
+      width: 290px;
+      background: var(--panel-bg);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--panel-border);
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.65);
+    }
+
+    .panel-title {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(0, 240, 255, 0.15);
+      padding-bottom: 6px;
+    }
+
+    .control-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 5px 0;
+      font-size: 11.5px;
+    }
+
+    .control-keys {
+      display: flex;
+      gap: 4px;
+    }
+
+    .kbd {
+      background: rgba(0, 240, 255, 0.12);
+      border: 1px solid rgba(0, 240, 255, 0.4);
+      color: #fff;
+      padding: 2px 7px;
+      border-radius: 5px;
+      font-size: 10.5px;
+      font-family: 'Consolas', monospace;
+      font-weight: bold;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+    }
+
+    .kbd.wide {
+      padding: 2px 10px;
+    }
+
+    .control-desc {
+      color: var(--text-muted);
+      font-size: 11px;
+    }
+
+    /* Bottom Interactive Action Toolbar */
+    .hud-bottom {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .action-toolbar {
+      background: var(--panel-bg);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--panel-border);
+      border-radius: 16px;
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6), 0 0 15px rgba(0, 240, 255, 0.2);
+    }
+
+    .tool-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(0, 240, 255, 0.25);
+      color: var(--text);
+      padding: 8px 14px;
+      border-radius: 10px;
+      font-size: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+      transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    .tool-btn:hover {
+      background: rgba(0, 240, 255, 0.22);
+      border-color: var(--primary);
+      color: #fff;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px var(--primary-glow);
+    }
+
+    .tool-btn:active {
+      transform: translateY(0);
+    }
+
+    .tool-btn.active {
+      background: var(--primary);
+      color: #030814;
+      border-color: #fff;
+      box-shadow: 0 0 15px var(--primary-glow);
+    }
+
+    .tool-btn.explode-btn {
+      border-color: rgba(255, 0, 85, 0.5);
+    }
+
+    .tool-btn.explode-btn:hover {
+      background: rgba(255, 0, 85, 0.3);
+      border-color: var(--accent);
+      box-shadow: 0 4px 14px var(--accent-glow);
+    }
+
+    /* Toast Notification */
+    #toast {
+      position: absolute;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: rgba(8, 14, 26, 0.94);
+      border: 1px solid var(--primary);
+      color: #fff;
+      padding: 10px 22px;
+      border-radius: 30px;
+      font-size: 12px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      font-weight: bold;
+      box-shadow: 0 0 24px var(--primary-glow);
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+      z-index: 100;
+    }
+
+    #toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+
+    /* Hidden File Input for uploading scene */
+    #file-input {
+      display: none;
+    }
+  </style>
+
+  <!-- Load XTK WebGL Framework -->
+  <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+  <!-- Load CS460 Loader for download() and upload() -->
+  <script type="text/javascript" src="loader.js"></script>
+</head>
+<body>
+  <!-- Ambient Space Vignette & Grid -->
+  <div class="space-grid"></div>
+
+  <!-- Toast Notification Message -->
+  <div id="toast">SYSTEM READY</div>
+
+  <!-- Floating HUD Interface -->
+  <div id="hud">
+    <!-- Top Bar -->
+    <div class="hud-header">
+      <div class="title-card interactive">
+        <div class="robot-icon">🤖</div>
+        <div class="title-text">
+          <h1>Flying Robot 3D</h1>
+          <p>XTK WebGL Pen-and-Paper Model</p>
+        </div>
+      </div>
+
+      <div class="telemetry-bar interactive">
+        <div class="telemetry-badge">
+          <span class="badge-label">FPS:</span>
+          <span class="badge-value" id="disp-fps">60</span>
+        </div>
+        <div class="telemetry-badge">
+          <span class="badge-label">Hover:</span>
+          <span class="badge-value active" id="disp-hover">ACTIVE</span>
+        </div>
+        <div class="telemetry-badge">
+          <span class="badge-label">Arms [A]:</span>
+          <span class="badge-value" id="disp-arms">REST</span>
+        </div>
+        <div class="telemetry-badge">
+          <span class="badge-label">Lights [L]:</span>
+          <span class="badge-value" id="disp-lights">STEADY</span>
+        </div>
+        <div class="telemetry-badge">
+          <span class="badge-label">Yaw / Pitch:</span>
+          <span class="badge-value" id="disp-rot">0° / 0°</span>
+        </div>
+        <div class="telemetry-badge">
+          <span class="badge-label">Parts:</span>
+          <span class="badge-value" id="disp-parts">0</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Controls / Help Overlay -->
+    <div class="controls-panel interactive">
+      <div class="panel-title">
+        <span>🎮 Controls & Shortcuts</span>
+      </div>
+      <div class="control-row">
+        <span class="control-desc">Rotate Robot</span>
+        <div class="control-keys">
+          <span class="kbd">←</span><span class="kbd">→</span><span class="kbd">↑</span><span class="kbd">↓</span>
+        </div>
+      </div>
+      <div class="control-row">
+        <span class="control-desc">Wave Arms & Claws</span>
+        <div class="control-keys"><span class="kbd">A</span></div>
+      </div>
+      <div class="control-row">
+        <span class="control-desc">Blink Lights & Core</span>
+        <div class="control-keys"><span class="kbd">L</span></div>
+      </div>
+      <div class="control-row">
+        <span class="control-desc">Explode & Reassemble</span>
+        <div class="control-keys"><span class="kbd wide">SPACE</span></div>
+      </div>
+      <div class="control-row">
+        <span class="control-desc">Reset View / Angle</span>
+        <div class="control-keys"><span class="kbd">R</span></div>
+      </div>
+      <div class="control-row">
+        <span class="control-desc">Orbit / Pan / Zoom</span>
+        <span class="control-desc" style="color:var(--primary);">🖱️ Mouse</span>
+      </div>
+      <div class="control-row">
+        <span class="control-desc">Export Scene (JSON)</span>
+        <div class="control-keys"><span class="kbd">S</span></div>
+      </div>
+    </div>
+
+    <!-- Bottom Action Bar -->
+    <div class="hud-bottom">
+      <div class="action-toolbar interactive">
+        <button class="tool-btn" id="btn-rot-left" title="Rotate Left (Left Arrow)">◀ Rotate</button>
+        <button class="tool-btn" id="btn-rot-right" title="Rotate Right (Right Arrow)">Rotate ▶</button>
+        <button class="tool-btn" id="btn-arms" onclick="toggleArmWaving()">👋 Wave Arms [A]</button>
+        <button class="tool-btn" id="btn-lights" onclick="toggleBlinkingLights()">💡 Blink Lights [L]</button>
+        <button class="tool-btn explode-btn" id="btn-explode" onclick="triggerExplosion()">💥 Explode [Space]</button>
+        <button class="tool-btn" onclick="resetRotationAndCamera()">🔄 Reset [R]</button>
+        <button class="tool-btn" onclick="saveScene()">💾 Download</button>
+        <button class="tool-btn" onclick="promptUploadScene()">📂 Upload</button>
+      </div>
+    </div>
+  </div>
+
+  <input type="file" id="file-input" accept=".json" onchange="handleFileSelect(event)">
+
+  <script type="text/javascript">
+    /**
+     * =========================================================================
+     * XTK 3D FLYING ROBOT ENGINE (CS460)
+     * Built faithfully from sketch.jpg pen-and-paper illustration:
+     *  - Head: Box head, 2 round eyes, flat mouth, 2 antennae with ball tips
+     *  - Neck: Spring/coil made of stacked thin cubes
+     *  - Torso: Tall box with chest panel containing:
+     *      * Hexagon screen with active animated wavy line
+     *      * Square vent grid
+     *      * Round power core (concentric rings)
+     *      * 6 buttons in 3 rows of 2
+     *  - Arms: Round shoulders, curved segmented arms (many small cubes),
+     *          round wrists, two-finger claw hands
+     *  - Waist: Ribbed section with vertical stripes
+     *  - Bottom: Half-dome base with constantly flickering orange/yellow flame
+     *  - Animations: Hovering, flame flickering, arrow key robot rotation,
+     *                A key arm waving & claw snapping, L key lights blinking,
+     *                Space key explosion & gravitational reassembly.
+     * =========================================================================
+     */
+
+    // Global XTK renderer instance (required by loader.js)
+    var r = null;
+    var CAMERAS = [];
+
+    // State management
+    var state = {
+      hovering: true,
+      armWaving: false,
+      blinkingLights: false,
+      isExploded: false,
+      time: 0,
+      yaw: 0,
+      pitch: 0,
+      yawVel: 0,
+      pitchVel: 0
+    };
+
+    // Tracking keys for smooth continuous keyboard controls
+    var keys = {};
+
+    // Robot parts collection
+    // Each item: {
+    //   obj: XTK cube or sphere,
+    //   type: 'cube' | 'sphere',
+    //   localBasePos: [x, y, z],
+    //   currentPos: [x, y, z],
+    //   vel: [vx, vy, vz],
+    //   baseColor: [r, g, b],
+    //   currentColor: [r, g, b],
+    //   localRot: 9-element 3x3 array (or null for identity),
+    //   category: string (e.g. 'body', 'flame', 'wavy', 'light', 'claw_left_top', etc.),
+    //   id: integer,
+    //   meta: object for custom dynamic animation parameters
+    // }
+    var robotParts = [];
+    var flameParts = [];
+    var wavyLineParts = [];
+    var chestButtons = [];
+    var powerCoreRing = [];
+    var powerCoreCenter = null;
+    var leftArmParts = [];
+    var rightArmParts = [];
+    var leftClawTop = [];
+    var leftClawBottom = [];
+    var rightClawTop = [];
+    var rightClawBottom = [];
+
+    // Colors
+    var COL_SILVER_LIGHT = [0.76, 0.80, 0.86];
+    var COL_SILVER_MID   = [0.65, 0.69, 0.74];
+    var COL_SILVER_DARK  = [0.42, 0.46, 0.50];
+    var COL_STEEL_DARK   = [0.26, 0.29, 0.34];
+    var COL_CYAN_GLOW    = [0.00, 0.95, 1.00];
+    var COL_CORE_RED     = [1.00, 0.12, 0.18];
+    var COL_CORE_GLOW    = [1.00, 0.25, 0.30];
+    var COL_FLAME_YELLOW = [1.00, 0.92, 0.20];
+    var COL_FLAME_ORANGE = [1.00, 0.48, 0.00];
+    var COL_FLAME_RED    = [1.00, 0.18, 0.00];
+
+    var BUTTON_PALETTE = [
+      [0.10, 1.00, 0.35], // 0: Neon Green (Row 1 Left)
+      [1.00, 0.10, 0.65], // 1: Hot Magenta (Row 1 Right)
+      [1.00, 0.60, 0.00], // 2: Amber Orange (Row 2 Left)
+      [0.00, 0.85, 1.00], // 3: Bright Cyan (Row 2 Right)
+      [1.00, 0.95, 0.10], // 4: Vivid Yellow (Row 3 Left)
+      [0.65, 0.20, 1.00]  // 5: Royal Violet (Row 3 Right)
+    ];
+
+    /**
+     * Show brief HUD toast message
+     */
+    function showToast(msg) {
+      var toast = document.getElementById('toast');
+      if (!toast) return;
+      toast.innerText = msg;
+      toast.classList.add('show');
+      clearTimeout(toast._timer);
+      toast._timer = setTimeout(function() {
+        toast.classList.remove('show');
+      }, 1600);
+    }
+
+    // =========================================================================
+    // 3D MATRIX MATH HELPERS
+    // =========================================================================
+
+    /**
+     * Compute 3x3 rotation matrix for Yaw (Y-axis) and Pitch (X-axis)
+     */
+    function getRotationMatrix(yaw, pitch) {
+      var cy = Math.cos(yaw), sy = Math.sin(yaw);
+      var cx = Math.cos(pitch), sx = Math.sin(pitch);
+      // R = R_y * R_x
+      return [
+        cy,   sy * sx,   sy * cx,
+        0,    cx,       -sx,
+       -sy,   cy * sx,   cy * cx
+      ];
+    }
+
+    /**
+     * Multiply two 3x3 row-major matrices: C = A * B
+     */
+    function mat3Multiply(A, B) {
+      var out = new Array(9);
+      for (var row = 0; row < 3; row++) {
+        for (var col = 0; col < 3; col++) {
+          out[row * 3 + col] =
+            A[row * 3 + 0] * B[0 * 3 + col] +
+            A[row * 3 + 1] * B[1 * 3 + col] +
+            A[row * 3 + 2] * B[2 * 3 + col];
+        }
+      }
+      return out;
+    }
+
+    /**
+     * Rotate 3D vector by 3x3 matrix: v' = R * v
+     */
+    function rotateVec3(R, v) {
+      return [
+        R[0] * v[0] + R[1] * v[1] + R[2] * v[2],
+        R[3] * v[0] + R[4] * v[1] + R[5] * v[2],
+        R[6] * v[0] + R[7] * v[1] + R[8] * v[2]
+      ];
+    }
+
+    /**
+     * Create 3x3 rotation matrix around a specific axis (X, Y, or Z)
+     */
+    function makeAxisRotationMatrix(axis, angle) {
+      var c = Math.cos(angle), s = Math.sin(angle);
+      if (axis === 'z') {
+        return [
+           c, -s, 0,
+           s,  c, 0,
+           0,  0, 1
+        ];
+      } else if (axis === 'x') {
+        return [
+           1,  0,  0,
+           0,  c, -s,
+           0,  s,  c
+        ];
+      } else { // 'y'
+        return [
+           c, 0,  s,
+           0, 1,  0,
+          -s, 0,  c
+        ];
+      }
+    }
+
+    // =========================================================================
+    // ROBOT CREATION & BUILDER FUNCTIONS
+    // =========================================================================
+
+    /**
+     * Create and register a Cube part
+     */
+    function addCubePart(sizeX, sizeY, sizeZ, pos, color, category, localRot, meta) {
+      var cube = new X.cube();
+      cube.center = [0, 0, 0];
+      cube.lengthX = sizeX;
+      cube.lengthY = sizeY;
+      cube.lengthZ = sizeZ;
+      cube.color = [color[0], color[1], color[2]];
+      cube.visible = true;
+
+      r.add(cube);
+
+      var part = {
+        obj: cube,
+        type: 'cube',
+        sizeX: sizeX,
+        sizeY: sizeY,
+        sizeZ: sizeZ,
+        localBasePos: [pos[0], pos[1], pos[2]],
+        currentPos: [pos[0], pos[1], pos[2]],
+        vel: [0, 0, 0],
+        baseColor: [color[0], color[1], color[2]],
+        currentColor: [color[0], color[1], color[2]],
+        localRot: localRot || null,
+        category: category || 'body',
+        id: robotParts.length,
+        meta: meta || {}
+      };
+
+      robotParts.push(part);
+      return part;
+    }
+
+    /**
+     * Create and register a Sphere part
+     */
+    function addSpherePart(radius, pos, color, category, meta) {
+      var sphere = new X.sphere();
+      sphere.center = [0, 0, 0];
+      sphere.radius = radius;
+      sphere.color = [color[0], color[1], color[2]];
+      sphere.visible = true;
+
+      r.add(sphere);
+
+      var part = {
+        obj: sphere,
+        type: 'sphere',
+        radius: radius,
+        localBasePos: [pos[0], pos[1], pos[2]],
+        currentPos: [pos[0], pos[1], pos[2]],
+        vel: [0, 0, 0],
+        baseColor: [color[0], color[1], color[2]],
+        currentColor: [color[0], color[1], color[2]],
+        localRot: null,
+        category: category || 'round',
+        id: robotParts.length,
+        meta: meta || {}
+      };
+
+      robotParts.push(part);
+      return part;
+    }
+
+    /**
+     * Build Entire Robot Model from sketch.jpg
+     */
+    function buildRobotScene() {
+      robotParts = [];
+      flameParts = [];
+      wavyLineParts = [];
+      chestButtons = [];
+      powerCoreRing = [];
+      leftArmParts = [];
+      rightArmParts = [];
+      leftClawTop = [];
+      leftClawBottom = [];
+      rightClawTop = [];
+      rightClawBottom = [];
+
+      // -----------------------------------------------------------------------
+      // 1. TORSO (Tall Box & Chest Armor Plate)
+      // -----------------------------------------------------------------------
+      // Main Torso Box
+      addCubePart(66, 84, 42, [0, 5, 0], COL_SILVER_LIGHT, 'torso');
+
+      // Front Chest Plate Rim
+      addCubePart(60, 76, 2.5, [0, 5, 21.5], COL_SILVER_MID, 'torso_panel');
+
+      // -----------------------------------------------------------------------
+      // 2. CHEST FEATURES
+      //    (a) Hexagon screen with wavy line (upper left, viewer's left)
+      //    (b) Square vent grid (upper right, viewer's right)
+      //    (c) Round power core with concentric rings (middle)
+      //    (d) 6 colorful buttons in 3 rows of 2 (below power core)
+      // -----------------------------------------------------------------------
+
+      // (a) HEXAGON SCREEN WITH WAVY LINE
+      var hexCenterX = -17;
+      var hexCenterY = 24;
+      var hexCenterZ = 22.8;
+
+      // Dark monitor screen plate
+      addCubePart(19, 13, 1.8, [hexCenterX, hexCenterY, hexCenterZ], [0.03, 0.08, 0.14], 'screen_bg');
+
+      // Hexagonal border segments (flat top/bottom, pointy left/right like sketch)
+      var hexR = 9.5;
+      var hexH = 6.2;
+      var hexPts = [
+        [-hexR, 0],
+        [-hexR * 0.5, hexH],
+        [hexR * 0.5, hexH],
+        [hexR, 0],
+        [hexR * 0.5, -hexH],
+        [-hexR * 0.5, -hexH]
+      ];
+
+      for (var h = 0; h < 6; h++) {
+        var p1 = hexPts[h];
+        var p2 = hexPts[(h + 1) % 6];
+        var mx = (p1[0] + p2[0]) / 2 + hexCenterX;
+        var my = (p1[1] + p2[1]) / 2 + hexCenterY;
+        var dx = p2[0] - p1[0];
+        var dy = p2[1] - p1[1];
+        var len = Math.sqrt(dx * dx + dy * dy);
+        var angleZ = Math.atan2(dy, dx);
+        var rotZ = makeAxisRotationMatrix('z', angleZ);
+        addCubePart(len, 1.6, 2.2, [mx, my, hexCenterZ + 0.3], COL_SILVER_DARK, 'hex_border', rotZ);
+      }
+
+      // Wavy Line inside hexagon screen (9 cyan cubes)
+      var numWaveCubes = 9;
+      for (var w = 0; w < numWaveCubes; w++) {
+        var frac = w / (numWaveCubes - 1);
+        var wx = hexCenterX - 6.5 + frac * 13.0;
+        var initialPhase = frac * Math.PI * 2.5;
+        var wy = hexCenterY + Math.sin(initialPhase) * 2.8;
+        var waveCube = addCubePart(1.6, 1.6, 1.6, [wx, wy, hexCenterZ + 1.2], COL_CYAN_GLOW, 'wavy_line', null, {
+          frac: frac,
+          baseY: hexCenterY,
+          phase: initialPhase
+        });
+        wavyLineParts.push(waveCube);
+      }
+
+      // (b) SQUARE VENT GRID (Upper right of chest)
+      var ventCenterX = 17;
+      var ventCenterY = 24;
+      var ventCenterZ = 22.8;
+
+      // Dark cavity backing
+      addCubePart(18, 18, 1.6, [ventCenterX, ventCenterY, ventCenterZ], [0.06, 0.08, 0.10], 'vent_bg');
+
+      // Outer vent frame
+      addCubePart(18.5, 1.5, 2.0, [ventCenterX, ventCenterY + 8.5, ventCenterZ + 0.3], COL_SILVER_DARK, 'vent_frame');
+      addCubePart(18.5, 1.5, 2.0, [ventCenterX, ventCenterY - 8.5, ventCenterZ + 0.3], COL_SILVER_DARK, 'vent_frame');
+      addCubePart(1.5, 18.5, 2.0, [ventCenterX - 8.5, ventCenterY, ventCenterZ + 0.3], COL_SILVER_DARK, 'vent_frame');
+      addCubePart(1.5, 18.5, 2.0, [ventCenterX + 8.5, ventCenterY, ventCenterZ + 0.3], COL_SILVER_DARK, 'vent_frame');
+
+      // Internal vent grid lines (3 horizontal, 3 vertical)
+      var ventSpacings = [-4.2, 0, 4.2];
+      for (var vh = 0; vh < ventSpacings.length; vh++) {
+        addCubePart(16.5, 1.0, 1.8, [ventCenterX, ventCenterY + ventSpacings[vh], ventCenterZ + 0.2], COL_SILVER_MID, 'vent_grid');
+      }
+      for (var vv = 0; vv < ventSpacings.length; vv++) {
+        addCubePart(1.0, 16.5, 1.8, [ventCenterX + ventSpacings[vv], ventCenterY, ventCenterZ + 0.2], COL_SILVER_MID, 'vent_grid');
+      }
+
+      // (c) ROUND POWER CORE (Concentric rings)
+      var coreX = 0;
+      var coreY = 8;
+      var coreZ = 22.8;
+
+      // Dark power housing disc / plate
+      addCubePart(19, 19, 1.4, [coreX, coreY, coreZ], [0.08, 0.10, 0.14], 'core_housing');
+
+      // Outer Concentric Ring: 12 cubes in a circle
+      var numRingCubes = 12;
+      var ringRadius = 8.4;
+      for (var rc = 0; rc < numRingCubes; rc++) {
+        var ringAngle = (rc / numRingCubes) * Math.PI * 2;
+        var rx = coreX + Math.cos(ringAngle) * ringRadius;
+        var ry = coreY + Math.sin(ringAngle) * ringRadius;
+        var rRot = makeAxisRotationMatrix('z', ringAngle);
+        var rCube = addCubePart(2.4, 2.4, 2.2, [rx, ry, coreZ + 0.8], COL_CORE_RED, 'core_ring', rRot, {
+          index: rc,
+          angle: ringAngle
+        });
+        powerCoreRing.push(rCube);
+      }
+
+      // Inner Core: Radiant Red Sphere
+      powerCoreCenter = addSpherePart(4.2, [coreX, coreY, coreZ + 1.6], COL_CORE_GLOW, 'core_center');
+
+      // (d) 6 BUTTONS IN 3 ROWS OF 2
+      var btnRows = [-5, -14, -23];
+      var btnCols = [-7.5, 7.5];
+      var btnIdx = 0;
+
+      for (var r_idx = 0; r_idx < 3; r_idx++) {
+        for (var c_idx = 0; c_idx < 2; c_idx++) {
+          var bx = btnCols[c_idx];
+          var by = btnRows[r_idx];
+          var bz = 23.2;
+          var bColor = BUTTON_PALETTE[btnIdx];
+
+          // Small dark mounting bezel behind each button
+          addCubePart(5.2, 5.2, 1.2, [bx, by, bz - 0.5], COL_STEEL_DARK, 'button_bezel');
+
+          // Round Button Sphere
+          var btnSphere = addSpherePart(2.6, [bx, by, bz + 1.2], bColor, 'chest_button', {
+            btnIndex: btnIdx,
+            row: r_idx,
+            col: c_idx,
+            baseColor: bColor
+          });
+          chestButtons.push(btnSphere);
+          btnIdx++;
+        }
+      }
+
+      // -----------------------------------------------------------------------
+      // 3. NECK (Spring / coil made of stacked thin cubes)
+      // -----------------------------------------------------------------------
+      var neckLayers = [
+        { y: 49.0, size: 21, color: COL_SILVER_DARK },
+        { y: 52.2, size: 15, color: COL_STEEL_DARK },
+        { y: 55.4, size: 21, color: COL_SILVER_DARK },
+        { y: 58.6, size: 15, color: COL_STEEL_DARK },
+        { y: 61.8, size: 21, color: COL_SILVER_DARK }
+      ];
+
+      for (var nk = 0; nk < neckLayers.length; nk++) {
+        var layer = neckLayers[nk];
+        addCubePart(layer.size, 2.4, layer.size, [0, layer.y, 0], layer.color, 'neck_coil');
+      }
+
+      // -----------------------------------------------------------------------
+      // 4. HEAD (Box head, two round eyes, flat mouth, two antennae with balls)
+      // -----------------------------------------------------------------------
+      var headCenterY = 82;
+      var headFrontZ = 17.5;
+
+      // Box Head
+      addCubePart(48, 36, 34, [0, headCenterY, 0], COL_SILVER_LIGHT, 'head');
+
+      // Two Round Eyes (cyan spheres)
+      var eyeRadius = 5.2;
+      var eyeY = headCenterY + 3.0;
+      var eyeSpreadX = 13.0;
+
+      // Dark eye socket bezels
+      addCubePart(12.5, 12.5, 1.4, [-eyeSpreadX, eyeY, headFrontZ + 0.2], COL_STEEL_DARK, 'eye_socket');
+      addCubePart(12.5, 12.5, 1.4, [eyeSpreadX, eyeY, headFrontZ + 0.2], COL_STEEL_DARK, 'eye_socket');
+
+      // Cyan Round Eye Spheres
+      addSpherePart(eyeRadius, [-eyeSpreadX, eyeY, headFrontZ + 1.2], COL_CYAN_GLOW, 'eye');
+      addSpherePart(eyeRadius, [eyeSpreadX, eyeY, headFrontZ + 1.2], COL_CYAN_GLOW, 'eye');
+
+      // Flat Mouth (horizontal bar cube below eyes)
+      var mouthY = headCenterY - 9.0;
+      addCubePart(19, 2.4, 2.2, [0, mouthY, headFrontZ + 0.8], COL_STEEL_DARK, 'mouth');
+
+      // Two Antennae with Small Ball Tips
+      // Left Antenna (angles outward towards viewer's left ~ -22 degrees)
+      var antAngle = 0.38; // ~22 degrees
+      var antLen = 22;
+      var antSteps = 5;
+
+      // Left Antenna Stem
+      for (var la = 0; la < antSteps; la++) {
+        var aFrac = (la + 0.5) / antSteps;
+        var lax = -10.5 - Math.sin(antAngle) * (antLen * aFrac);
+        var lay = 100.0 + Math.cos(antAngle) * (antLen * aFrac);
+        var rotLeftAnt = makeAxisRotationMatrix('z', antAngle);
+        addCubePart(2.2, 4.2, 2.2, [lax, lay, 0], COL_SILVER_MID, 'antenna_stem', rotLeftAnt);
+      }
+      // Left Antenna Tip Sphere
+      var leftTipX = -10.5 - Math.sin(antAngle) * antLen;
+      var leftTipY = 100.0 + Math.cos(antAngle) * antLen + 1.5;
+      addSpherePart(3.6, [leftTipX, leftTipY, 0], COL_CYAN_GLOW, 'antenna_tip');
+
+      // Right Antenna Stem
+      for (var ra = 0; ra < antSteps; ra++) {
+        var aFracR = (ra + 0.5) / antSteps;
+        var rax = 10.5 + Math.sin(antAngle) * (antLen * aFracR);
+        var ray = 100.0 + Math.cos(antAngle) * (antLen * aFracR);
+        var rotRightAnt = makeAxisRotationMatrix('z', -antAngle);
+        addCubePart(2.2, 4.2, 2.2, [rax, ray, 0], COL_SILVER_MID, 'antenna_stem', rotRightAnt);
+      }
+      // Right Antenna Tip Sphere
+      var rightTipX = 10.5 + Math.sin(antAngle) * antLen;
+      var rightTipY = 100.0 + Math.cos(antAngle) * antLen + 1.5;
+      addSpherePart(3.6, [rightTipX, rightTipY, 0], COL_CYAN_GLOW, 'antenna_tip');
+
+      // -----------------------------------------------------------------------
+      // 5. ARMS & HANDS
+      //    - Round shoulder joints (spheres)
+      //    - Curved segmented arms (many small cubes)
+      //    - Round wrist joints (spheres)
+      //    - Two-finger claw hands (curved pincer cubes)
+      // -----------------------------------------------------------------------
+      var shoulderY = 32;
+      var shoulderX = 37;
+
+      // Shoulder Joints (Spheres)
+      addSpherePart(8.2, [-shoulderX, shoulderY, 0], COL_SILVER_DARK, 'shoulder');
+      addSpherePart(8.2, [shoulderX, shoulderY, 0], COL_SILVER_DARK, 'shoulder');
+
+      // Segmented Curved Arms (10 cubes per arm)
+      var armSegments = 10;
+      for (var s = 0; s < armSegments; s++) {
+        var segFrac = (s + 0.5) / armSegments;
+        var arcAngle = segFrac * 1.25; // sweeps outward and downwards
+        var segColor = (s % 2 === 0) ? COL_SILVER_LIGHT : COL_SILVER_DARK;
+
+        // Left Arm Segment
+        var lx = -shoulderX - Math.sin(arcAngle) * 44.0;
+        var ly = shoulderY - (1.0 - Math.cos(arcAngle)) * 46.0;
+        var lz = Math.sin(segFrac * Math.PI) * 4.0;
+        var rotLeftSeg = makeAxisRotationMatrix('z', arcAngle);
+
+        var leftArmCube = addCubePart(7.5, 6.2, 7.5, [lx, ly, lz], segColor, 'arm_left', rotLeftSeg, {
+          segmentIndex: s,
+          segFrac: segFrac,
+          shoulderOrigin: [-shoulderX, shoulderY, 0]
+        });
+        leftArmParts.push(leftArmCube);
+
+        // Right Arm Segment
+        var rx = shoulderX + Math.sin(arcAngle) * 44.0;
+        var ry = shoulderY - (1.0 - Math.cos(arcAngle)) * 46.0;
+        var rz = Math.sin(segFrac * Math.PI) * 4.0;
+        var rotRightSeg = makeAxisRotationMatrix('z', -arcAngle);
+
+        var rightArmCube = addCubePart(7.5, 6.2, 7.5, [rx, ry, rz], segColor, 'arm_right', rotRightSeg, {
+          segmentIndex: s,
+          segFrac: segFrac,
+          shoulderOrigin: [shoulderX, shoulderY, 0]
+        });
+        rightArmParts.push(rightArmCube);
+      }
+
+      // Wrist Joints (Round Spheres)
+      var wristLX = -shoulderX - Math.sin(1.25) * 44.0 - 4.5;
+      var wristLY = shoulderY - (1.0 - Math.cos(1.25)) * 46.0 - 3.5;
+      var wristRX = shoulderX + Math.sin(1.25) * 44.0 + 4.5;
+      var wristRY = shoulderY - (1.0 - Math.cos(1.25)) * 46.0 - 3.5;
+
+      var leftWristSphere = addSpherePart(5.2, [wristLX, wristLY, 0], COL_SILVER_DARK, 'wrist_left', {
+        origin: [wristLX, wristLY, 0]
+      });
+      var rightWristSphere = addSpherePart(5.2, [wristRX, wristRY, 0], COL_SILVER_DARK, 'wrist_right', {
+        origin: [wristRX, wristRY, 0]
+      });
+      leftArmParts.push(leftWristSphere);
+      rightArmParts.push(rightWristSphere);
+
+      // Two-Finger Claw Hands
+      // Left Hand Claws (Top pincer finger & Bottom pincer finger)
+      var clawSteps = 4;
+      for (var cl = 0; cl < clawSteps; cl++) {
+        var cFrac = (cl + 1) / clawSteps;
+        // Upper finger curves down & inward
+        var topAngle = -0.45 + cFrac * 0.95;
+        var ctlx = wristLX - Math.cos(topAngle) * (14.0 * cFrac);
+        var ctly = wristLY - 4.0 - Math.sin(topAngle) * (14.0 * cFrac);
+        var rotClawTop = makeAxisRotationMatrix('z', topAngle);
+        var cTopPart = addCubePart(4.0, 3.2, 3.8, [ctlx, ctly, 0], COL_SILVER_LIGHT, 'claw_l_top', rotClawTop, {
+          wristOrigin: [wristLX, wristLY, 0],
+          step: cl,
+          angleOffset: topAngle
+        });
+        leftClawTop.push(cTopPart);
+
+        // Lower finger curves up & inward to meet at claw tips
+        var btmAngle = 0.45 - cFrac * 0.95;
+        var cblx = wristLX - Math.cos(btmAngle) * (14.0 * cFrac);
+        var cbly = wristLY - 12.0 - Math.sin(btmAngle) * (14.0 * cFrac);
+        var rotClawBtm = makeAxisRotationMatrix('z', btmAngle);
+        var cBtmPart = addCubePart(4.0, 3.2, 3.8, [cblx, cbly, 0], COL_SILVER_LIGHT, 'claw_l_btm', rotClawBtm, {
+          wristOrigin: [wristLX, wristLY, 0],
+          step: cl,
+          angleOffset: btmAngle
+        });
+        leftClawBottom.push(cBtmPart);
+      }
+
+      // Right Hand Claws (Mirrored)
+      for (var cr = 0; cr < clawSteps; cr++) {
+        var crFrac = (cr + 1) / clawSteps;
+        var rTopAngle = 0.45 - crFrac * 0.95;
+        var ctrx = wristRX + Math.cos(rTopAngle) * (14.0 * crFrac);
+        var ctry = wristRY - 4.0 - Math.sin(rTopAngle) * (14.0 * crFrac);
+        var rotRClawTop = makeAxisRotationMatrix('z', rTopAngle);
+        var crTopPart = addCubePart(4.0, 3.2, 3.8, [ctrx, ctry, 0], COL_SILVER_LIGHT, 'claw_r_top', rotRClawTop, {
+          wristOrigin: [wristRX, wristRY, 0],
+          step: cr,
+          angleOffset: rTopAngle
+        });
+        rightClawTop.push(crTopPart);
+
+        var rBtmAngle = -0.45 + crFrac * 0.95;
+        var crbx = wristRX + Math.cos(rBtmAngle) * (14.0 * crFrac);
+        var crby = wristRY - 12.0 - Math.sin(rBtmAngle) * (14.0 * crFrac);
+        var rotRClawBtm = makeAxisRotationMatrix('z', rBtmAngle);
+        var crBtmPart = addCubePart(4.0, 3.2, 3.8, [crbx, crby, 0], COL_SILVER_LIGHT, 'claw_r_btm', rotRClawBtm, {
+          wristOrigin: [wristRX, wristRY, 0],
+          step: cr,
+          angleOffset: rBtmAngle
+        });
+        rightClawBottom.push(crBtmPart);
+      }
+
+      // -----------------------------------------------------------------------
+      // 6. WAIST (Ribbed section with vertical stripes)
+      // -----------------------------------------------------------------------
+      var waistY = -46;
+      var waistHeight = 17;
+      var numRibs = 11;
+      var ribWidth = 4.4;
+
+      for (var rib = 0; rib < numRibs; rib++) {
+        var ribIdx = rib - Math.floor(numRibs / 2); // -5 to +5
+        var rxPos = ribIdx * 5.0;
+        var ribColor = (rib % 2 === 0) ? COL_SILVER_LIGHT : COL_STEEL_DARK;
+        // Taper depth slightly at ends
+        var rDepth = 36.0 - Math.abs(ribIdx) * 1.8;
+        addCubePart(ribWidth, waistHeight, rDepth, [rxPos, waistY, 0], ribColor, 'waist_rib');
+      }
+
+      // -----------------------------------------------------------------------
+      // 7. BOTTOM (Half-dome base & exhaust nozzle)
+      // -----------------------------------------------------------------------
+      var domeBaseY = -56;
+      // Half-dome base sphere (partially nested inside waist)
+      addSpherePart(17.5, [0, domeBaseY, 0], COL_SILVER_MID, 'thruster_dome');
+
+      // Charred Exhaust Nozzle Ring
+      addCubePart(23.0, 4.0, 23.0, [0, -68.0, 0], COL_STEEL_DARK, 'exhaust_nozzle');
+      addCubePart(18.0, 2.5, 18.0, [0, -70.0, 0], [0.12, 0.14, 0.16], 'exhaust_inner');
+
+      // -----------------------------------------------------------------------
+      // 8. FLICKERING FLAME / THRUSTER (Orange & Yellow Cubes)
+      // -----------------------------------------------------------------------
+      var flameDefinitions = [
+        // Core plume (bright hot yellow, fast jitter)
+        { x:  0,   y: -75, z:  0,   sx: 7, sy: 9, sz: 7, col: COL_FLAME_YELLOW, freq: 28, phase: 0.0, ampY: 7 },
+        { x: -3.5, y: -77, z:  1.5, sx: 6, sy: 8, sz: 6, col: COL_FLAME_YELLOW, freq: 25, phase: 1.1, ampY: 6 },
+        { x:  3.5, y: -77, z: -1.5, sx: 6, sy: 8, sz: 6, col: COL_FLAME_YELLOW, freq: 29, phase: 2.3, ampY: 6 },
+        { x:  0,   y: -82, z:  0,   sx: 6, sy: 10, sz: 6, col: COL_FLAME_YELLOW, freq: 32, phase: 3.4, ampY: 8 },
+
+        // Mid flame body (fiery orange, broader volume)
+        { x: -7,   y: -80, z:  0,   sx: 6, sy: 9, sz: 6, col: COL_FLAME_ORANGE, freq: 22, phase: 0.8, ampY: 6 },
+        { x:  7,   y: -80, z:  0,   sx: 6, sy: 9, sz: 6, col: COL_FLAME_ORANGE, freq: 24, phase: 2.0, ampY: 6 },
+        { x:  0,   y: -80, z:  6,   sx: 5, sy: 8, sz: 5, col: COL_FLAME_ORANGE, freq: 20, phase: 1.5, ampY: 5 },
+        { x:  0,   y: -80, z: -6,   sx: 5, sy: 8, sz: 5, col: COL_FLAME_ORANGE, freq: 21, phase: 3.1, ampY: 5 },
+        { x: -4,   y: -86, z:  2,   sx: 5, sy: 11, sz: 5, col: COL_FLAME_ORANGE, freq: 26, phase: 4.2, ampY: 8 },
+        { x:  4,   y: -86, z: -2,   sx: 5, sy: 11, sz: 5, col: COL_FLAME_ORANGE, freq: 27, phase: 1.9, ampY: 8 },
+        { x:  0,   y: -90, z:  0,   sx: 5, sy: 12, sz: 5, col: COL_FLAME_ORANGE, freq: 30, phase: 5.1, ampY: 9 },
+
+        // Jagged lower plumes (4 pointed tongues pointing downward like sketch)
+        // Outer Left Tip
+        { x: -12,  y: -85, z:  0,   sx: 4.5, sy: 8, sz: 4.5, col: COL_FLAME_ORANGE, freq: 19, phase: 0.4, ampY: 5 },
+        { x: -13,  y: -92, z:  0,   sx: 3.5, sy: 9, sz: 3.5, col: COL_FLAME_RED,    freq: 23, phase: 1.7, ampY: 7 },
+
+        // Mid-Left Tip
+        { x: -5.5, y: -94, z:  1,   sx: 4.2, sy: 10, sz: 4.2, col: COL_FLAME_ORANGE, freq: 27, phase: 2.8, ampY: 8 },
+        { x: -5.0, y: -102, z: 0.5, sx: 3.2, sy: 12, sz: 3.2, col: COL_FLAME_RED,    freq: 33, phase: 3.9, ampY: 10 },
+
+        // Center Longest Plume
+        { x:  0,   y: -98, z:  0,   sx: 4.5, sy: 11, sz: 4.5, col: COL_FLAME_ORANGE, freq: 29, phase: 0.9, ampY: 9 },
+        { x:  0,   y: -108, z: 0,   sx: 3.4, sy: 14, sz: 3.4, col: COL_FLAME_RED,    freq: 35, phase: 2.5, ampY: 12 },
+
+        // Mid-Right Tip
+        { x:  5.5, y: -94, z: -1,   sx: 4.2, sy: 10, sz: 4.2, col: COL_FLAME_ORANGE, freq: 26, phase: 1.3, ampY: 8 },
+        { x:  5.0, y: -102, z: -0.5, sx: 3.2, sy: 12, sz: 3.2, col: COL_FLAME_RED,    freq: 32, phase: 4.1, ampY: 10 },
+
+        // Outer Right Tip
+        { x:  12,  y: -85, z:  0,   sx: 4.5, sy: 8, sz: 4.5, col: COL_FLAME_ORANGE, freq: 20, phase: 2.2, ampY: 5 },
+        { x:  13,  y: -92, z:  0,   sx: 3.5, sy: 9, sz: 3.5, col: COL_FLAME_RED,    freq: 24, phase: 3.5, ampY: 7 }
+      ];
+
+      for (var f = 0; f < flameDefinitions.length; f++) {
+        var fd = flameDefinitions[f];
+        var flameCube = addCubePart(fd.sx, fd.sy, fd.sz, [fd.x, fd.y, fd.z], fd.col, 'flame', null, {
+          freq: fd.freq,
+          phase: fd.phase,
+          ampY: fd.ampY,
+          baseHeight: fd.sy,
+          baseColor: [fd.col[0], fd.col[1], fd.col[2]]
+        });
+        flameParts.push(flameCube);
+      }
+
+      // Update HUD Parts Counter
+      document.getElementById('disp-parts').innerText = robotParts.length;
+    }
+
+    // =========================================================================
+    // INTERACTION & ANIMATION LOGIC
+    // =========================================================================
+
+    /**
+     * Toggle Arm Waving Mode [A]
+     */
+    function toggleArmWaving() {
+      state.armWaving = !state.armWaving;
+      var btn = document.getElementById('btn-arms');
+      if (btn) btn.classList.toggle('active', state.armWaving);
+      var disp = document.getElementById('disp-arms');
+      if (disp) {
+        disp.innerText = state.armWaving ? 'WAVING' : 'REST';
+        disp.className = 'badge-value ' + (state.armWaving ? 'active' : '');
+      }
+      showToast('ARM WAVING: ' + (state.armWaving ? 'ACTIVE' : 'REST'));
+    }
+
+    /**
+     * Toggle Chest Lights & Power Core Blinking [L]
+     */
+    function toggleBlinkingLights() {
+      state.blinkingLights = !state.blinkingLights;
+      var btn = document.getElementById('btn-lights');
+      if (btn) btn.classList.toggle('active', state.blinkingLights);
+      var disp = document.getElementById('disp-lights');
+      if (disp) {
+        disp.innerText = state.blinkingLights ? 'BLINKING' : 'STEADY';
+        disp.className = 'badge-value ' + (state.blinkingLights ? 'alert' : '');
+      }
+      showToast('CHEST LIGHTS: ' + (state.blinkingLights ? 'BLINKING' : 'STEADY'));
+    }
+
+    /**
+     * Trigger Explosive Disassembly and Gravitational Reassembly [Space]
+     */
+    function triggerExplosion() {
+      state.isExploded = !state.isExploded;
+      var impulseMagnitude = 260 + Math.random() * 80;
+
+      for (var i = 0; i < robotParts.length; i++) {
+        var part = robotParts[i];
+        var bp = part.localBasePos;
+        var dist = Math.sqrt(bp[0] * bp[0] + bp[1] * bp[1] + bp[2] * bp[2]) + 1.0;
+
+        // Radial outward blast vector with random chaotic scattering
+        var dirX = (bp[0] / dist) + (Math.random() - 0.5) * 1.2;
+        var dirY = (bp[1] / dist) + (Math.random() - 0.5) * 1.2;
+        var dirZ = (bp[2] / dist) + (Math.random() - 0.5) * 1.2;
+
+        part.vel[0] = dirX * impulseMagnitude;
+        part.vel[1] = dirY * impulseMagnitude;
+        part.vel[2] = dirZ * impulseMagnitude;
+      }
+
+      showToast(state.isExploded ? '💥 NANOTECH EXPLOSION & REASSEMBLY' : '⚡ REASSEMBLING ROBOT');
+    }
+
+    /**
+     * Reset Robot Rotation and Camera View [R]
+     */
+    function resetRotationAndCamera() {
+      state.yaw = 0;
+      state.pitch = 0;
+      state.yawVel = 0;
+      state.pitchVel = 0;
+
+      if (r && r.camera) {
+        r.camera.position = [0, 0, 320];
+        if (typeof r.camera.up !== 'undefined') {
+          r.camera.up = [0, 1, 0];
+        }
+      }
+      showToast('ROTATION & CAMERA RESET');
+    }
+
+    // =========================================================================
+    // LOADER.JS INTEGRATION (DOWNLOAD & UPLOAD)
+    // =========================================================================
+
+    /**
+     * Download Scene using loader.js download()
+     */
+    function saveScene() {
+      if (typeof download === 'function') {
+        download();
+        showToast('💾 SCENE SAVED AS scene.json');
+      } else {
+        showToast('ERROR: loader.js download() not loaded');
+      }
+    }
+
+    /**
+     * Trigger File Upload
+     */
+    function promptUploadScene() {
+      document.getElementById('file-input').click();
+    }
+
+    /**
+     * Handle local scene upload
+     */
+    function handleFileSelect(evt) {
+      var file = evt.target.files[0];
+      if (!file) return;
+
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          var loaded = JSON.parse(e.target.result);
+
+          // Hide existing objects
+          for (var o in r.Ha) {
+            r.Ha[o].visible = false;
+          }
+
+          robotParts = [];
+          flameParts = [];
+          wavyLineParts = [];
+          chestButtons = [];
+
+          // Parse objects from scene.json
+          for (var idx in loaded['objects']) {
+            var objData = loaded['objects'][idx];
+            var type = objData[0];
+            var color = objData[1];
+            var matrix = objData[2];
+            var radius = objData[3];
+            var lengthX = objData[4];
+            var lengthY = objData[5];
+            var lengthZ = objData[6];
+
+            if (type === 'cube') {
+              var loaded_cube = new X.cube();
+              loaded_cube.color = color;
+              loaded_cube.transform.matrix = new Float32Array(Object.values(matrix));
+              loaded_cube.lengthX = lengthX;
+              loaded_cube.lengthY = lengthY;
+              loaded_cube.lengthZ = lengthZ;
+              r.add(loaded_cube);
+
+              robotParts.push({
+                obj: loaded_cube,
+                type: 'cube',
+                localBasePos: [matrix[12], matrix[13], matrix[14]],
+                currentPos: [matrix[12], matrix[13], matrix[14]],
+                vel: [0, 0, 0],
+                baseColor: color,
+                currentColor: color,
+                localRot: null,
+                category: 'uploaded',
+                id: robotParts.length,
+                meta: {}
+              });
+            } else if (type === 'sphere') {
+              var loaded_sphere = new X.sphere();
+              loaded_sphere.color = color;
+              loaded_sphere.transform.matrix = new Float32Array(Object.values(matrix));
+              loaded_sphere.radius = radius;
+              r.add(loaded_sphere);
+
+              robotParts.push({
+                obj: loaded_sphere,
+                type: 'sphere',
+                localBasePos: [matrix[12], matrix[13], matrix[14]],
+                currentPos: [matrix[12], matrix[13], matrix[14]],
+                vel: [0, 0, 0],
+                baseColor: color,
+                currentColor: color,
+                localRot: null,
+                category: 'uploaded',
+                id: robotParts.length,
+                meta: {}
+              });
+            }
+          }
+
+          // Restore camera view
+          if (loaded['camera'] && loaded['camera'].length > 0) {
+            r.camera.view = new Float32Array(Object.values(loaded['camera'][0]));
+          }
+
+          document.getElementById('disp-parts').innerText = robotParts.length;
+          showToast('📂 LOADED SCENE: ' + file.name);
+        } catch (err) {
+          console.error(err);
+          showToast('ERROR PARSING SCENE JSON');
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    // =========================================================================
+    // REALTIME 60FPS ANIMATION LOOP & PHYSICS
+    // =========================================================================
+
+    var lastTimestamp = 0;
+    var frameCounter = 0;
+    var fpsTimer = 0;
+
+    // Smoothed animation wave states
+    var curArmWave = 0;
+    var curClawOpen = 0;
+
+    function renderLoop(timestamp) {
+      requestAnimationFrame(renderLoop);
+
+      if (!lastTimestamp) lastTimestamp = timestamp;
+      var dt = (timestamp - lastTimestamp) / 1000;
+      lastTimestamp = timestamp;
+      if (dt > 0.1) dt = 0.1;
+
+      state.time += dt;
+      var t = state.time;
+
+      // FPS Counter
+      frameCounter++;
+      fpsTimer += dt;
+      if (fpsTimer >= 0.5) {
+        var fps = Math.round(frameCounter / fpsTimer);
+        document.getElementById('disp-fps').innerText = fps;
+        frameCounter = 0;
+        fpsTimer = 0;
+      }
+
+      // -----------------------------------------------------------------------
+      // 1. KEYBOARD ROTATION INPUT PROCESSING (Arrow Keys)
+      // -----------------------------------------------------------------------
+      var rotAccel = 3.6 * dt;
+      if (keys['ArrowLeft'])  state.yawVel   -= rotAccel;
+      if (keys['ArrowRight']) state.yawVel   += rotAccel;
+      if (keys['ArrowUp'])    state.pitchVel -= rotAccel;
+      if (keys['ArrowDown'])  state.pitchVel += rotAccel;
+
+      state.yaw   += state.yawVel;
+      state.pitch += state.pitchVel;
+
+      // Angular damping friction
+      state.yawVel   *= 0.88;
+      state.pitchVel *= 0.88;
+
+      // Update Rotation Telemetry in HUD
+      var dispRot = document.getElementById('disp-rot');
+      if (dispRot) {
+        var degY = Math.round(((state.yaw * 180 / Math.PI) % 360 + 360) % 360);
+        var degX = Math.round(((state.pitch * 180 / Math.PI) % 360 + 360) % 360);
+        dispRot.innerText = degY + '° / ' + degX + '°';
+      }
+
+      // -----------------------------------------------------------------------
+      // 2. ROBOT HOVERING & DYNAMICS CALCULATIONS
+      // -----------------------------------------------------------------------
+      var hoverY = 0;
+      if (state.hovering) {
+        // Smooth sine wave vertical hovering
+        hoverY = Math.sin(t * 2.5) * 8.0;
+      }
+
+      // Compute Robot 3x3 World Rotation Matrix from yaw & pitch
+      var R_robot = getRotationMatrix(state.yaw, state.pitch);
+
+      // Smooth Arm Waving Interpolation
+      var targetArmWave = state.armWaving ? Math.sin(t * 4.2) * 0.42 : 0;
+      var targetClawOpen = state.armWaving ? (Math.sin(t * 6.0) + 1.0) * 0.32 : 0;
+      curArmWave += (targetArmWave - curArmWave) * (dt * 8.0);
+      curClawOpen += (targetClawOpen - curClawOpen) * (dt * 10.0);
+
+      // Dynamic Arm & Claw Rotation Matrices
+      var rotLeftArmWave = makeAxisRotationMatrix('z', curArmWave);
+      var rotRightArmWave = makeAxisRotationMatrix('z', -curArmWave);
+
+      // -----------------------------------------------------------------------
+      // 3. UPDATE SPECIFIC ANIMATED FEATURES
+      // -----------------------------------------------------------------------
+
+      // (a) Hexagon Screen Wavy Line (Active Traveling Sine Wave)
+      for (var w = 0; w < wavyLineParts.length; w++) {
+        var wp = wavyLineParts[w];
+        var waveYOffset = Math.sin(t * 6.5 + wp.meta.phase) * 3.2;
+        wp.meta.animOffsetY = waveYOffset;
+      }
+
+      // (b) Flickering Flame Cubes (Constantly Jittering, Stretching & Bobbing)
+      for (var f = 0; f < flameParts.length; f++) {
+        var fp = flameParts[f];
+        var meta = fp.meta;
+        var fTime = t * meta.freq + meta.phase;
+
+        // Vertical bobbing and stretching
+        var stretchY = (Math.sin(fTime * 0.8) + 1.0) * 0.5;
+        var flameBobY = -Math.abs(Math.sin(fTime)) * meta.ampY;
+        var flameJitterX = Math.sin(fTime * 1.3) * 1.8 + (Math.random() - 0.5) * 1.6;
+        var flameJitterZ = Math.cos(fTime * 1.1) * 1.8 + (Math.random() - 0.5) * 1.6;
+
+        fp.meta.animOffsetX = flameJitterX;
+        fp.meta.animOffsetY = flameBobY;
+        fp.meta.animOffsetZ = flameJitterZ;
+
+        // Dynamic Color Shifting between Yellow, Orange, and Red
+        var heat = Math.sin(fTime * 1.5) * 0.5 + 0.5;
+        fp.currentColor[0] = 1.0;
+        fp.currentColor[1] = meta.baseColor[1] * (0.6 + heat * 0.5);
+        fp.currentColor[2] = meta.baseColor[2] * (0.4 + heat * 0.8);
+        fp.obj.color = fp.currentColor;
+      }
+
+      // (c) Chest Buttons & Power Core Blinking [L Key]
+      if (state.blinkingLights) {
+        // Power Core Ring: Traveling light chaser
+        for (var pr = 0; pr < powerCoreRing.length; pr++) {
+          var pCube = powerCoreRing[pr];
+          var chase = (Math.sin(t * 14.0 - pr * (Math.PI * 2 / 12)) + 1.0) * 0.5;
+          pCube.currentColor[0] = 0.5 + chase * 0.5;
+          pCube.currentColor[1] = chase * 0.8;
+          pCube.currentColor[2] = chase * 1.0;
+          pCube.obj.color = pCube.currentColor;
+        }
+
+        // Power Core Center: Pulsing radiant hue
+        if (powerCoreCenter) {
+          var corePulse = (Math.sin(t * 16.0) + 1.0) * 0.5;
+          powerCoreCenter.currentColor = [
+            1.0,
+            0.15 + corePulse * 0.75,
+            0.20 + (1.0 - corePulse) * 0.80
+          ];
+          powerCoreCenter.obj.color = powerCoreCenter.currentColor;
+        }
+
+        // 6 Chest Buttons: Strobe and sequential retro flashing
+        for (var b = 0; b < chestButtons.length; b++) {
+          var btn = chestButtons[b];
+          var bMeta = btn.meta;
+          var flash = Math.sin(t * 12.0 + b * 1.7) > 0 ? 1.0 : 0.22;
+          btn.currentColor[0] = bMeta.baseColor[0] * flash;
+          btn.currentColor[1] = bMeta.baseColor[1] * flash;
+          btn.currentColor[2] = bMeta.baseColor[2] * flash;
+          btn.obj.color = btn.currentColor;
+        }
+      } else {
+        // Return to steady default colors
+        for (var pr2 = 0; pr2 < powerCoreRing.length; pr2++) {
+          powerCoreRing[pr2].obj.color = powerCoreRing[pr2].baseColor;
+        }
+        if (powerCoreCenter) {
+          powerCoreCenter.obj.color = powerCoreCenter.baseColor;
+        }
+        for (var b2 = 0; b2 < chestButtons.length; b2++) {
+          chestButtons[b2].obj.color = chestButtons[b2].baseColor;
+        }
+      }
+
+      // -----------------------------------------------------------------------
+      // 4. PHYSICS SIMULATION & WORLD TRANSFORM MATRIX CALCULATION
+      // -----------------------------------------------------------------------
+      var springK = 7.8;   // Elastic reassembly return spring
+      var damping = 0.87;  // Kinetic energy damping
+
+      for (var i = 0; i < robotParts.length; i++) {
+        var part = robotParts[i];
+        if (!part.obj.visible) continue;
+
+        // Compute Animated Local Position
+        var lx = part.localBasePos[0];
+        var ly = part.localBasePos[1];
+        var lz = part.localBasePos[2];
+        var partRot = part.localRot; // 3x3 local rotation matrix or null
+
+        // Apply dynamic offsets based on category
+        if (part.category === 'wavy_line' && part.meta.animOffsetY) {
+          ly = part.meta.baseY + part.meta.animOffsetY;
+        } else if (part.category === 'flame' && part.meta.animOffsetY) {
+          lx += part.meta.animOffsetX;
+          ly += part.meta.animOffsetY;
+          lz += part.meta.animOffsetZ;
+        } else if (part.category === 'arm_left' || part.category === 'wrist_left') {
+          // Arm swing rotation around shoulder joint
+          var shOrigin = part.meta.shoulderOrigin || [-37, 32, 0];
+          var relX = lx - shOrigin[0];
+          var relY = ly - shOrigin[1];
+          var swungRel = rotateVec3(rotLeftArmWave, [relX, relY, 0]);
+          lx = shOrigin[0] + swungRel[0];
+          ly = shOrigin[1] + swungRel[1];
+          if (partRot) {
+            partRot = mat3Multiply(rotLeftArmWave, part.localRot);
+          } else {
+            partRot = rotLeftArmWave;
+          }
+        } else if (part.category === 'arm_right' || part.category === 'wrist_right') {
+          var shOriginR = part.meta.shoulderOrigin || [37, 32, 0];
+          var relXR = lx - shOriginR[0];
+          var relYR = ly - shOriginR[1];
+          var swungRelR = rotateVec3(rotRightArmWave, [relXR, relYR, 0]);
+          lx = shOriginR[0] + swungRelR[0];
+          ly = shOriginR[1] + swungRelR[1];
+          if (partRot) {
+            partRot = mat3Multiply(rotRightArmWave, part.localRot);
+          } else {
+            partRot = rotRightArmWave;
+          }
+        } else if (part.category === 'claw_l_top' || part.category === 'claw_l_btm') {
+          // Apply arm wave to wrist origin, plus claw open angle
+          var shOrigL = [-37, 32, 0];
+          var wrRel = [part.meta.wristOrigin[0] - shOrigL[0], part.meta.wristOrigin[1] - shOrigL[1], 0];
+          var swungWr = rotateVec3(rotLeftArmWave, wrRel);
+          var curWrX = shOrigL[0] + swungWr[0];
+          var curWrY = shOrigL[1] + swungWr[1];
+
+          var clawSpread = (part.category === 'claw_l_top') ? -curClawOpen : curClawOpen;
+          var rotClawHinge = makeAxisRotationMatrix('z', clawSpread);
+          var clawCombined = mat3Multiply(rotLeftArmWave, rotClawHinge);
+
+          var fingerRel = [part.localBasePos[0] - part.meta.wristOrigin[0], part.localBasePos[1] - part.meta.wristOrigin[1], 0];
+          var fingerSwung = rotateVec3(clawCombined, fingerRel);
+          lx = curWrX + fingerSwung[0];
+          ly = curWrY + fingerSwung[1];
+          partRot = mat3Multiply(clawCombined, part.localRot);
+        } else if (part.category === 'claw_r_top' || part.category === 'claw_r_btm') {
+          var shOrigR = [37, 32, 0];
+          var wrRelR = [part.meta.wristOrigin[0] - shOrigR[0], part.meta.wristOrigin[1] - shOrigR[1], 0];
+          var swungWrR = rotateVec3(rotRightArmWave, wrRelR);
+          var curWrXR = shOrigR[0] + swungWrR[0];
+          var curWrYR = shOrigR[1] + swungWrR[1];
+
+          var clawSpreadR = (part.category === 'claw_r_top') ? curClawOpen : -curClawOpen;
+          var rotClawHingeR = makeAxisRotationMatrix('z', clawSpreadR);
+          var clawCombinedR = mat3Multiply(rotRightArmWave, rotClawHingeR);
+
+          var fingerRelR = [part.localBasePos[0] - part.meta.wristOrigin[0], part.localBasePos[1] - part.meta.wristOrigin[1], 0];
+          var fingerSwungR = rotateVec3(clawCombinedR, fingerRelR);
+          lx = curWrXR + fingerSwungR[0];
+          ly = curWrYR + fingerSwungR[1];
+          partRot = mat3Multiply(clawCombinedR, part.localRot);
+        }
+
+        // Apply Robot Rotation & Hover Translation to get Target World Coordinates
+        var rotatedPos = rotateVec3(R_robot, [lx, ly, lz]);
+        var targetX = rotatedPos[0];
+        var targetY = rotatedPos[1] + hoverY;
+        var targetZ = rotatedPos[2];
+
+        // Combined 3x3 World Orientation Matrix
+        var R_world = partRot ? mat3Multiply(R_robot, partRot) : R_robot;
+
+        // Physics: Gravitational Return Spring and Velocity Integration
+        var cur = part.currentPos;
+        var vel = part.vel;
+
+        var ax = (targetX - cur[0]) * springK - vel[0] * damping;
+        var ay = (targetY - cur[1]) * springK - vel[1] * damping;
+        var az = (targetZ - cur[2]) * springK - vel[2] * damping;
+
+        vel[0] += ax * dt;
+        vel[1] += ay * dt;
+        vel[2] += az * dt;
+
+        cur[0] += vel[0] * dt;
+        cur[1] += vel[1] * dt;
+        cur[2] += vel[2] * dt;
+
+        // Write directly to XTK 4x4 Transform Matrix
+        var m = part.obj.transform.matrix;
+
+        // Orientation columns
+        m[0] = R_world[0]; m[1] = R_world[3]; m[2] = R_world[6]; m[3] = 0;
+        m[4] = R_world[1]; m[5] = R_world[4]; m[6] = R_world[7]; m[7] = 0;
+        m[8] = R_world[2]; m[9] = R_world[5]; m[10] = R_world[8]; m[11] = 0;
+
+        // Translation column
+        m[12] = cur[0];
+        m[13] = cur[1];
+        m[14] = cur[2];
+        m[15] = 1.0;
+
+        // Notify XTK to update WebGL buffers
+        part.obj.transform.modified();
+      }
+
+      // -----------------------------------------------------------------------
+      // 5. RENDER FRAME VIA XTK
+      // -----------------------------------------------------------------------
+      if (r) {
+        r.render();
+      }
+    }
+
+    // =========================================================================
+    // EVENT LISTENERS & INITIALIZATION
+    // =========================================================================
+
+    // Keyboard controls
+    window.addEventListener('keydown', function(evt) {
+      keys[evt.code] = true;
+
+      // Space: Explode and Reassemble
+      if (evt.code === 'Space') {
+        evt.preventDefault();
+        triggerExplosion();
+      }
+      // A: Wave Arms and Snap Claws
+      else if (evt.code === 'KeyA') {
+        toggleArmWaving();
+      }
+      // L: Blink Chest Lights & Power Core
+      else if (evt.code === 'KeyL') {
+        toggleBlinkingLights();
+      }
+      // R: Reset Rotation and Camera
+      else if (evt.code === 'KeyR') {
+        resetRotationAndCamera();
+      }
+      // S: Save Scene (JSON)
+      else if (evt.code === 'KeyS') {
+        saveScene();
+      }
+      // U: Upload Scene
+      else if (evt.code === 'KeyU') {
+        promptUploadScene();
+      }
+    });
+
+    window.addEventListener('keyup', function(evt) {
+      keys[evt.code] = false;
+    });
+
+    // Button event listeners for continuous arrow rotations
+    var rotLeftBtn = document.getElementById('btn-rot-left');
+    var rotRightBtn = document.getElementById('btn-rot-right');
+
+    if (rotLeftBtn) {
+      rotLeftBtn.addEventListener('mousedown', function() { keys['ArrowLeft'] = true; });
+      rotLeftBtn.addEventListener('mouseup', function() { keys['ArrowLeft'] = false; });
+      rotLeftBtn.addEventListener('mouseleave', function() { keys['ArrowLeft'] = false; });
+      rotLeftBtn.addEventListener('touchstart', function(e) { e.preventDefault(); keys['ArrowLeft'] = true; });
+      rotLeftBtn.addEventListener('touchend', function() { keys['ArrowLeft'] = false; });
+    }
+
+    if (rotRightBtn) {
+      rotRightBtn.addEventListener('mousedown', function() { keys['ArrowRight'] = true; });
+      rotRightBtn.addEventListener('mouseup', function() { keys['ArrowRight'] = false; });
+      rotRightBtn.addEventListener('mouseleave', function() { keys['ArrowRight'] = false; });
+      rotRightBtn.addEventListener('touchstart', function(e) { e.preventDefault(); keys['ArrowRight'] = true; });
+      rotRightBtn.addEventListener('touchend', function() { keys['ArrowRight'] = false; });
+    }
+
+    /**
+     * Window Onload Entry Point
+     */
+    window.onload = function() {
+      // 1. Initialize XTK 3D Renderer (attaches directly to document.body)
+      r = new X.renderer3D();
+      r.init();
+
+      // Configure deep space background color
+      r.bgColor = [0.024, 0.032, 0.055];
+
+      // Initial Camera Setup
+      r.camera.position = [0, 5, 300];
+
+      // 2. Build 3D Robot Scene from sketch.jpg
+      buildRobotScene();
+
+      // 3. Start 60 FPS Realtime Animation Loop
+      requestAnimationFrame(renderLoop);
+
+      showToast('XTK 3D ROBOT READY • PRESS SPACE TO EXPLODE');
+    };
+  </script>
+</body>
+</html>
