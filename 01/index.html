@@ -1,0 +1,31 @@
+<html>
+  <head>
+    <title>CS460 - Hello Cube</title>
+    <style>
+      html, body {
+        background-color: #000;
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden !important;
+      }
+    </style>
+    <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+    <script type="text/javascript">
+      window.onload = function() {
+        // create and initialize a 3D renderer
+        var r = new X.renderer3D();
+        r.init();
+
+        // create a cube
+        var c = new X.cube();
+
+        // add cube to renderer and render
+        r.add(c);
+        r.render();
+      };
+    </script>
+  </head>
+  <body>
+  </body>
+</html>

@@ -1,0 +1,1572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hypnotic Cube Art Visualization - XTK WebGL</title>
+  
+  <!-- Primary XTK Edge script with local fallback -->
+  <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+  <script type="text/javascript">
+    if (typeof X === 'undefined') {
+      document.write('<script type="text/javascript" src="xtk_edge.js"><\/script>');
+    }
+  </script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      background-color: #030308;
+      width: 100%;
+      height: 100%;
+      overflow: hidden !important;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: #e0e5ff;
+    }
+
+    /* Ambient background glow behind WebGL */
+    #ambient-glow {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 90vmin;
+      height: 90vmin;
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(120, 40, 220, 0.18) 0%, rgba(0, 210, 255, 0.08) 40%, rgba(3, 3, 8, 0) 75%);
+      pointer-events: none;
+      z-index: 1;
+      filter: blur(40px);
+      transition: background 1.5s ease;
+    }
+
+    /* Vignette & subtle scanline overlay for demoscene aesthetic */
+    #vignette {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      box-shadow: inset 0 0 140px rgba(0, 0, 0, 0.85);
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    /* Glassmorphic Master HUD Container */
+    #hud-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 20px;
+      transition: opacity 0.4s ease, transform 0.4s ease;
+    }
+
+    #hud-container.hidden {
+      opacity: 0;
+      pointer-events: none !important;
+      transform: scale(0.98);
+    }
+
+    /* Header Bar */
+    .header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      pointer-events: auto;
+    }
+
+    .title-card {
+      background: rgba(12, 16, 32, 0.65);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 14px;
+      padding: 14px 22px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+    }
+
+    .title-card h1 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      background: linear-gradient(135deg, #00f5d4 0%, #7928ca 50%, #ff007f 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 4px;
+    }
+
+    .title-card p {
+      font-size: 0.75rem;
+      color: #8c97c6;
+      letter-spacing: 0.5px;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 6px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: #00f5d4;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background-color: #00f5d4;
+      box-shadow: 0 0 8px #00f5d4;
+      animation: pulse-dot 2s infinite;
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    /* Top-Right Quick Controls */
+    .top-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .icon-btn {
+      background: rgba(12, 16, 32, 0.65);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 10px;
+      color: #d0d7ff;
+      padding: 10px 14px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    }
+
+    .icon-btn:hover {
+      background: rgba(30, 40, 75, 0.85);
+      border-color: rgba(0, 245, 212, 0.5);
+      color: #fff;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0, 245, 212, 0.25);
+    }
+
+    .icon-btn.active {
+      background: linear-gradient(135deg, rgba(121, 40, 202, 0.75), rgba(255, 0, 127, 0.75));
+      border-color: #ff007f;
+      color: #fff;
+      box-shadow: 0 0 16px rgba(255, 0, 127, 0.4);
+    }
+
+    /* Control Panel Drawer (Right side) */
+    .controls-panel {
+      position: absolute;
+      top: 85px;
+      right: 20px;
+      width: 320px;
+      max-height: calc(100% - 170px);
+      overflow-y: auto;
+      background: rgba(10, 14, 28, 0.72);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 16px;
+      padding: 18px;
+      pointer-events: auto;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+    }
+
+    .controls-panel::-webkit-scrollbar {
+      width: 5px;
+    }
+    .controls-panel::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 4px;
+    }
+
+    .section-title {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      color: #7987bd;
+      margin: 14px 0 8px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .section-title:first-child {
+      margin-top: 0;
+    }
+
+    /* Mode Pill Selectors */
+    .mode-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 6px;
+    }
+
+    .mode-btn {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 9px;
+      padding: 9px 12px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #aab5e0;
+      text-align: left;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: all 0.2s ease;
+    }
+
+    .mode-btn:hover {
+      background: rgba(255, 255, 255, 0.09);
+      color: #fff;
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .mode-btn.active {
+      background: linear-gradient(90deg, rgba(0, 245, 212, 0.2) 0%, rgba(121, 40, 202, 0.25) 100%);
+      border-color: #00f5d4;
+      color: #fff;
+      box-shadow: 0 0 12px rgba(0, 245, 212, 0.25);
+    }
+
+    .mode-btn .badge {
+      font-size: 0.65rem;
+      padding: 2px 6px;
+      border-radius: 5px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #7987bd;
+    }
+
+    .mode-btn.active .badge {
+      background: #00f5d4;
+      color: #030308;
+      font-weight: 700;
+    }
+
+    /* Color Palette Swatches */
+    .palette-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+    }
+
+    .palette-btn {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 9px;
+      padding: 7px 6px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.2s ease;
+    }
+
+    .palette-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+
+    .palette-btn.active {
+      border-color: #ff007f;
+      background: rgba(255, 0, 127, 0.12);
+      box-shadow: 0 0 12px rgba(255, 0, 127, 0.3);
+    }
+
+    .palette-preview {
+      width: 100%;
+      height: 9px;
+      border-radius: 4px;
+    }
+
+    .palette-label {
+      font-size: 0.68rem;
+      font-weight: 600;
+      color: #c0caf5;
+    }
+
+    /* Sliders */
+    .slider-group {
+      margin-bottom: 11px;
+    }
+
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.73rem;
+      color: #b0bfe8;
+      margin-bottom: 5px;
+    }
+
+    .slider-val {
+      font-weight: 700;
+      color: #00f5d4;
+      font-family: monospace;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 5px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.12);
+      outline: none;
+      transition: background 0.2s;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: #00f5d4;
+      cursor: pointer;
+      box-shadow: 0 0 8px #00f5d4;
+      transition: transform 0.15s, background 0.15s;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.25);
+      background: #fff;
+    }
+
+    /* Bottom Info & Shortcuts Bar */
+    .bottom-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      pointer-events: auto;
+    }
+
+    .shortcuts-card {
+      background: rgba(12, 16, 32, 0.65);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 10px 18px;
+      display: flex;
+      gap: 16px;
+      font-size: 0.72rem;
+      color: #8c97c6;
+    }
+
+    .shortcut-item kbd {
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 5px;
+      padding: 2px 6px;
+      color: #00f5d4;
+      font-family: monospace;
+      font-weight: bold;
+      margin-right: 4px;
+    }
+
+    .fps-badge {
+      background: rgba(12, 16, 32, 0.65);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 10px 18px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #00f5d4;
+      font-family: monospace;
+      letter-spacing: 0.5px;
+    }
+
+    /* Floating Hide/Show Button */
+    #toggle-hud-btn {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      z-index: 20;
+      background: rgba(12, 16, 32, 0.75);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 10px;
+      color: #d0d7ff;
+      padding: 9px 14px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+      transition: all 0.2s ease;
+    }
+
+    #toggle-hud-btn:hover {
+      background: rgba(30, 40, 75, 0.9);
+      border-color: #00f5d4;
+      color: #fff;
+    }
+
+    /* Notification Toast */
+    #toast {
+      position: absolute;
+      top: 25px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-30px);
+      background: rgba(18, 24, 48, 0.88);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid #00f5d4;
+      border-radius: 10px;
+      padding: 10px 22px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #fff;
+      box-shadow: 0 10px 30px rgba(0, 245, 212, 0.3);
+      opacity: 0;
+      pointer-events: none;
+      z-index: 100;
+      transition: all 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+    }
+
+    #toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Ambient Pulsing Glow Halo -->
+  <div id="ambient-glow"></div>
+
+  <!-- Vignette overlay -->
+  <div id="vignette"></div>
+
+  <!-- Notification Toast -->
+  <div id="toast">Hypnotic Preset Activated</div>
+
+  <!-- Persistent Toggle Button to Show/Hide Controls -->
+  <button id="toggle-hud-btn" onclick="toggleHUD()">
+    <span id="toggle-icon">👁</span> <span id="toggle-text">Hide HUD (H)</span>
+  </button>
+
+  <!-- Glassmorphic Master HUD -->
+  <div id="hud-container">
+    
+    <!-- Top Header Bar -->
+    <div class="header-bar">
+      <div class="title-card">
+        <h1>Chronos Cube Mandala</h1>
+        <p>Hypnotic WebGL Geometric Art &bull; Powered by XTK</p>
+        <div class="status-badge">
+          <div class="status-dot"></div>
+          <span id="active-info">100 Cubes &bull; 3 Dynamic Lights</span>
+        </div>
+      </div>
+
+      <!-- Quick Action Buttons -->
+      <div class="top-actions">
+        <button class="icon-btn" id="sound-btn" onclick="toggleSound()" title="Toggle Hypnotic Binaural Ambient Drone">
+          <span id="sound-icon">🔈</span> <span id="sound-label">Sound: OFF</span>
+        </button>
+        <button class="icon-btn active" id="orbit-btn" onclick="toggleOrbit()" title="Toggle Cinematic Camera Auto-Orbit">
+          <span>🎥</span> <span id="orbit-label">Orbit: ON</span>
+        </button>
+        <button class="icon-btn" onclick="randomizeArtwork()" title="Randomize Hypnotic Parameters">
+          <span>🎲</span> <span>Surprise Me</span>
+        </button>
+        <button class="icon-btn" id="pause-btn" onclick="togglePause()" title="Pause / Resume Motion">
+          <span id="pause-icon">⏸</span> <span id="pause-label">Pause</span>
+        </button>
+        <button class="icon-btn" onclick="captureSnapshot()" title="Capture High-Res PNG Snapshot">
+          <span>📸</span> <span>Capture</span>
+        </button>
+        <button class="icon-btn" onclick="toggleFullscreen()" title="Toggle Fullscreen View">
+          <span>⛶</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Right-Hand Controls Panel -->
+    <div class="controls-panel">
+      
+      <div class="section-title">
+        <span>Hypnotic Choreography</span>
+        <span style="font-size:0.65rem; opacity:0.7;">Keys 1-5</span>
+      </div>
+      <div class="mode-grid">
+        <button class="mode-btn active" onclick="setMode(0)">
+          <span>1. Cosmic Hypercube</span>
+          <span class="badge">Tesseract</span>
+        </button>
+        <button class="mode-btn" onclick="setMode(1)">
+          <span>2. Quantum Spiral Vortex</span>
+          <span class="badge">Phyllotaxis</span>
+        </button>
+        <button class="mode-btn" onclick="setMode(2)">
+          <span>3. Metatron Wave Grid</span>
+          <span class="badge">Standing Wave</span>
+        </button>
+        <button class="mode-btn" onclick="setMode(3)">
+          <span>4. Torus Trefoil Knot</span>
+          <span class="badge">Infinity Flow</span>
+        </button>
+        <button class="mode-btn" onclick="setMode(4)">
+          <span>5. Sacred Starburst</span>
+          <span class="badge">Merkaba</span>
+        </button>
+      </div>
+
+      <div class="section-title">
+        <span>Color Alchemy</span>
+        <span style="font-size:0.65rem; opacity:0.7;">Key C</span>
+      </div>
+      <div class="palette-grid">
+        <button class="palette-btn active" onclick="setPalette(0)">
+          <div class="palette-preview" style="background: linear-gradient(90deg, #ff007f, #7928ca, #00f5d4);"></div>
+          <span class="palette-label">Cyber Neon</span>
+        </button>
+        <button class="palette-btn" onclick="setPalette(1)">
+          <div class="palette-preview" style="background: linear-gradient(90deg, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff);"></div>
+          <span class="palette-label">Prismatic</span>
+        </button>
+        <button class="palette-btn" onclick="setPalette(2)">
+          <div class="palette-preview" style="background: linear-gradient(90deg, #001233, #0077b6, #00f5d4, #90e0ef);"></div>
+          <span class="palette-label">Bioluminesce</span>
+        </button>
+        <button class="palette-btn" onclick="setPalette(3)">
+          <div class="palette-preview" style="background: linear-gradient(90deg, #590d22, #c9184a, #ff758f, #ffb3c1);"></div>
+          <span class="palette-label">Solar Flare</span>
+        </button>
+        <button class="palette-btn" onclick="setPalette(4)">
+          <div class="palette-preview" style="background: linear-gradient(90deg, #0a0a0a, #4a4e69, #9a8c98, #f2e9e4);"></div>
+          <span class="palette-label">Op-Art Moiré</span>
+        </button>
+        <button class="palette-btn" onclick="setPalette(5)">
+          <div class="palette-preview" style="background: linear-gradient(90deg, #f72585, #b5179e, #7209b7, #4cc9f0);"></div>
+          <span class="palette-label">Vaporwave</span>
+        </button>
+      </div>
+
+      <div class="section-title">
+        <span>Movement & Wave Parameters</span>
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-header">
+          <span>Hypnotic Speed</span>
+          <span class="slider-val" id="val-speed">1.0x</span>
+        </div>
+        <input type="range" id="slider-speed" min="0.1" max="2.8" step="0.05" value="1.0" oninput="updateParam('speed', this.value)">
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-header">
+          <span>Wave / Motion Amplitude</span>
+          <span class="slider-val" id="val-amp">1.0x</span>
+        </div>
+        <input type="range" id="slider-amp" min="0.2" max="2.4" step="0.05" value="1.0" oninput="updateParam('amplitude', this.value)">
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-header">
+          <span>Dispersion & Spread</span>
+          <span class="slider-val" id="val-disp">1.0x</span>
+        </div>
+        <input type="range" id="slider-disp" min="0.4" max="2.0" step="0.05" value="1.0" oninput="updateParam('dispersion', this.value)">
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-header">
+          <span>Cube Breathing Scale</span>
+          <span class="slider-val" id="val-scale">1.0x</span>
+        </div>
+        <input type="range" id="slider-scale" min="0.4" max="2.0" step="0.05" value="1.0" oninput="updateParam('cubeScale', this.value)">
+      </div>
+
+      <div class="section-title">
+        <span>Lighting & Radiance</span>
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-header">
+          <span>Light Intensity</span>
+          <span class="slider-val" id="val-light">1.2x</span>
+        </div>
+        <input type="range" id="slider-light" min="0.2" max="2.5" step="0.05" value="1.2" oninput="updateParam('lightIntensity', this.value)">
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-header">
+          <span>Light Orbit Speed</span>
+          <span class="slider-val" id="val-lightspeed">1.0x</span>
+        </div>
+        <input type="range" id="slider-lightspeed" min="0.2" max="3.0" step="0.05" value="1.0" oninput="updateParam('lightSpeed', this.value)">
+      </div>
+
+    </div>
+
+    <!-- Bottom Bar -->
+    <div class="bottom-bar">
+      <div class="shortcuts-card">
+        <div class="shortcut-item"><kbd>Space</kbd> Pause</div>
+        <div class="shortcut-item"><kbd>1-5</kbd> Modes</div>
+        <div class="shortcut-item"><kbd>C</kbd> Color Palette</div>
+        <div class="shortcut-item"><kbd>O</kbd> Orbit</div>
+        <div class="shortcut-item"><kbd>M</kbd> Sound</div>
+        <div class="shortcut-item"><kbd>R</kbd> Randomize</div>
+        <div class="shortcut-item"><kbd>H</kbd> Hide HUD</div>
+      </div>
+
+      <div class="fps-badge" id="fps-counter">
+        60 FPS &bull; WEBGL
+      </div>
+    </div>
+
+  </div>
+
+  <script type="text/javascript">
+    // =========================================================================
+    // GLOBAL STATE & PARAMETERS
+    // =========================================================================
+    var r = null;               // XTK 3D Renderer instance
+    var cubes = [];             // Pool of 100 X.cube instances
+    var NUM_CUBES = 100;        // 100 cubes for deep, rich geometry
+    var lightOrbs = [];         // 3 specialized light orb indicator cubes
+
+    var params = {
+      mode: 0,                  // 0: Hypercube, 1: Spiral, 2: Wave Grid, 3: Trefoil, 4: Starburst
+      palette: 0,               // 0: Cyberpunk, 1: Prismatic, 2: Bio, 3: Solar, 4: Moire, 5: Vaporwave
+      speed: 1.0,               // Motion tempo
+      amplitude: 1.0,           // Displacement intensity
+      dispersion: 1.0,          // Spatial spread
+      cubeScale: 1.0,           // Individual cube size multiplier
+      lightIntensity: 1.2,      // Light brightness
+      lightSpeed: 1.0,          // Orbit speed of lights
+      autoOrbit: true,          // Automatic camera drift
+      camDistance: 275,         // Camera distance
+      paused: false             // Pause state
+    };
+
+    var time = 0.0;
+    var lastFrameTime = performance.now();
+    var frameCount = 0;
+    var lastFpsUpdate = performance.now();
+    var orbitAngle = 0.0;
+    var isUserInteracting = false;
+    var userInteractionTimeout = null;
+    var screenshotRequested = false;
+
+    // 3 Virtual Dynamic Light Sources in 3D Space
+    var dynamicLights = [
+      { pos: [0, 0, 0], color: [1.0, 0.85, 0.4], intensity: 1.5, name: "Helios Pulsar" },
+      { pos: [0, 0, 0], color: [0.0, 0.95, 1.0], intensity: 1.4, name: "Cyan Beacon" },
+      { pos: [0, 0, 0], color: [1.0, 0.2, 0.85], intensity: 1.3, name: "Singularity Core" }
+    ];
+
+    // Ambient glow element
+    var ambientGlowEl = null;
+
+    // =========================================================================
+    // COLOR PALETTES DEFINITIONS
+    // =========================================================================
+    var PALETTES = [
+      // 0: Cyberpunk Neon
+      {
+        name: "Cyber Neon",
+        bg: [0.02, 0.02, 0.06],
+        glow: "radial-gradient(circle, rgba(255, 0, 127, 0.22) 0%, rgba(0, 245, 212, 0.12) 40%, rgba(3, 3, 8, 0) 75%)",
+        stops: [
+          [1.0, 0.0, 0.5],    // Neon Pink
+          [0.47, 0.16, 0.79], // Electric Violet
+          [0.0, 0.96, 0.83],  // Neon Cyan
+          [0.0, 0.44, 0.95]   // Cyber Blue
+        ]
+      },
+      // 1: Prismatic Spectrum
+      {
+        name: "Prismatic Rainbow",
+        bg: [0.03, 0.03, 0.05],
+        glow: "radial-gradient(circle, rgba(0, 255, 200, 0.2) 0%, rgba(255, 0, 200, 0.12) 40%, rgba(3, 3, 8, 0) 75%)",
+        stops: [
+          [1.0, 0.1, 0.1],
+          [1.0, 0.85, 0.0],
+          [0.1, 1.0, 0.2],
+          [0.0, 0.9, 1.0],
+          [0.5, 0.1, 1.0],
+          [1.0, 0.0, 0.8]
+        ]
+      },
+      // 2: Bioluminescent Abyss
+      {
+        name: "Bioluminescence",
+        bg: [0.01, 0.03, 0.06],
+        glow: "radial-gradient(circle, rgba(0, 245, 212, 0.22) 0%, rgba(0, 119, 182, 0.14) 40%, rgba(3, 3, 8, 0) 75%)",
+        stops: [
+          [0.02, 0.12, 0.35], // Deep Ocean
+          [0.0, 0.65, 0.75],  // Glowing Cyan
+          [0.1, 0.98, 0.6],   // Phosphor Emerald
+          [0.75, 1.0, 0.92]   // Bioluminescent Pearl
+        ]
+      },
+      // 3: Solar Flare / Supernova
+      {
+        name: "Solar Flare",
+        bg: [0.05, 0.01, 0.02],
+        glow: "radial-gradient(circle, rgba(255, 117, 143, 0.25) 0%, rgba(255, 179, 193, 0.1) 40%, rgba(3, 3, 8, 0) 75%)",
+        stops: [
+          [0.45, 0.05, 0.15],
+          [0.85, 0.1, 0.3],
+          [1.0, 0.45, 0.55],
+          [1.0, 0.85, 0.8]
+        ]
+      },
+      // 4: Op-Art Moiré (Monochrome High Contrast)
+      {
+        name: "Op-Art Moiré",
+        bg: [0.02, 0.02, 0.03],
+        glow: "radial-gradient(circle, rgba(200, 210, 255, 0.18) 0%, rgba(74, 78, 105, 0.1) 40%, rgba(3, 3, 8, 0) 75%)",
+        stops: [
+          [0.05, 0.05, 0.06],
+          [0.32, 0.35, 0.45],
+          [0.7, 0.72, 0.82],
+          [0.98, 0.98, 1.0]
+        ]
+      },
+      // 5: Vaporwave Sunset
+      {
+        name: "Vaporwave",
+        bg: [0.04, 0.02, 0.06],
+        glow: "radial-gradient(circle, rgba(247, 37, 133, 0.22) 0%, rgba(76, 201, 240, 0.12) 40%, rgba(3, 3, 8, 0) 75%)",
+        stops: [
+          [0.97, 0.15, 0.52], // Neon Magenta
+          [0.45, 0.04, 0.72], // Retro Violet
+          [0.3, 0.79, 0.94],  // Pastel Cyan
+          [1.0, 0.75, 0.55]   // Warm Peach
+        ]
+      }
+    ];
+
+    // Helper: sample color from palette with smooth interpolation
+    function samplePalette(palIdx, t) {
+      var pal = PALETTES[palIdx];
+      var stops = pal.stops;
+      var n = stops.length;
+      t = (t % 1.0 + 1.0) % 1.0;
+      var scaled = t * (n - 1);
+      var idx = Math.floor(scaled);
+      var frac = scaled - idx;
+      var c1 = stops[idx];
+      var c2 = stops[(idx + 1) % n];
+
+      // Smooth cosine interpolation
+      var k = (1.0 - Math.cos(frac * Math.PI)) * 0.5;
+      return [
+        c1[0] + (c2[0] - c1[0]) * k,
+        c1[1] + (c2[1] - c1[1]) * k,
+        c1[2] + (c2[2] - c1[2]) * k
+      ];
+    }
+
+    // =========================================================================
+    // MATRIX MATH UTILITIES (Zero-Allocation In-Place Column-Major 4x4 Matrix)
+    // =========================================================================
+    function applyTransform(cube, x, y, z, sx, sy, sz, rx, ry, rz) {
+      var cx = Math.cos(rx), sx_s = Math.sin(rx);
+      var cy = Math.cos(ry), sy_s = Math.sin(ry);
+      var cz = Math.cos(rz), sz_s = Math.sin(rz);
+
+      var m = cube.transform.matrix;
+
+      // Column 0
+      m[0] = (cy * cz) * sx;
+      m[1] = (cy * sz_s) * sx;
+      m[2] = (-sy_s) * sx;
+      m[3] = 0.0;
+
+      // Column 1
+      m[4] = (sx_s * sy_s * cz - cx * sz_s) * sy;
+      m[5] = (sx_s * sy_s * sz_s + cx * cz) * sy;
+      m[6] = (sx_s * cy) * sy;
+      m[7] = 0.0;
+
+      // Column 2
+      m[8] = (cx * sy_s * cz + sx_s * sz_s) * sz;
+      m[9] = (cx * sy_s * sz_s - sx_s * cz) * sz;
+      m[10] = (cx * cy) * sz;
+      m[11] = 0.0;
+
+      // Column 3 (Translation)
+      m[12] = x;
+      m[13] = y;
+      m[14] = z;
+      m[15] = 1.0;
+
+      cube.transform.modified();
+    }
+
+    // =========================================================================
+    // WEB AUDIO API - GENERATIVE HYPNOTIC MEDITATIVE SOUND ENGINE
+    // =========================================================================
+    var audioCtx = null;
+    var masterGain = null;
+    var resonantFilter = null;
+    var isAudioActive = false;
+
+    function initAudio() {
+      if (audioCtx) return;
+      var AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContextClass();
+
+      // Master Gain
+      masterGain = audioCtx.createGain();
+      masterGain.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+      masterGain.connect(audioCtx.destination);
+
+      // Resonant Low-Pass Filter
+      resonantFilter = audioCtx.createBiquadFilter();
+      resonantFilter.type = 'lowpass';
+      resonantFilter.frequency.setValueAtTime(350, audioCtx.currentTime);
+      resonantFilter.Q.setValueAtTime(3.5, audioCtx.currentTime);
+      resonantFilter.connect(masterGain);
+
+      // Binaural Drone (108 Hz Left vs 114 Hz Right -> 6 Hz Theta Hypnotic Wave Beat)
+      var merger = audioCtx.createChannelMerger(2);
+
+      var oscL = audioCtx.createOscillator();
+      oscL.type = 'sine';
+      oscL.frequency.setValueAtTime(108, audioCtx.currentTime);
+
+      var oscR = audioCtx.createOscillator();
+      oscR.type = 'sine';
+      oscR.frequency.setValueAtTime(114, audioCtx.currentTime);
+
+      // Connect to stereo channels for pure binaural brainwave entrainment
+      var gainL = audioCtx.createGain();
+      gainL.gain.setValueAtTime(0.4, audioCtx.currentTime);
+      oscL.connect(gainL);
+      gainL.connect(merger, 0, 0);
+
+      var gainR = audioCtx.createGain();
+      gainR.gain.setValueAtTime(0.4, audioCtx.currentTime);
+      oscR.connect(gainR);
+      gainR.connect(merger, 0, 1);
+
+      merger.connect(resonantFilter);
+
+      // Harmonic Ambient Overtones (432Hz Sacred Tuned Pentatonic Chord)
+      var freqs = [216, 324, 432, 540];
+      for (var f = 0; f < freqs.length; f++) {
+        var harm = audioCtx.createOscillator();
+        harm.type = (f % 2 === 0) ? 'triangle' : 'sine';
+        harm.frequency.setValueAtTime(freqs[f], audioCtx.currentTime);
+
+        var harmGain = audioCtx.createGain();
+        harmGain.gain.setValueAtTime(0.12 / (f + 1), audioCtx.currentTime);
+
+        harm.connect(harmGain);
+        harmGain.connect(resonantFilter);
+        harm.start();
+      }
+
+      oscL.start();
+      oscR.start();
+    }
+
+    function toggleSound() {
+      if (!audioCtx) initAudio();
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+
+      isAudioActive = !isAudioActive;
+      var btn = document.getElementById('sound-btn');
+      var label = document.getElementById('sound-label');
+      var icon = document.getElementById('sound-icon');
+
+      if (isAudioActive) {
+        masterGain.gain.cancelScheduledValues(audioCtx.currentTime);
+        masterGain.gain.exponentialRampToValueAtTime(0.18, audioCtx.currentTime + 1.2);
+        btn.classList.add('active');
+        icon.textContent = '🔊';
+        label.textContent = 'Sound: ON';
+        showToast('Meditative Theta Drone Active');
+      } else {
+        masterGain.gain.cancelScheduledValues(audioCtx.currentTime);
+        masterGain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.8);
+        btn.classList.remove('active');
+        icon.textContent = '🔈';
+        label.textContent = 'Sound: OFF';
+        showToast('Sound Muted');
+      }
+    }
+
+    // =========================================================================
+    // XTK INITIALIZATION & SETUP
+    // =========================================================================
+    window.onload = function() {
+      ambientGlowEl = document.getElementById('ambient-glow');
+
+      // 1. Create and initialize the XTK 3D Renderer
+      r = new X.renderer3D();
+      r.init();
+
+      // Configure background color
+      r.bgColor = PALETTES[params.palette].bg;
+
+      // 2. Initialize the pool of 100 art cubes
+      for (var i = 0; i < NUM_CUBES; i++) {
+        var cube = new X.cube();
+        // Base edge length is 20 in XTK
+        cube.color = [0.1, 0.8, 1.0];
+        cube.opacity = 0.85;
+
+        // Add to XTK renderer
+        r.add(cube);
+        cubes.push(cube);
+      }
+
+      // 3. Create 3 dedicated Glowing Light Orb cubes
+      // These represent the physical light sources flying in 3D through the artwork!
+      for (var l = 0; l < 3; l++) {
+        var orb = new X.cube();
+        orb.color = dynamicLights[l].color;
+        orb.opacity = 1.0;
+        r.add(orb);
+        lightOrbs.push(orb);
+      }
+
+      // 4. Initial Camera Setup
+      r.camera.position = [0, 50, params.camDistance];
+      r.camera.focus = [0, 0, 0];
+
+      // 5. User interaction hooks for smooth camera orbit override
+      setupInteractionListeners();
+
+      // 6. Start XTK Render Loop
+      r.render();
+
+      // 7. Core Animation Frame Callback
+      r.onRender = function() {
+        renderFrame();
+      };
+
+      // 8. After Render Callback (for screenshots)
+      r.afterRender = function() {
+        if (screenshotRequested) {
+          screenshotRequested = false;
+          executeSnapshotDownload();
+        }
+      };
+
+      showToast("Hypnotic Art Initialized &bull; Enjoy the Journey");
+    };
+
+    // =========================================================================
+    // CORE ANIMATION & HYPNOTIC VISUALIZATION ENGINE (60 FPS)
+    // =========================================================================
+    function renderFrame() {
+      var now = performance.now();
+      var dt = (now - lastFrameTime) * 0.001;
+      lastFrameTime = now;
+
+      // FPS Calculation
+      frameCount++;
+      if (now - lastFpsUpdate >= 600) {
+        var currentFps = Math.round((frameCount * 1000) / (now - lastFpsUpdate));
+        document.getElementById('fps-counter').innerHTML = currentFps + " FPS &bull; WEBGL";
+        frameCount = 0;
+        lastFpsUpdate = now;
+      }
+
+      if (params.paused) return;
+
+      time += dt * params.speed;
+
+      // Modulate resonant audio filter with visual breathing
+      if (isAudioActive && resonantFilter && audioCtx) {
+        var filterFreq = 300 + 260 * Math.sin(time * 2.2);
+        resonantFilter.frequency.setTargetAtTime(filterFreq, audioCtx.currentTime, 0.08);
+      }
+
+      // -----------------------------------------------------------------------
+      // 1. Update Dynamic 3D Lights
+      // -----------------------------------------------------------------------
+      var lSpread = params.dispersion;
+      var lSpd = time * params.lightSpeed;
+
+      // Light 1: Helios Pulsar (Tilted Golden Lissajous Orbit)
+      var l1Dist = 150 * lSpread;
+      dynamicLights[0].pos[0] = l1Dist * Math.cos(lSpd * 1.1);
+      dynamicLights[0].pos[1] = 95 * Math.sin(lSpd * 1.6);
+      dynamicLights[0].pos[2] = l1Dist * Math.sin(lSpd * 1.1);
+
+      // Light 2: Cyan Beacon (Retrograde Helical Orbit)
+      var l2Dist = 135 * lSpread;
+      dynamicLights[1].pos[0] = l2Dist * Math.cos(-lSpd * 0.9 + Math.PI);
+      dynamicLights[1].pos[1] = 85 * Math.cos(lSpd * 1.3);
+      dynamicLights[1].pos[2] = l2Dist * Math.sin(-lSpd * 0.9 + Math.PI);
+
+      // Light 3: Singularity Core (Hypnotic Center Oscillation)
+      dynamicLights[2].pos[0] = 16 * Math.sin(lSpd * 2.4);
+      dynamicLights[2].pos[1] = 16 * Math.cos(lSpd * 2.0);
+      dynamicLights[2].pos[2] = 16 * Math.sin(lSpd * 1.7);
+      dynamicLights[2].intensity = (1.1 + 0.7 * Math.sin(lSpd * 3.5)) * params.lightIntensity;
+
+      // Update Light Orb Cubes
+      for (var lo = 0; lo < 3; lo++) {
+        var orb = lightOrbs[lo];
+        var lp = dynamicLights[lo].pos;
+        var orbScale = 0.28 + 0.1 * Math.sin(lSpd * 4 + lo);
+        applyTransform(orb, lp[0], lp[1], lp[2], orbScale, orbScale, orbScale, lSpd * 3, lSpd * 2.5, lSpd * 1.8);
+        orb.color = dynamicLights[lo].color;
+      }
+
+      // -----------------------------------------------------------------------
+      // 2. Camera Auto-Orbit (when not interrupted by user drag)
+      // -----------------------------------------------------------------------
+      if (params.autoOrbit && !isUserInteracting) {
+        var camDist = params.camDistance;
+        orbitAngle += dt * 0.22 * params.speed;
+        var camX = camDist * Math.sin(orbitAngle);
+        var camZ = camDist * Math.cos(orbitAngle);
+        var camY = 45 + camDist * 0.35 * Math.sin(orbitAngle * 0.55);
+
+        r.camera.position = [camX, camY, camZ];
+        r.camera.focus = [0, 0, 0];
+      }
+
+      // -----------------------------------------------------------------------
+      // 3. Render Current Hypnotic Formation
+      // -----------------------------------------------------------------------
+      switch (params.mode) {
+        case 0:
+          renderHypercube();
+          break;
+        case 1:
+          renderSpiralVortex();
+          break;
+        case 2:
+          renderWaveGrid();
+          break;
+        case 3:
+          renderTorusTrefoil();
+          break;
+        case 4:
+          renderSacredStarburst();
+          break;
+      }
+    }
+
+    // =========================================================================
+    // SHADING HELPER: Calculate Dynamic Incident Light on Cube
+    // =========================================================================
+    function computeLitColor(cube, worldX, worldY, worldZ, baseColor) {
+      var ambient = 0.26;
+      var litR = baseColor[0] * ambient;
+      var litG = baseColor[1] * ambient;
+      var litB = baseColor[2] * ambient;
+
+      var totalIntensity = params.lightIntensity;
+
+      for (var l = 0; l < 3; l++) {
+        var lp = dynamicLights[l].pos;
+        var dx = worldX - lp[0];
+        var dy = worldY - lp[1];
+        var dz = worldZ - lp[2];
+        var distSq = dx * dx + dy * dy + dz * dz;
+
+        // Attenuation equation
+        var atten = 1.0 / (1.0 + distSq * 0.00014);
+        var lightFactor = atten * dynamicLights[l].intensity * totalIntensity;
+        var lc = dynamicLights[l].color;
+
+        // Specular caustic glint
+        var glint = Math.pow(atten, 2.5) * 0.65;
+
+        litR += baseColor[0] * lc[0] * lightFactor + lc[0] * glint;
+        litG += baseColor[1] * lc[1] * lightFactor + lc[1] * glint;
+        litB += baseColor[2] * lc[2] * lightFactor + lc[2] * glint;
+      }
+
+      cube.color = [
+        Math.min(1.0, Math.max(0.0, litR)),
+        Math.min(1.0, Math.max(0.0, litG)),
+        Math.min(1.0, Math.max(0.0, litB))
+      ];
+    }
+
+    // =========================================================================
+    // MODE 0: THE COSMIC HYPERCUBE (Nested Dimensional Tesseract + Orbiters)
+    // =========================================================================
+    function renderHypercube() {
+      var numNested = 10;
+      var numOrbiters = 24;
+      var totalActive = numNested + numOrbiters;
+
+      for (var i = 0; i < NUM_CUBES; i++) {
+        var cube = cubes[i];
+        if (i >= totalActive) {
+          cube.visible = false;
+          continue;
+        }
+        cube.visible = true;
+
+        if (i < numNested) {
+          // Concentric Nested Cubes: Dimensional Inversion Breathing
+          var layer = i;
+          var baseScale = (0.35 + layer * 0.58) * params.cubeScale;
+          
+          // Phase-shifted breathing expansion/contraction
+          var breathe = 1.0 + 0.32 * Math.sin(time * 2.2 + layer * 0.6) * params.amplitude;
+          var s = baseScale * breathe;
+
+          // Multi-axis irrational rotation (Tesseract dimensional tumbling)
+          var rx = time * (0.65 + layer * 0.16) * ((layer % 2 === 0) ? 1 : -1);
+          var ry = time * (0.85 + layer * 0.22);
+          var rz = time * (0.50 + layer * 0.14) * ((layer % 2 === 0) ? -1 : 1);
+
+          applyTransform(cube, 0, 0, 0, s, s, s, rx, ry, rz);
+
+          // Crystalline opacity layering
+          cube.opacity = (layer === 0) ? 0.95 : (0.42 + 0.12 * Math.sin(time * 3 + layer));
+
+          var baseCol = samplePalette(params.palette, layer / numNested + time * 0.15);
+          computeLitColor(cube, 0, 0, 0, baseCol);
+
+        } else {
+          // Satellite Quantum Orbiters
+          var orbIdx = i - numNested;
+          var phi = (orbIdx / numOrbiters) * Math.PI * 2;
+          var orbitRadius = (85 + 28 * Math.sin(time * 1.8 + orbIdx * 0.5)) * params.dispersion;
+          
+          var orbSpeed = time * (0.65 + (orbIdx % 4) * 0.15);
+          var ox = orbitRadius * Math.cos(phi + orbSpeed);
+          var oz = orbitRadius * Math.sin(phi + orbSpeed);
+          var oy = (42 * Math.sin(time * 2.0 + orbIdx * 0.8) * Math.cos(phi)) * params.amplitude;
+
+          var os = (0.24 + 0.08 * Math.sin(time * 4 + orbIdx)) * params.cubeScale;
+          var orx = time * 3.2 + orbIdx;
+          var ory = time * 2.8;
+          var orz = time * 2.1;
+
+          applyTransform(cube, ox, oy, oz, os, os, os, orx, ory, orz);
+          cube.opacity = 0.9;
+
+          var baseCol = samplePalette(params.palette, orbIdx / numOrbiters + time * 0.3);
+          computeLitColor(cube, ox, oy, oz, baseCol);
+        }
+      }
+    }
+
+    // =========================================================================
+    // MODE 1: QUANTUM SPIRAL VORTEX (Fibonacci Phyllotaxis & Harmonic Waves)
+    // =========================================================================
+    function renderSpiralVortex() {
+      var goldenAngle = 2.399963; // ~137.5 degrees in radians
+      var c = 11.0 * params.dispersion;
+
+      for (var i = 0; i < NUM_CUBES; i++) {
+        var cube = cubes[i];
+        cube.visible = true;
+
+        var rDist = c * Math.sqrt(i + 1);
+        var theta = i * goldenAngle + time * 0.6;
+
+        var wx = rDist * Math.cos(theta);
+        var wz = rDist * Math.sin(theta);
+
+        // Dynamic vertical ripples traveling outward like ripples in liquid light
+        var wy = (36 * Math.sin(time * 3.2 - rDist * 0.045) + 16 * Math.cos(time * 2.2 + 2 * theta)) * params.amplitude;
+
+        // Vortex breathing scale
+        var s = (0.32 + 0.28 * Math.sin(i * 0.14 + time * 2.5)) * params.cubeScale * (0.85 + rDist * 0.0035);
+
+        // Local vortex spinning
+        var rx = time * 1.8 + rDist * 0.025;
+        var ry = theta + time * 1.2;
+        var rz = time * 1.5 - rDist * 0.02;
+
+        applyTransform(cube, wx, wy, wz, s, s, s, rx, ry, rz);
+        cube.opacity = 0.88;
+
+        var palT = (rDist * 0.008 + time * 0.22) % 1.0;
+        var baseCol = samplePalette(params.palette, palT);
+        computeLitColor(cube, wx, wy, wz, baseCol);
+      }
+    }
+
+    // =========================================================================
+    // MODE 2: METATRON WAVE GRID (3D Undulating Sea of Breathing Crystals)
+    // =========================================================================
+    function renderWaveGrid() {
+      var gridSize = 10; // 10x10 = 100 cubes
+      var spacing = 19.5 * params.dispersion;
+
+      for (var i = 0; i < NUM_CUBES; i++) {
+        var cube = cubes[i];
+        cube.visible = true;
+
+        var row = Math.floor(i / gridSize);
+        var col = i % gridSize;
+
+        var gx = (col - (gridSize - 1) * 0.5) * spacing;
+        var gz = (row - (gridSize - 1) * 0.5) * spacing;
+        var dFromCenter = Math.sqrt(gx * gx + gz * gz);
+
+        // Standing wave interference pattern
+        var gy = (32 * Math.sin(time * 2.5 + gx * 0.038) * Math.cos(time * 2.0 + gz * 0.038) + 
+                  22 * Math.sin(time * 3.2 - dFromCenter * 0.045)) * params.amplitude;
+
+        // Wave gradient normal tilt
+        var rx = Math.cos(time * 2.0 + gz * 0.038) * 0.55;
+        var rz = Math.cos(time * 2.5 + gx * 0.038) * 0.55;
+        var ry = time * 1.2 + dFromCenter * 0.02;
+
+        var s = (0.58 + 0.22 * Math.sin(time * 3.0 + dFromCenter * 0.05)) * params.cubeScale;
+
+        applyTransform(cube, gx, gy, gz, s, s, s, rx, ry, rz);
+        cube.opacity = 0.85;
+
+        var palT = (dFromCenter * 0.006 + time * 0.25) % 1.0;
+        var baseCol = samplePalette(params.palette, palT);
+        computeLitColor(cube, gx, gy, gz, baseCol);
+      }
+    }
+
+    // =========================================================================
+    // MODE 3: TORUS TREFOIL INFINITY KNOT (Endless Serpentine Ribbon of Light)
+    // =========================================================================
+    function renderTorusTrefoil() {
+      var R = 50.0 * params.dispersion;
+
+      for (var i = 0; i < NUM_CUBES; i++) {
+        var cube = cubes[i];
+        cube.visible = true;
+
+        var u = ((i / NUM_CUBES) * Math.PI * 2 + time * 0.55);
+
+        // (2, 3) Torus Trefoil Knot equations
+        var kx = R * (Math.sin(u) + 2.0 * Math.sin(2.0 * u));
+        var ky = R * 0.85 * (Math.cos(u) - 2.0 * Math.cos(2.0 * u)) * params.amplitude;
+        var kz = -R * 1.25 * Math.sin(3.0 * u) + (14 * Math.sin(time * 2.5 + u * 2)) * params.amplitude;
+
+        // Rolling tumbling rotation along curve
+        var rx = u * 2.0 + time * 2.2;
+        var ry = u * 3.0 + time * 1.7;
+        var rz = u + time * 1.4;
+
+        var s = (0.54 + 0.24 * Math.sin(u * 4.0 + time * 3.0)) * params.cubeScale;
+
+        applyTransform(cube, kx, ky, kz, s, s, s, rx, ry, rz);
+        cube.opacity = 0.9;
+
+        var palT = ((i / NUM_CUBES) + time * 0.28) % 1.0;
+        var baseCol = samplePalette(params.palette, palT);
+        computeLitColor(cube, kx, ky, kz, baseCol);
+      }
+    }
+
+    // =========================================================================
+    // MODE 4: SACRED STARBURST (Kaleidoscopic Merkaba Polytope)
+    // =========================================================================
+    function renderSacredStarburst() {
+      var totalActive = 96;
+
+      for (var i = 0; i < NUM_CUBES; i++) {
+        var cube = cubes[i];
+        if (i >= totalActive) {
+          cube.visible = false;
+          continue;
+        }
+        cube.visible = true;
+
+        if (i === 0) {
+          // Central Mega Crystal Core
+          var cs = (1.2 + 0.35 * Math.sin(time * 3.5)) * params.cubeScale;
+          applyTransform(cube, 0, 0, 0, cs, cs, cs, time * 1.5, time * 1.8, time * 1.2);
+          cube.opacity = 0.95;
+          var coreCol = samplePalette(params.palette, time * 0.2);
+          computeLitColor(cube, 0, 0, 0, coreCol);
+          continue;
+        }
+
+        // Concentric geometric starburst rings
+        var ringIdx = Math.floor((i - 1) / 19); // 5 rings of 19 cubes
+        var inRing = (i - 1) % 19;
+        var angle = (inRing / 19) * Math.PI * 2;
+
+        // Breathing pulsation radius: expands outward into constellation and collapses
+        var pulse = Math.abs(Math.sin(time * 1.6 + ringIdx * 0.45));
+        var radius = (35 + ringIdx * 25 + pulse * 55) * params.dispersion;
+
+        var elevationAngle = ((ringIdx - 2) * 0.38) + 0.25 * Math.sin(time * 2.2 + ringIdx);
+        var dir = (ringIdx % 2 === 0) ? 1 : -1;
+        var spinTheta = angle + time * (0.6 + ringIdx * 0.15) * dir;
+
+        var sx = radius * Math.cos(spinTheta) * Math.cos(elevationAngle);
+        var sy = radius * Math.sin(elevationAngle) * params.amplitude;
+        var sz = radius * Math.sin(spinTheta) * Math.cos(elevationAngle);
+
+        var cubeS = (0.34 + 0.16 * Math.sin(time * 3 + i)) * params.cubeScale;
+        var rx = time * 2.5 + angle;
+        var ry = time * 3.0 * dir;
+        var rz = time * 1.8;
+
+        applyTransform(cube, sx, sy, sz, cubeS, cubeS, cubeS, rx, ry, rz);
+        cube.opacity = 0.82;
+
+        var palT = (ringIdx * 0.2 + inRing / 19 + time * 0.25) % 1.0;
+        var baseCol = samplePalette(params.palette, palT);
+        computeLitColor(cube, sx, sy, sz, baseCol);
+      }
+    }
+
+    // =========================================================================
+    // INTERACTION & CAMERA DRAG LISTENERS
+    // =========================================================================
+    function setupInteractionListeners() {
+      var onUserAction = function() {
+        isUserInteracting = true;
+        if (userInteractionTimeout) clearTimeout(userInteractionTimeout);
+        userInteractionTimeout = setTimeout(function() {
+          isUserInteracting = false;
+        }, 2800);
+      };
+
+      window.addEventListener('mousedown', function(e) {
+        if (!e.target.closest('#hud-container') && !e.target.closest('#toggle-hud-btn')) {
+          onUserAction();
+        }
+      });
+
+      window.addEventListener('mousemove', function(e) {
+        if (e.buttons > 0 && !e.target.closest('#hud-container')) {
+          onUserAction();
+        }
+      });
+
+      window.addEventListener('wheel', function(e) {
+        if (!e.target.closest('.controls-panel')) {
+          onUserAction();
+        }
+      }, { passive: true });
+
+      // Keyboard Controls
+      window.addEventListener('keydown', function(e) {
+        var key = e.key.toUpperCase();
+        if (e.code === 'Space') {
+          togglePause();
+          e.preventDefault();
+        } else if (key >= '1' && key <= '5') {
+          setMode(parseInt(key) - 1);
+        } else if (key === 'C') {
+          cyclePalette();
+        } else if (key === 'O') {
+          toggleOrbit();
+        } else if (key === 'M') {
+          toggleSound();
+        } else if (key === 'R') {
+          randomizeArtwork();
+        } else if (key === 'H') {
+          toggleHUD();
+        } else if (key === 'F') {
+          toggleFullscreen();
+        }
+      });
+    }
+
+    // =========================================================================
+    // UI CONTROL HANDLERS
+    // =========================================================================
+    function setMode(idx) {
+      params.mode = idx;
+      var btns = document.querySelectorAll('.mode-btn');
+      btns.forEach(function(b, i) {
+        b.classList.toggle('active', i === idx);
+      });
+      var names = ["Cosmic Hypercube", "Quantum Spiral Vortex", "Metatron Wave Grid", "Torus Trefoil Knot", "Sacred Starburst"];
+      showToast(names[idx]);
+    }
+
+    function setPalette(idx) {
+      params.palette = idx;
+      var pal = PALETTES[idx];
+      var btns = document.querySelectorAll('.palette-btn');
+      btns.forEach(function(b, i) {
+        b.classList.toggle('active', i === idx);
+      });
+
+      if (r) r.bgColor = pal.bg;
+      if (ambientGlowEl) ambientGlowEl.style.background = pal.glow;
+      showToast("Palette: " + pal.name);
+    }
+
+    function cyclePalette() {
+      var next = (params.palette + 1) % PALETTES.length;
+      setPalette(next);
+    }
+
+    function updateParam(name, value) {
+      var num = parseFloat(value);
+      params[name] = num;
+
+      var labelMap = {
+        'speed': ['val-speed', num.toFixed(2) + 'x'],
+        'amplitude': ['val-amp', num.toFixed(2) + 'x'],
+        'dispersion': ['val-disp', num.toFixed(2) + 'x'],
+        'cubeScale': ['val-scale', num.toFixed(2) + 'x'],
+        'lightIntensity': ['val-light', num.toFixed(2) + 'x'],
+        'lightSpeed': ['val-lightspeed', num.toFixed(2) + 'x']
+      };
+
+      if (labelMap[name]) {
+        document.getElementById(labelMap[name][0]).textContent = labelMap[name][1];
+      }
+    }
+
+    function toggleOrbit() {
+      params.autoOrbit = !params.autoOrbit;
+      var btn = document.getElementById('orbit-btn');
+      var label = document.getElementById('orbit-label');
+      btn.classList.toggle('active', params.autoOrbit);
+      label.textContent = params.autoOrbit ? "Orbit: ON" : "Orbit: OFF";
+      showToast(params.autoOrbit ? "Auto-Orbit Resumed" : "Free Camera Mode");
+    }
+
+    function togglePause() {
+      params.paused = !params.paused;
+      var btn = document.getElementById('pause-btn');
+      var icon = document.getElementById('pause-icon');
+      var label = document.getElementById('pause-label');
+
+      if (params.paused) {
+        btn.classList.add('active');
+        icon.textContent = '▶';
+        label.textContent = 'Resume';
+        showToast("Visualization Paused");
+      } else {
+        btn.classList.remove('active');
+        icon.textContent = '⏸';
+        label.textContent = 'Pause';
+        showToast("Motion Resumed");
+      }
+    }
+
+    function randomizeArtwork() {
+      // Pick random mode & palette
+      var newMode = Math.floor(Math.random() * 5);
+      var newPalette = Math.floor(Math.random() * PALETTES.length);
+      setMode(newMode);
+      setPalette(newPalette);
+
+      // Randomize motion sliders
+      var spd = (0.5 + Math.random() * 1.5).toFixed(2);
+      var amp = (0.6 + Math.random() * 1.3).toFixed(2);
+      var disp = (0.7 + Math.random() * 0.9).toFixed(2);
+      var sc = (0.7 + Math.random() * 0.7).toFixed(2);
+      var li = (0.8 + Math.random() * 1.2).toFixed(2);
+
+      document.getElementById('slider-speed').value = spd;
+      updateParam('speed', spd);
+
+      document.getElementById('slider-amp').value = amp;
+      updateParam('amplitude', amp);
+
+      document.getElementById('slider-disp').value = disp;
+      updateParam('dispersion', disp);
+
+      document.getElementById('slider-scale').value = sc;
+      updateParam('cubeScale', sc);
+
+      document.getElementById('slider-light').value = li;
+      updateParam('lightIntensity', li);
+
+      showToast("✨ Random Alchemy Manifested");
+    }
+
+    function toggleHUD() {
+      var hud = document.getElementById('hud-container');
+      var icon = document.getElementById('toggle-icon');
+      var text = document.getElementById('toggle-text');
+
+      var isHidden = hud.classList.toggle('hidden');
+      if (isHidden) {
+        icon.textContent = '👁';
+        text.textContent = 'Show HUD (H)';
+      } else {
+        icon.textContent = '👁';
+        text.textContent = 'Hide HUD (H)';
+      }
+    }
+
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(function() {});
+      } else {
+        if (document.exitFullscreen) document.exitFullscreen();
+      }
+    }
+
+    function captureSnapshot() {
+      screenshotRequested = true;
+      showToast("Capturing Snapshot...");
+    }
+
+    function executeSnapshotDownload() {
+      var canvas = document.querySelector('canvas');
+      if (!canvas) return;
+
+      var link = document.createElement('a');
+      link.download = 'hypnotic_cube_art_' + Date.now() + '.png';
+      link.href = canvas.toDataURL('image/png');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      showToast("📸 High-Res Snapshot Saved");
+    }
+
+    var toastTimeout = null;
+    function showToast(msg) {
+      var toast = document.getElementById('toast');
+      toast.innerHTML = msg;
+      toast.classList.add('show');
+      if (toastTimeout) clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(function() {
+        toast.classList.remove('show');
+      }, 2000);
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,70 @@
+<html>
+  <head>
+    <title>CS460 - Hello Cube</title>
+    <style>
+      html, body {
+        background-color: #000;
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden !important;
+      }
+    </style>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TrackballControls.js"></script>
+    <script type="text/javascript">
+      window.onload = function() {
+        // create and initialize a 3D renderer
+        var scene = new THREE.Scene();
+        var camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 0, 40);
+
+        var renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // setup lighting
+        var ambientLight = new THREE.AmbientLight(0x555555);
+        scene.add(ambientLight);
+
+        var directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
+        directionalLight.position.set(10, 20, 20);
+        scene.add(directionalLight);
+
+        // setup camera controls (matching XTK's built-in trackball navigation)
+        var controls;
+        if (typeof THREE.TrackballControls !== 'undefined') {
+          controls = new THREE.TrackballControls(camera, renderer.domElement);
+        }
+
+        // create a cube
+        var geometry = new THREE.BoxGeometry(20, 20, 20);
+        var material = new THREE.MeshStandardMaterial({ color: 0xffffff });
+        var c = new THREE.Mesh(geometry, material);
+
+        // add cube to renderer and render
+        scene.add(c);
+
+        function animate() {
+          requestAnimationFrame(animate);
+          if (controls) {
+            controls.update();
+          }
+          renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', function() {
+          camera.aspect = window.innerWidth / window.innerHeight;
+          camera.updateProjectionMatrix();
+          renderer.setSize(window.innerWidth, window.innerHeight);
+          if (controls && controls.handleResize) {
+            controls.handleResize();
+          }
+        });
+      };
+    </script>
+  </head>
+  <body>
+  </body>
+</html>
