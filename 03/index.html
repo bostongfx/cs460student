@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>Three.js - Assignment 03</title>
+    <style>
+        html,
+        body {
+            background-color: #000;
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden !important;
+        }
+    </style>
+
+    <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@latest/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@latest/examples/jsm/"
+      }
+    }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        var renderer, controls, scene, camera;
+        var invisible_plane;
+
+        var LASTOBJECT = null;
+        var isScaling = false;
+
+        // Part 7: Global tracking for flickering and all placed toruses
+        var FLICKERING = false;
+        var TORUSES = [];
+
+        function createTorus(x = 0, y = 0, z = 0, colorHex = 0xff69b4) {
+            var geometry = new THREE.TorusKnotGeometry(10, 3, 100, 16);
+            var material = new THREE.MeshStandardMaterial({
+                color: colorHex,
+                roughness: 0.4,
+                metalness: 0.1
+            });
+            var torus = new THREE.Mesh(geometry, material);
+            torus.position.set(x, y, z);
+
+            // Track every created torus
+            TORUSES.push(torus);
+
+            return torus;
+        }
+
+        window.onload = function () {
+
+            scene = new THREE.Scene();
+
+            // Setup camera
+            var fov = 75;
+            var ratio = window.innerWidth / window.innerHeight;
+            var zNear = 1;
+            var zFar = 10000;
+            camera = new THREE.PerspectiveCamera(fov, ratio, zNear, zFar);
+            camera.position.set(0, 0, 100);
+
+            // Setup renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+            // Setup lights
+            var ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+            scene.add(ambientLight);
+
+            var light = new THREE.DirectionalLight(0xffffff, 3.0);
+            light.position.set(20, 100, 50);
+            scene.add(light);
+
+            // Center torus knot (yellow)
+            var centerTorus = createTorus(0, 0, 0, 0xffff00);
+            scene.add(centerTorus);
+
+            // Raycasting plane
+            var planeGeometry = new THREE.PlaneGeometry(10000, 10000);
+            var planeMaterial = new THREE.MeshBasicMaterial({ visible: false });
+            invisible_plane = new THREE.Mesh(planeGeometry, planeMaterial);
+            scene.add(invisible_plane);
+
+            // OrbitControls
+            controls = new OrbitControls(camera, renderer.domElement);
+
+            // Part 3: onmousedown with shift-key check
+            renderer.domElement.onmousedown = function (e) {
+                if (e.shiftKey) {
+                    controls.enabled = false;
+
+                    var vp_coords = new THREE.Vector2(
+                        (e.clientX / window.innerWidth) * 2 - 1,
+                        -(e.clientY / window.innerHeight) * 2 + 1
+                    );
+
+                    var raycaster = new THREE.Raycaster();
+                    raycaster.setFromCamera(vp_coords, camera);
+
+                    var intersects = raycaster.intersectObject(invisible_plane);
+
+                    if (intersects.length > 0) {
+                        var point = intersects[0].point;
+                        var hotpinkTorus = createTorus(point.x, point.y, point.z, 0xff69b4);
+                        scene.add(hotpinkTorus);
+
+                        LASTOBJECT = hotpinkTorus;
+                        isScaling = true;
+                    }
+                }
+            };
+
+            // Part 5 & 6: Scale on mousemove and flip color when crossing zero
+            renderer.domElement.onmousemove = function (e) {
+                if (isScaling && LASTOBJECT) {
+                    var DELTA = -e.movementY * 0.05;
+
+                    LASTOBJECT.scale.set(
+                        LASTOBJECT.scale.x + DELTA,
+                        LASTOBJECT.scale.y + DELTA,
+                        LASTOBJECT.scale.z + DELTA
+                    );
+
+                    // Flip color to grassgreen (#7CFC00) when inverted, pink (#ff69b4) when positive
+                    if (LASTOBJECT.scale.x < 0) {
+                        LASTOBJECT.material.color.set(0x7CFC00);
+                    } else {
+                        LASTOBJECT.material.color.set(0xff69b4);
+                    }
+                }
+            };
+
+            // Part 4: Re-enable controls on mouseup
+            renderer.domElement.onmouseup = function () {
+                controls.enabled = true;
+                isScaling = false;
+            };
+
+            // Part 7: Listen for 'f' keypress to toggle FLICKERING
+            window.onkeypress = function (e) {
+                if (e.key === 'f') {
+                    FLICKERING = !FLICKERING;
+
+                    // If turned off, reset opacity back to 1.0 (fully visible)
+                    if (!FLICKERING) {
+                        for (var i = 0; i < TORUSES.length; i++) {
+                            TORUSES[i].material.transparent = false;
+                            TORUSES[i].material.opacity = 1.0;
+                            TORUSES[i].material.needsUpdate = true;
+                        }
+                    }
+                }
+            };
+
+            // Handle window resize
+            window.addEventListener('resize', function () {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+
+            animate();
+        };
+
+        // Part 7: Monitor FLICKERING in animate loop and assign random opacity
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (FLICKERING) {
+                for (var i = 0; i < TORUSES.length; i++) {
+                    TORUSES[i].material.transparent = true;
+                    TORUSES[i].material.opacity = Math.random();
+                    TORUSES[i].material.needsUpdate = true;
+                }
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+    </script>
+</head>
+
+<body></body>
+
+</html>
