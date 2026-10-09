@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <title>CS460: Hello Cube (XTK)</title>
+    <style>
+      html, body {
+        background-color: #000;
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden;
+      }
+    </style>
+    <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+    <script type="text/javascript">
+      window.onload = function() {
+        // Create and initialize a 3D WebGL renderer
+        var r = new X.renderer3D();
+        r.init();
+
+        // Create a cube object
+        var cube = new X.cube();
+
+        // Optional: define dimensions, center, and color
+        cube.lengthX = cube.lengthY = cube.lengthZ = 20;
+        cube.center = [0, 0, 0];
+        cube.color = [1, 1, 1]; // White
+
+        // Add the cube to the scene and render
+        r.add(cube);
+        r.render();
+      };
+    </script>
+  </head>
+  <body>
+  </body>
+</html>

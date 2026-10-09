@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#101310">
+  <title>Cubic Matter — An XTK motion experiment</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath fill='%23ddf878' d='M16 2 30 9v14l-14 7L2 23V9z'/%3E%3C/svg%3E">
+  <style>
+    :root { color-scheme: dark; --ink: #101310; --paper: #eff1e5; --muted: #959d90; --line: #333b30; --acid: #ddf878; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--ink); color: var(--paper); font-family: 'Courier New', monospace; font-size: 12px; }
+    button, input { font: inherit; }
+    button { color: inherit; cursor: pointer; }
+    button:focus-visible, input:focus-visible, #stage:focus-visible { outline: 2px solid var(--acid); outline-offset: 5px; }
+    button:disabled { opacity: .4; cursor: wait; }
+    button { -webkit-tap-highlight-color: transparent; }
+    .app { min-height: 740px; height: 100svh; display: grid; grid-template-rows: 76px 1fr 70px; padding: 0 36px; }
+    header { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); gap: 20px; }
+    .wordmark { display: flex; align-items: center; gap: 12px; font-weight: bold; letter-spacing: -.8px; font-size: 18px; }
+    .cube-mark { width: 27px; height: 27px; color: var(--acid); }
+    .eyebrow { font-size: 10px; text-transform: uppercase; letter-spacing: 1.8px; color: var(--muted); line-height: 1.6; }
+    .header-note { margin-left: auto; margin-right: 40px; }
+    .live { display: flex; align-items: center; gap: 8px; font-size: 10px; letter-spacing: 1px; }
+    .live::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--acid); }
+    main { display: grid; grid-template-columns: minmax(0, 1fr) 276px; min-height: 0; }
+    .exhibit { position: relative; min-height: 550px; overflow: hidden; }
+    #stage { position: absolute; inset: 0; cursor: grab; touch-action: none; }
+    #stage:active { cursor: grabbing; }
+    #stage canvas { display: block; }
+    .intro { position: absolute; top: 34px; left: 0; pointer-events: none; z-index: 1; }
+    h1 { font-family: 'Arial Narrow', Impact, sans-serif; font-size: clamp(54px, 6.2vw, 92px); font-weight: 400; line-height: .92; letter-spacing: -3px; margin: 14px 0 18px; }
+    h1 span { color: var(--acid); }
+    .intro p { color: var(--muted); line-height: 1.7; max-width: 225px; margin: 0; }
+    .view-note { position: absolute; right: 22px; top: 38px; writing-mode: vertical-rl; }
+    .scene-caption { position: absolute; bottom: 32px; left: 0; pointer-events: none; }
+    .scene-caption strong { display: block; font-size: 17px; font-weight: normal; margin: 9px 0; }
+    .scene-caption p { margin: 0; color: var(--muted); max-width: 340px; line-height: 1.6; }
+    .axis { position: absolute; bottom: 34px; right: 28px; width: 64px; height: 64px; opacity: .65; pointer-events: none; }
+    .loading { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; background: var(--ink); z-index: 3; padding: 40px; }
+    .loading[hidden] { display: none; }
+    .loading strong { font-size: 20px; color: var(--acid); margin-bottom: 12px; }
+    .loading p { max-width: 400px; line-height: 1.7; color: var(--muted); }
+    aside { border-left: 1px solid var(--line); padding: 32px 0 24px 28px; display: flex; flex-direction: column; }
+    .panel-heading { display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; }
+    .panel-heading span:last-child { color: var(--acid); }
+    fieldset { margin: 0 0 26px; padding: 0; border: 0; min-width: 0; }
+    legend { padding: 0; margin-bottom: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 1.3px; font-size: 10px; }
+    .formations { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+    .formation { background: transparent; border: 1px solid var(--line); text-align: left; padding: 13px 11px; transition: border-color .2s, background .2s; }
+    .formation .symbol { display: block; font-size: 26px; line-height: 1; margin-bottom: 13px; }
+    .formation small { font-size: 9px; opacity: .5; margin-right: 5px; }
+    .formation:hover { border-color: var(--acid); }
+    .formation[aria-pressed="true"] { color: var(--ink); border-color: var(--acid); background: var(--acid); }
+    .palette-row { display: flex; gap: 8px; }
+    .palette { width: 100%; height: 35px; border: 1px solid transparent; background: transparent; padding: 5px; }
+    .palette[aria-pressed="true"] { border-color: var(--paper); }
+    .palette span { display: block; height: 100%; background: var(--swatch); }
+    .palette-name { margin-top: 8px; color: var(--muted); font-size: 10px; }
+    .range-label { display: flex; justify-content: space-between; margin-bottom: 12px; }
+    output { color: var(--acid); }
+    input[type="range"] { display: block; width: 100%; accent-color: var(--acid); height: 16px; cursor: pointer; margin: 0 0 20px; }
+    .toggle { display: flex; align-items: center; justify-content: space-between; margin: 0 0 15px; cursor: pointer; }
+    input[type="checkbox"] { accent-color: var(--acid); width: 16px; height: 16px; margin: 0; cursor: pointer; }
+    .actions { margin-top: auto; padding-top: 12px; }
+    .burst { width: 100%; border: 1px solid var(--acid); background: transparent; color: var(--acid); padding: 15px 13px; display: flex; justify-content: space-between; font-weight: bold; }
+    .burst:hover, .burst[aria-pressed="true"] { background: var(--acid); color: var(--ink); }
+    .secondary-actions { display: flex; gap: 8px; margin-top: 8px; }
+    .secondary-actions button { background: transparent; border: 1px solid var(--line); padding: 11px 8px; flex: 1; }
+    .secondary-actions button:hover { border-color: var(--muted); }
+    footer { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--line); gap: 20px; color: var(--muted); font-size: 10px; }
+    .metrics { display: flex; gap: 26px; }
+    .metrics b { color: var(--paper); font-weight: normal; }
+    .shortcuts { display: flex; gap: 18px; }
+    kbd { font: inherit; color: var(--paper); border-bottom: 1px solid var(--muted); padding-bottom: 3px; margin-right: 5px; }
+    @media (min-width: 1500px) { .app { padding: 0 56px; } main { grid-template-columns: minmax(0, 1fr) 300px; } aside { padding-left: 36px; } }
+    @media (max-width: 900px) { .app { padding: 0 20px; } main { grid-template-columns: minmax(0, 1fr) 240px; } aside { padding-left: 20px; } .header-note, .view-note { display: none; } h1 { font-size: 58px; } .shortcuts { gap: 10px; } .axis { display: none; } }
+    @media (max-width: 640px) {
+      .app { height: auto; min-height: 100svh; padding: 0 18px; grid-template-rows: 64px auto auto; }
+      main { display: block; }
+      .exhibit { height: 64svh; min-height: 470px; }
+      .intro { top: 26px; } h1 { font-size: 54px; }
+      .intro p { max-width: 185px; font-size: 10px; }
+      .scene-caption { bottom: 22px; } .scene-caption p { max-width: 260px; font-size: 10px; }
+      aside { border-left: 0; border-top: 1px solid var(--line); padding: 24px 0; }
+      .panel-heading { margin-bottom: 22px; }
+      .formations { grid-template-columns: repeat(4, 1fr); }
+      .formation { padding: 12px 7px; font-size: 10px; }
+      .formation small { display: none; }
+      fieldset { margin-bottom: 22px; }
+      .palette { height: 40px; }
+      footer { padding: 20px 0; align-items: flex-start; flex-direction: column; gap: 16px; }
+      .live { font-size: 9px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="wordmark">
+        <svg class="cube-mark" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m16 2 13 7v14l-13 7L3 23V9Zm0 14L3 9m13 7 13-7M16 16v14M9.5 5.5l13 7v14"/></svg>
+        CUBIC MATTER
+      </div>
+      <span class="eyebrow header-note">A study in organized chaos / 001</span>
+      <span class="live" id="status" role="status">INITIALIZING</span>
+    </header>
+    <main>
+      <section class="exhibit" aria-label="Interactive cube sculpture">
+        <div id="stage" tabindex="0" aria-label="3D cube art. Drag to rotate, scroll to zoom. Use the adjacent controls to change the sculpture."></div>
+        <div class="intro">
+          <div class="eyebrow">XTK / WebGL motion experiment</div>
+          <h1>ORDER.<br><span>UNMADE.</span></h1>
+          <p>A little structure. A little chaos.<br>Set the matter in motion.</p>
+        </div>
+        <span class="eyebrow view-note">REAL-TIME GENERATIVE SCULPTURE</span>
+        <div class="scene-caption" aria-live="polite">
+          <span class="eyebrow" id="scene-number">FORMATION 01 / 04</span>
+          <strong id="scene-title">The breathing lattice</strong>
+          <p id="scene-description">216 cubes. One restless structure.</p>
+        </div>
+        <svg class="axis" viewBox="0 0 70 70" fill="none" stroke="#959d90" aria-hidden="true"><path d="M30 45V12m0 33 27-14M30 45 8 32"/><g fill="#959d90" stroke="none" font-size="9" font-family="monospace"><text x="27" y="9">Y</text><text x="59" y="32">X</text><text x="2" y="29">Z</text></g></svg>
+        <div class="loading" id="loading" role="status"><strong>Assembling matter…</strong><p>Loading the XTK WebGL engine.</p></div>
+        <noscript><p>This visualization needs JavaScript and a WebGL-capable browser.</p></noscript>
+      </section>
+      <aside aria-label="Sculpture controls">
+        <div class="panel-heading eyebrow"><span>Control room</span><span>↗ LIVE CANVAS</span></div>
+        <fieldset>
+          <legend>01 — Formation</legend>
+          <div class="formations">
+            <button class="formation" data-mode="0" aria-pressed="true"><span class="symbol" aria-hidden="true">▦</span><small>01</small>Lattice</button>
+            <button class="formation" data-mode="1" aria-pressed="false"><span class="symbol" aria-hidden="true">◎</span><small>02</small>Orbit</button>
+            <button class="formation" data-mode="2" aria-pressed="false"><span class="symbol" aria-hidden="true">≋</span><small>03</small>Helix</button>
+            <button class="formation" data-mode="3" aria-pressed="false"><span class="symbol" aria-hidden="true">⠿</span><small>04</small>Swarm</button>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>02 — Chromatics</legend>
+          <div class="palette-row">
+            <button class="palette" data-palette="0" aria-label="Lichen palette" aria-pressed="true" style="--swatch: linear-gradient(90deg,#ddf878 33%,#7fbda0 33% 66%,#f2edcd 66%)"><span></span></button>
+            <button class="palette" data-palette="1" aria-label="Afterglow palette" aria-pressed="false" style="--swatch: linear-gradient(90deg,#ff744b 33%,#ecab84 33% 66%,#ffdf8e 66%)"><span></span></button>
+            <button class="palette" data-palette="2" aria-label="Glacier palette" aria-pressed="false" style="--swatch: linear-gradient(90deg,#69c9ef 33%,#8494ff 33% 66%,#e5f9f5 66%)"><span></span></button>
+          </div>
+          <div class="palette-name" id="palette-name" aria-live="polite">LICHEN / acid, sage, ivory</div>
+        </fieldset>
+        <fieldset>
+          <legend>03 — Dynamics</legend>
+          <label class="range-label" for="speed">Time scale <output id="speed-value" for="speed">1.0×</output></label>
+          <input id="speed" type="range" min="0.2" max="2.5" step="0.1" value="1">
+          <label class="range-label" for="spread">Expansion <output id="spread-value" for="spread">1.0×</output></label>
+          <input id="spread" type="range" min="0.65" max="1.65" step="0.05" value="1">
+          <label class="toggle" for="colors">Color drift <input id="colors" type="checkbox" checked></label>
+          <label class="toggle" for="rotation">Auto rotation <input id="rotation" type="checkbox" checked></label>
+        </fieldset>
+        <div class="actions">
+          <button class="burst" id="scatter" aria-pressed="false"><span id="scatter-label">Scatter the matter</span><span aria-hidden="true">↗</span></button>
+          <div class="secondary-actions"><button id="pause" aria-pressed="false">Ⅱ Pause</button><button id="reset">↺ Reset view</button></div>
+        </div>
+      </aside>
+    </main>
+    <footer>
+      <div class="metrics"><span><b>264</b> CUBES</span><span><b id="fps">—</b> FPS</span><span>XTK ENGINE</span></div>
+      <div class="shortcuts"><span>DRAG TO ROTATE</span><span>SCROLL TO ZOOM</span><span><kbd>SPACE</kbd>SCATTER</span><span><kbd>P</kbd>PAUSE</span></div>
+    </footer>
+  </div>
+  <script>
+    (() => {
+      'use strict';
+      const $ = id => document.getElementById(id);
+      const controls = document.querySelectorAll('aside button, aside input');
+      controls.forEach(control => { control.disabled = true; });
+      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const state = { mode: 0, palette: 0, speed: 1, spread: 1, colors: true, rotation: true, paused: reducedMotion, scattered: false };
+      const formations = [
+        ['The breathing lattice', '216 cubes. One restless structure.'],
+        ['A field of satellites', 'Three tilted rings, held in a delicate orbit.'],
+        ['The infinite staircase', 'Twin strands winding through a weightless space.'],
+        ['Beautiful disorder', 'Independent flight paths. A shared center of gravity.']
+      ];
+      const palettes = [
+        { name: 'LICHEN / acid, sage, ivory', colors: [[.87,.97,.47],[.50,.74,.63],[.95,.93,.80]] },
+        { name: 'AFTERGLOW / ember, peach, gold', colors: [[1,.45,.29],[.93,.67,.52],[1,.87,.56]] },
+        { name: 'GLACIER / ice, periwinkle, frost', colors: [[.41,.79,.94],[.52,.58,1],[.90,.98,.96]] }
+      ];
+      let renderer;
+      let ready = false;
+      let failed = false;
+      let time = 0, colorTime = 0, turn = 0, scatter = 0;
+      let previous = performance.now(), fpsStart = previous, frames = 0;
+      const cubes = [];
+      const satellites = [];
+      const TAU = Math.PI * 2;
+
+      function showError(message) {
+        failed = true;
+        $('loading').hidden = false;
+        $('loading').querySelector('strong').textContent = 'The canvas could not start.';
+        $('loading').querySelector('p').textContent = message;
+        $('status').textContent = 'OFFLINE';
+        controls.forEach(control => { control.disabled = true; });
+      }
+
+      // Build matrices from absolute positions, avoiding cumulative transform drift.
+      function transform(object, x, y, z, angle, tilt, size) {
+        const m = object.transform.matrix;
+        const c = Math.cos(angle), s = Math.sin(angle), ct = Math.cos(tilt), st = Math.sin(tilt);
+        m[0] = c * size; m[1] = s * st * size; m[2] = -s * ct * size; m[3] = 0;
+        m[4] = 0; m[5] = ct * size; m[6] = st * size; m[7] = 0;
+        m[8] = s * size; m[9] = -c * st * size; m[10] = c * ct * size; m[11] = 0;
+        m[12] = x; m[13] = y; m[14] = z; m[15] = 1;
+        object.transform.modified();
+      }
+
+      function paint(object, index) {
+        const colors = palettes[state.palette].colors;
+        const phase = (index * .037 + colorTime * .16) % 3;
+        const first = Math.floor(phase), mix = phase - first;
+        const a = colors[first], b = colors[(first + 1) % 3];
+        object.color = a.map((channel, i) => channel + (b[i] - channel) * mix);
+      }
+
+      function target(index) {
+        const x = index % 6 - 2.5;
+        const y = Math.floor(index / 6) % 6 - 2.5;
+        const z = Math.floor(index / 36) - 2.5;
+        const phase = index / 216;
+        if (state.mode === 0) {
+          const breathe = 18 + Math.sin(time * .9) * 1.5;
+          return [x * breathe, y * breathe, z * breathe];
+        }
+        if (state.mode === 1) {
+          const ring = index % 3;
+          const angle = phase * TAU + time * (.22 + ring * .07);
+          const radius = 60 + ring * 18;
+          const a = Math.cos(angle) * radius, b = Math.sin(angle) * radius;
+          const tilt = (ring - 1) * .85;
+          return [a, b * Math.cos(tilt), b * Math.sin(tilt)];
+        }
+        if (state.mode === 2) {
+          const angle = phase * TAU * 3 + (index % 2) * Math.PI + time * .55;
+          return [Math.cos(angle) * 46, (phase - .5) * 172, Math.sin(angle) * 46];
+        }
+        const seed = index * 2.399963;
+        return [Math.sin(seed + time * .39) * (55 + 35 * Math.cos(seed * 3)),
+          Math.cos(seed * 1.7 + time * .27) * 80,
+          Math.sin(seed * .8 + time * .45) * 85];
+      }
+
+      function update(dt, instant = false) {
+        time += dt * state.speed;
+        if (state.colors) colorTime += dt * state.speed;
+        if (state.rotation) turn += dt * state.speed * .16;
+        const ease = instant ? 1 : 1 - Math.exp(-dt * 4.5);
+        scatter += ((state.scattered ? 1 : 0) - scatter) * ease;
+        const c = Math.cos(turn), s = Math.sin(turn);
+        cubes.forEach((item, i) => {
+          const desired = target(i);
+          const flight = time * .4 + item.seed;
+          desired[0] += scatter * (Math.cos(flight) * 115 + item.direction[0] * 45);
+          desired[1] += scatter * (Math.sin(flight * .8) * 100 + item.direction[1] * 45);
+          desired[2] += scatter * (Math.sin(flight) * 115 + item.direction[2] * 45);
+          for (let axis = 0; axis < 3; axis++) item.position[axis] += (desired[axis] * state.spread - item.position[axis]) * ease;
+          const [x, y, z] = item.position;
+          const spin = (state.mode === 0 ? 0 : time * .2 + item.seed) + scatter * flight;
+          const size = (state.mode === 0 ? 11.5 : 6.8) * (1 - scatter * .35);
+          transform(item.object, x * c + z * s, y, -x * s + z * c, turn + spin, .1 * Math.sin(time + i) * scatter, size);
+          paint(item.object, i);
+        });
+        satellites.forEach((item, i) => {
+          const angle = i / 48 * TAU + time * (.13 + (i % 3) * .035);
+          const radius = (132 + 20 * Math.sin(i * 3.1 + time * .3)) * state.spread;
+          transform(item, Math.cos(angle) * radius, Math.sin(angle * 3 + i) * 65,
+            Math.sin(angle) * radius, time * .5 + i, time * .3, 2 + (i % 4) * .65);
+          paint(item, i * 5);
+        });
+      }
+
+      function pauseLabel() {
+        $('pause').textContent = state.paused ? '▶ Play' : 'Ⅱ Pause';
+        $('pause').setAttribute('aria-pressed', String(state.paused));
+        if (ready && !failed) $('status').textContent = state.paused ? 'MOTION PAUSED' : 'SYSTEM IN MOTION';
+      }
+
+      function resetView() {
+        renderer.camera.up = [0, 1, 0];
+        renderer.camera.focus = [0, 0, 0];
+        renderer.camera.position = window.innerWidth <= 640 ? [230, 170, 430] : [190, 140, 350];
+      }
+
+      function start() {
+        try {
+          renderer = new X.renderer3D();
+          renderer.container = 'stage';
+          renderer.config.PROGRESSBAR_ENABLED = false;
+          renderer.config.PICKING_ENABLED = false;
+          renderer.init();
+          renderer.bgColor = [16 / 255, 19 / 255, 16 / 255];
+          renderer.interactor.config.KEYBOARD_ENABLED = false;
+          renderer.interactor.init();
+          for (let i = 0; i < 264; i++) {
+            const cube = new X.cube();
+            cube.lengthX = cube.lengthY = cube.lengthZ = 1;
+            cube.color = palettes[0].colors[i % 3].slice();
+            cube.pickable = false;
+            if (i < 216) {
+              const seed = i * 2.399963;
+              cubes.push({ object: cube, position: target(i), seed,
+                direction: [Math.sin(seed), Math.cos(seed * 1.3), Math.sin(seed * 2.1)] });
+            } else satellites.push(cube);
+            renderer.add(cube);
+          }
+          update(0);
+          resetView();
+          const canvas = $('stage').querySelector('canvas');
+          canvas.addEventListener('webglcontextlost', event => {
+            event.preventDefault();
+            showError('The WebGL context was lost. Reload the page to restart the sculpture.');
+          });
+          renderer.onShowtime = () => {
+            if (failed) return;
+            ready = true;
+            $('loading').hidden = true;
+            controls.forEach(control => { control.disabled = false; });
+            previous = performance.now();
+            fpsStart = previous;
+            pauseLabel();
+            resetView();
+          };
+          // XTK owns the rendering loop; animate just before each WebGL draw.
+          renderer.onRender = () => {
+            if (failed) return;
+            const now = performance.now();
+            const dt = Math.min((now - previous) / 1000, .05);
+            previous = now;
+            if (!state.paused && !document.hidden) update(dt);
+            frames++;
+            if (now - fpsStart > 800) {
+              $('fps').textContent = Math.round(frames * 1000 / (now - fpsStart));
+              frames = 0;
+              fpsStart = now;
+            }
+          };
+          renderer.render();
+        } catch (error) {
+          console.error(error);
+          showError('WebGL could not initialize. Enable hardware acceleration in your browser, then reload this page.');
+        }
+      }
+
+      document.querySelectorAll('[data-mode]').forEach(button => {
+        button.addEventListener('click', () => {
+          state.mode = Number(button.dataset.mode);
+          document.querySelectorAll('[data-mode]').forEach(other => other.setAttribute('aria-pressed', String(other === button)));
+          $('scene-number').textContent = 'FORMATION 0' + (state.mode + 1) + ' / 04';
+          $('scene-title').textContent = formations[state.mode][0];
+          $('scene-description').textContent = formations[state.mode][1];
+          if (state.paused) update(0, true);
+        });
+      });
+      document.querySelectorAll('[data-palette]').forEach(button => {
+        button.addEventListener('click', () => {
+          state.palette = Number(button.dataset.palette);
+          document.querySelectorAll('[data-palette]').forEach(other => other.setAttribute('aria-pressed', String(other === button)));
+          $('palette-name').textContent = palettes[state.palette].name;
+          update(0);
+        });
+      });
+      ['speed', 'spread'].forEach(id => {
+        $(id).addEventListener('input', event => {
+          state[id] = Number(event.target.value);
+          $(id + '-value').value = state[id].toFixed(id === 'speed' ? 1 : 2) + '×';
+          if (state.paused && id === 'spread') update(0, true);
+        });
+      });
+      ['colors', 'rotation'].forEach(id => { $(id).addEventListener('change', event => { state[id] = event.target.checked; }); });
+      $('scatter').addEventListener('click', () => {
+        state.scattered = !state.scattered;
+        $('scatter').setAttribute('aria-pressed', String(state.scattered));
+        $('scatter-label').textContent = state.scattered ? 'Reassemble the matter' : 'Scatter the matter';
+        if (state.paused) update(0, true);
+      });
+      $('pause').addEventListener('click', () => { state.paused = !state.paused; pauseLabel(); });
+      $('reset').addEventListener('click', resetView);
+      document.addEventListener('keydown', event => {
+        if (!ready || failed || event.repeat || event.ctrlKey || event.metaKey || event.altKey ||
+          event.target.closest('button, input, select, textarea, [contenteditable="true"]')) return;
+        if (event.code === 'Space') { event.preventDefault(); $('scatter').click(); }
+        if (event.key.toLowerCase() === 'p') $('pause').click();
+        if (/^[1-4]$/.test(event.key)) document.querySelector('[data-mode="' + (Number(event.key) - 1) + '"]').click();
+      });
+      document.addEventListener('visibilitychange', () => { previous = performance.now(); });
+      pauseLabel();
+      // Load the framework separately so network failures produce a useful message.
+      const script = document.createElement('script');
+      script.src = 'https://get.goXTK.com/xtk_edge.js';
+      script.onload = start;
+      script.onerror = () => showError('The XTK library could not be downloaded. Check your internet connection and reload the page.');
+      document.head.appendChild(script);
+    })();
+  </script>
+</body>
+</html>
