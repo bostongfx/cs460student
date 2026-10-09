@@ -1,0 +1,322 @@
+<html>
+
+<head>
+
+    <style>
+        html,
+        body {
+            background-color: #05000a;
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden !important;
+        }
+    </style>
+
+    <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@latest/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@latest/examples/jsm/"
+        }
+    }
+    </script>
+
+    <script type="module">
+
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        var renderer;
+        var controls;
+        var scene;
+        var camera;
+        var invisible_plane;
+
+        // Part 5
+        var LASTOBJECT = null;
+        var IS_SCALING = false;
+
+        // Part 6
+        var LAST_SIGN = 1;
+
+        // Part 7
+        var TORUSES = [];
+        var FLICKERING = false;
+
+        // Custom colors
+        var COLOR_ONE = 0xff00cc; // neon magenta
+        var COLOR_TWO = 0x00f5ff; // electric cyan
+
+        window.onload = function () {
+
+            // scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x05000a);
+
+            // camera
+            var fov = 75;
+            var ratio = window.innerWidth / window.innerHeight;
+            var zNear = 1;
+            var zFar = 10000;
+
+            camera = new THREE.PerspectiveCamera(
+                fov,
+                ratio,
+                zNear,
+                zFar
+            );
+
+            camera.position.set(0, 0, 100);
+
+            // renderer
+            renderer = new THREE.WebGLRenderer({
+                antialias: true
+            });
+
+            renderer.setSize(
+                window.innerWidth,
+                window.innerHeight
+            );
+
+            document.body.appendChild(
+                renderer.domElement
+            );
+
+            // Part 3
+            renderer.domElement.onmousedown = function (e) {
+
+                if (!e.shiftKey) {
+                    return;
+                }
+
+                controls.enabled = false;
+
+                var pixel_coords = new THREE.Vector2(
+                    e.clientX,
+                    e.clientY
+                );
+
+                var vp_coords = new THREE.Vector2(
+                    (pixel_coords.x / window.innerWidth) * 2 - 1,
+                    -(pixel_coords.y / window.innerHeight) * 2 + 1
+                );
+
+                var vp_coords_near = new THREE.Vector3(
+                    vp_coords.x,
+                    vp_coords.y,
+                    0
+                );
+
+                var raycaster = new THREE.Raycaster();
+
+                raycaster.setFromCamera(
+                    vp_coords_near,
+                    camera
+                );
+
+                var intersects =
+                    raycaster.intersectObject(
+                        invisible_plane
+                    );
+
+                if (intersects.length > 0) {
+
+                    var geometry =
+                        new THREE.TorusKnotGeometry(
+                            10,
+                            3,
+                            100,
+                            16
+                        );
+
+                    var material =
+                        new THREE.MeshStandardMaterial({
+                            color: COLOR_ONE,
+                            emissive: COLOR_ONE,
+                            emissiveIntensity: 0.9,
+                            metalness: 0.2,
+                            roughness: 0.35,
+                            transparent: true,
+                            opacity: 1.0
+                        });
+
+                    var torusKnot =
+                        new THREE.Mesh(
+                            geometry,
+                            material
+                        );
+
+                    torusKnot.position.set(
+                        intersects[0].point.x,
+                        intersects[0].point.y,
+                        intersects[0].point.z
+                    );
+
+                    scene.add(
+                        torusKnot
+                    );
+
+                    LASTOBJECT = torusKnot;
+                    IS_SCALING = true;
+
+                    LAST_SIGN = 1;
+
+                    TORUSES.push(
+                        torusKnot
+                    );
+                }
+            };
+
+            // Part 4
+            renderer.domElement.onmouseup = function () {
+                controls.enabled = true;
+                IS_SCALING = false;
+            };
+
+            // Parts 5 + 6
+            renderer.domElement.onmousemove = function (e) {
+
+                if (!IS_SCALING || LASTOBJECT === null) {
+                    return;
+                }
+
+                var DELTA = -e.movementY * 0.01;
+
+                var newScale =
+                    LASTOBJECT.scale.x + DELTA;
+
+                LASTOBJECT.scale.set(
+                    newScale,
+                    newScale,
+                    newScale
+                );
+
+                var currentSign =
+                    Math.sign(newScale);
+
+                if (currentSign === 0) {
+                    currentSign = LAST_SIGN;
+                }
+
+                if (currentSign !== LAST_SIGN) {
+
+                    if (LASTOBJECT.material.color.getHex() === COLOR_ONE) {
+                        LASTOBJECT.material.color.set(COLOR_TWO);
+                        LASTOBJECT.material.emissive.set(COLOR_TWO);
+                    }
+                    else {
+                        LASTOBJECT.material.color.set(COLOR_ONE);
+                        LASTOBJECT.material.emissive.set(COLOR_ONE);
+                    }
+
+                    LAST_SIGN = currentSign;
+                }
+            };
+
+            // lighting
+            var ambientLight =
+                new THREE.AmbientLight(0xffffff, 0.8);
+            scene.add(ambientLight);
+
+            var light =
+                new THREE.DirectionalLight(0xffffff, 4.5);
+            light.position.set(10, 100, 10);
+            scene.add(light);
+
+            // extra glow-style lights
+            var pinkLight =
+                new THREE.PointLight(0xff00cc, 40, 300);
+            pinkLight.position.set(-80, 50, 80);
+            scene.add(pinkLight);
+
+            var cyanLight =
+                new THREE.PointLight(0x00f5ff, 40, 300);
+            cyanLight.position.set(80, -50, 80);
+            scene.add(cyanLight);
+
+            // invisible plane
+            var geometry =
+                new THREE.PlaneGeometry(
+                    10000,
+                    10000
+                );
+
+            var material =
+                new THREE.MeshBasicMaterial({
+                    visible: false
+                });
+
+            invisible_plane =
+                new THREE.Mesh(
+                    geometry,
+                    material
+                );
+
+            scene.add(
+                invisible_plane
+            );
+
+            // OrbitControls
+            controls =
+                new OrbitControls(
+                    camera,
+                    renderer.domElement
+                );
+
+            // Part 7
+            window.onkeypress = function (e) {
+
+                if (e.key === 'f' || e.key === 'F') {
+
+                    FLICKERING = !FLICKERING;
+
+                    if (!FLICKERING) {
+                        for (var i = 0; i < TORUSES.length; i++) {
+                            TORUSES[i].material.opacity = 1.0;
+                            TORUSES[i].material.emissiveIntensity = 0.9;
+                            TORUSES[i].material.transparent = true;
+                            TORUSES[i].material.needsUpdate = true;
+                        }
+                    }
+                }
+            };
+
+            animate();
+        };
+
+        function animate() {
+
+            requestAnimationFrame(animate);
+
+            controls.update();
+
+            if (FLICKERING) {
+                for (var i = 0; i < TORUSES.length; i++) {
+                    TORUSES[i].material.opacity =
+                        0.35 + Math.random() * 0.65;
+
+                    TORUSES[i].material.emissiveIntensity =
+                        0.5 + Math.random() * 1.8;
+
+                    TORUSES[i].material.transparent = true;
+                    TORUSES[i].material.needsUpdate = true;
+                }
+            }
+
+            renderer.render(
+                scene,
+                camera
+            );
+        }
+
+    </script>
+
+</head>
+
+<body>
+</body>
+
+</html>
