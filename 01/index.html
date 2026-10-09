@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>XTK WebGL - Hello Cube</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #0f172a;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: #f8fafc;
+    }
+    #info {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      z-index: 10;
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(8px);
+      padding: 12px 18px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+      pointer-events: none;
+    }
+    #info h1 { margin: 0 0 4px 0; font-size: 16px; font-weight: 600; }
+    #info p { margin: 0; font-size: 12px; color: #94a3b8; }
+  </style>
+  <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+</head>
+<body>
+  <div id="info">
+    <h1>XTK Interactive Hello Cube</h1>
+    <p>Left-click drag: Rotate | Right-click drag: Pan | Scroll: Zoom</p>
+  </div>
+
+  <script type="text/javascript">
+    window.onload = function() {
+      // 1. Create and initialize 3D renderer
+      var r = new X.renderer3D();
+      r.init();
+
+      // 2. Create a cube
+      var cube = new X.cube();
+      cube.color = [0.3, 0.6, 1.0]; // Sky blue
+
+      // 3. Add cube to renderer and render
+      r.add(cube);
+      r.render();
+    };
+  </script>
+</body>
+</html>
