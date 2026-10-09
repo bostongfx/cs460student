@@ -1,0 +1,260 @@
+<html>
+  <head>
+    <title>CS460 Assignment 3 - Torus World</title>
+    <style>
+      html, body {
+        background-color:#000;
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden !important;
+      }
+      #help {
+        position: absolute;
+        left: 12px;
+        bottom: 10px;
+        color: #ccc;
+        font: 12px/1.5 monospace;
+        user-select: none;
+        pointer-events: none;
+      }
+      #help b { color: #ff69b4; }
+    </style>
+
+    <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/"
+      }
+    }
+    </script>
+
+    <script type="module">
+
+      import * as THREE from 'three';
+      import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+      var renderer, controls, scene, camera;
+      var invisible_plane;
+
+      var HOTPINK = 0xff69b4;
+      var GRASSGREEN = 0x7cfc00;
+
+      var TORUSES = [];        // every torus we placed with SHIFT+click
+      var LASTOBJECT = null;   // the most recently placed torus
+      var SCALING = false;     // true between mousedown (with SHIFT) and mouseup
+      var FLICKERING = false;  // toggled with 'f'
+      var WIREFRAME = false;   // toggled with 'w' (bonus)
+
+      window.onload = function() {
+
+        // Three.js code goes here
+        scene = new THREE.Scene();
+
+        // setup the camera
+        var fov = 75;
+        var ratio = window.innerWidth / window.innerHeight;
+        var zNear = 1;
+        var zFar = 10000;
+        camera = new THREE.PerspectiveCamera( fov, ratio, zNear, zFar );
+        camera.position.set(0, 0, 100);
+
+        // create renderer and setup the canvas
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize( window.innerWidth, window.innerHeight );
+        document.body.appendChild( renderer.domElement );
+
+        window.onresize = function() {
+          camera.aspect = window.innerWidth / window.innerHeight;
+          camera.updateProjectionMatrix();
+          renderer.setSize( window.innerWidth, window.innerHeight );
+        };
+
+        renderer.domElement.onmousedown = function( e ) {
+
+          // without SHIFT, this is a regular camera interaction
+          if ( !e.shiftKey ) return;
+
+          // Part 3: stop the camera from moving while we place a torus
+          controls.enabled = false;
+
+          var pixel_coords = new THREE.Vector2( e.clientX, e.clientY );
+
+          var vp_coords = new THREE.Vector2(
+                      ( pixel_coords.x / window.innerWidth ) * 2 - 1,  //X
+                      -( pixel_coords.y / window.innerHeight ) * 2 + 1) // Y
+
+          var vp_coords_near = new THREE.Vector3( vp_coords.x, vp_coords.y, 0);
+
+          var raycaster = new THREE.Raycaster();
+          raycaster.setFromCamera(vp_coords_near, camera);
+          var intersects = raycaster.intersectObject(invisible_plane);
+
+          if ( intersects.length == 0 ) return;
+
+          // place a new hotpink torus at the mouse position
+          var geometry = new THREE.TorusKnotGeometry( 10, 3, 100, 16 );
+          var material = new THREE.MeshStandardMaterial({ color: HOTPINK });
+          var torus = new THREE.Mesh( geometry, material );
+          torus.position.copy( intersects[0].point );
+
+          // Part 8: give each torus a random twist so the blob looks organic
+          torus.rotation.set( Math.random() * Math.PI * 2,
+                              Math.random() * Math.PI * 2,
+                              Math.random() * Math.PI * 2 );
+
+          material.wireframe = WIREFRAME;
+
+          scene.add( torus );
+          TORUSES.push( torus );
+
+          // Part 5: remember it so we can scale it while the button is down
+          LASTOBJECT = torus;
+          SCALING = true;
+
+        };
+
+        renderer.domElement.onmousemove = function( e ) {
+
+          if ( !SCALING || !LASTOBJECT ) return;
+
+          // dragging up (negative movementY) grows the torus, down shrinks it
+          var DELTA = -e.movementY * 0.02;
+
+          LASTOBJECT.scale.set( LASTOBJECT.scale.x + DELTA,
+                                LASTOBJECT.scale.y + DELTA,
+                                LASTOBJECT.scale.z + DELTA );
+
+          // Part 6: once the scale crosses zero the torus flips -> green,
+          // flipping back makes it pink again
+          if ( LASTOBJECT.scale.x < 0 ) {
+            LASTOBJECT.material.color.set( GRASSGREEN );
+          } else {
+            LASTOBJECT.material.color.set( HOTPINK );
+          }
+
+        };
+
+        // Part 4: re-enable the controls when the mouse button is released
+        renderer.domElement.onmouseup = function( e ) {
+
+          controls.enabled = true;
+          SCALING = false;
+
+        };
+
+        window.onkeypress = function( e ) {
+
+          // Part 7: toggle flickering
+          if ( e.key == 'f' ) {
+
+            FLICKERING = !FLICKERING;
+
+            if ( !FLICKERING ) {
+              // back to solid
+              for ( var i = 0; i < TORUSES.length; i++ ) {
+                TORUSES[i].material.opacity = 1;
+                TORUSES[i].material.transparent = false;
+                TORUSES[i].material.needsUpdate = true;
+              }
+            }
+
+          }
+
+          // Bonus: toggle wireframes for all placed toruses
+          if ( e.key == 'w' ) {
+
+            WIREFRAME = !WIREFRAME;
+
+            for ( var i = 0; i < TORUSES.length; i++ ) {
+              if ( TORUSES[i].userData.center ) continue;
+              TORUSES[i].material.wireframe = WIREFRAME;
+            }
+
+          }
+
+          if ( e.key == 'h' ) {
+            var help = document.getElementById( 'help' );
+            help.style.display = help.style.display == 'none' ? '' : 'none';
+          }
+
+        };
+
+        // setup lights
+        var ambientLight = new THREE.AmbientLight();
+        scene.add( ambientLight );
+
+        var light = new THREE.DirectionalLight( 0xffffff, 5.0 );
+        light.position.set( 10, 100, 10 );
+        scene.add( light );
+
+        // Part 2: the cube from class is now a solid yellow torus knot
+        var geometry = new THREE.TorusKnotGeometry( 10, 3, 100, 16 );
+        var material = new THREE.MeshStandardMaterial({ color: 0xffff00 });
+
+        var torus = new THREE.Mesh( geometry, material );
+
+        scene.add( torus );
+        TORUSES.push( torus );
+
+        // it flickers with the rest, but the wireframe toggle only
+        // applies to the toruses we placed
+        torus.userData.center = true;
+
+
+        //
+        // The invisible plane
+        //
+        geometry = new THREE.PlaneGeometry( 10000, 10000 );
+        material = new THREE.MeshBasicMaterial( {
+          visible: false,
+          side: THREE.DoubleSide
+        });
+
+        invisible_plane = new THREE.Mesh( geometry, material );
+
+        scene.add( invisible_plane );
+        //
+        //
+        //
+
+
+        // interaction
+        controls = new OrbitControls( camera, renderer.domElement );
+
+        // call animation/rendering loop
+        animate();
+
+      };
+
+      function animate() {
+
+        requestAnimationFrame( animate );
+
+        // Part 7: random opacity for every torus while flickering
+        if ( FLICKERING ) {
+          for ( var i = 0; i < TORUSES.length; i++ ) {
+            TORUSES[i].material.opacity = Math.random();
+            TORUSES[i].material.transparent = true;
+            TORUSES[i].material.needsUpdate = true;
+          }
+        }
+
+        // and here..
+        controls.update();
+        renderer.render( scene, camera );
+
+      };
+
+    </script>
+  </head>
+  <body>
+    <div id="help">
+      <b>SHIFT + click</b> place a torus &middot; keep holding and drag up/down to scale (past zero = green)<br>
+      <b>f</b> flicker &middot; <b>w</b> wireframe &middot; <b>h</b> hide this text
+    </div>
+  </body>
+</html>
