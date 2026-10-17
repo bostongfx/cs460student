@@ -19,6 +19,163 @@
             width: 100%;
             height: 100%;
         }
+
+        .bubble-layer {
+            position: fixed;
+            inset: 0;
+            overflow: hidden;
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        .bubble {
+            position: absolute;
+            bottom: -30px;
+            left: var(--x);
+            width: var(--size);
+            height: var(--size);
+            border: 2px solid rgba(220, 250, 255, 0.65);
+            border-radius: 50%;
+            box-shadow: inset 2px 2px 5px rgba(220, 250, 255, 0.4);
+            animation: rise var(--duration) linear var(--delay) infinite;
+        }
+
+        @keyframes rise {
+            from {
+                transform: translateY(0);
+                opacity: 0;
+            }
+
+            10% {
+                opacity: 0.7;
+            }
+
+            90% {
+                opacity: 0.5;
+            }
+
+            to {
+                transform: translateY(-110vh);
+                opacity: 0;
+            }
+        }
+
+        .bubble:nth-child(1) {
+            --x: 8%;
+            --size: 12px;
+            --duration: 4s;
+            --delay: 0s;
+        }
+
+        .bubble:nth-child(2) {
+            --x: 22%;
+            --size: 20px;
+            --duration: 5s;
+            --delay: 2s;
+        }
+
+        .bubble:nth-child(3) {
+            --x: 39%;
+            --size: 10px;
+            --duration: 4.5s;
+            --delay: 4s;
+        }
+
+        .bubble:nth-child(4) {
+            --x: 58%;
+            --size: 17px;
+            --duration: 6s;
+            --delay: 1s;
+        }
+
+        .bubble:nth-child(5) {
+            --x: 76%;
+            --size: 13px;
+            --duration: 5.5s;
+            --delay: 3s;
+        }
+
+        .bubble:nth-child(6) {
+            --x: 91%;
+            --size: 22px;
+            --duration: 6.5s;
+            --delay: 5s;
+        }
+
+        .seaweed-layer {
+            position: fixed;
+            inset: 0;
+            overflow: hidden;
+            pointer-events: none;
+            z-index: 3;
+        }
+
+        .seaweed {
+            position: absolute;
+            bottom: -18px;
+            width: 22px;
+            height: 130px;
+            border-radius: 100% 0 70% 0;
+            background: linear-gradient(90deg,
+                    rgba(20, 100, 90, 0.25),
+                    rgba(75, 190, 145, 0.75),
+                    rgba(25, 110, 95, 0.35));
+            transform-origin: bottom center;
+            animation: seaweed-sway 3.5s ease-in-out infinite alternate;
+        }
+
+        .seaweed:nth-child(1) {
+            left: 3%;
+            height: 105px;
+            animation-delay: -1s;
+        }
+
+        .seaweed:nth-child(2) {
+            left: 7%;
+            height: 155px;
+            animation-duration: 4.5s;
+        }
+
+        .seaweed:nth-child(3) {
+            left: 12%;
+            height: 125px;
+            animation-delay: -2s;
+        }
+
+        .seaweed:nth-child(4) {
+            right: 7%;
+            height: 145px;
+            animation-duration: 4s;
+        }
+
+        .seaweed:nth-child(5) {
+            right: 3%;
+            height: 115px;
+            animation-delay: -1.5s;
+        }
+
+        @keyframes seaweed-sway {
+            from {
+                transform: rotate(-9deg);
+            }
+
+            to {
+                transform: rotate(9deg);
+            }
+        }
+
+        #soundButton {
+            position: fixed;
+            right: 18px;
+            bottom: 18px;
+            z-index: 5;
+            padding: 10px 14px;
+            color: white;
+            background: rgba(0, 35, 65, 0.8);
+            border: 1px solid rgba(220, 250, 255, 0.6);
+            border-radius: 20px;
+            cursor: pointer;
+        }
     </style>
 </head>
 <script type="text/javascript" src="https://cs460.org/js/glmatrix.js"></script>
@@ -54,6 +211,105 @@
     var c, gl;
     var v_shader, f_shader, shaderprogram;
     var vertices, indices, v_buffer, i_buffer;
+
+    var oceanAudioContext = null;
+    var lastEdgeToneTime = 0;
+
+    var bubbleSoundTimer = null;
+
+    function toggleOceanSound() {
+        var button = document.getElementById("soundButton");
+
+        if (!oceanAudioContext) {
+            oceanAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+            var buffer = oceanAudioContext.createBuffer(
+                1,
+                oceanAudioContext.sampleRate * 2,
+                oceanAudioContext.sampleRate
+            );
+            var data = buffer.getChannelData(0);
+
+            for (var i = 0; i < data.length; i++) {
+                data[i] = (Math.random() * 2 - 1) * 0.25;
+            }
+
+            var noise = oceanAudioContext.createBufferSource();
+            noise.buffer = buffer;
+            noise.loop = true;
+
+            var filter = oceanAudioContext.createBiquadFilter();
+            filter.type = "lowpass";
+            filter.frequency.value = 350;
+
+            var oceanVolume = oceanAudioContext.createGain();
+            oceanVolume.gain.value = 0.025;
+
+            noise.connect(filter);
+            filter.connect(oceanVolume);
+            oceanVolume.connect(oceanAudioContext.destination);
+            noise.start();
+
+            if (bubbleSoundTimer === null) {
+                bubbleSoundTimer = setInterval(playBubbleSound, 2800);
+            }
+
+            button.textContent = "🔇 Mute ocean sound";
+            return;
+        }
+
+        if (oceanAudioContext.state === "running") {
+            oceanAudioContext.suspend();
+            button.textContent = "🔊 Start ocean sound";
+        } else {
+            oceanAudioContext.resume();
+            button.textContent = "🔇 Mute ocean sound";
+        }
+    }
+
+    function playEdgeSound() {
+        if (!oceanAudioContext || oceanAudioContext.state !== "running") return;
+
+        var now = performance.now();
+        if (now - lastEdgeToneTime < 150) return;
+        lastEdgeToneTime = now;
+
+        var time = oceanAudioContext.currentTime;
+        var tone = oceanAudioContext.createOscillator();
+        var volume = oceanAudioContext.createGain();
+
+        tone.type = "sine";
+        tone.frequency.setValueAtTime(520, time);
+        tone.frequency.exponentialRampToValueAtTime(260, time + 0.14);
+
+        volume.gain.setValueAtTime(0.08, time);
+        volume.gain.exponentialRampToValueAtTime(0.001, time + 0.14);
+
+        tone.connect(volume);
+        volume.connect(oceanAudioContext.destination);
+        tone.start(time);
+        tone.stop(time + 0.15);
+    }
+
+    function playBubbleSound() {
+        if (!oceanAudioContext || oceanAudioContext.state !== "running") return;
+
+        var time = oceanAudioContext.currentTime;
+        var tone = oceanAudioContext.createOscillator();
+        var volume = oceanAudioContext.createGain();
+
+        tone.type = "sine";
+        tone.frequency.setValueAtTime(420, time);
+        tone.frequency.exponentialRampToValueAtTime(700, time + 0.12);
+
+        volume.gain.setValueAtTime(0.035, time);
+        volume.gain.exponentialRampToValueAtTime(0.001, time + 0.16);
+
+        tone.connect(volume);
+        volume.connect(oceanAudioContext.destination);
+        tone.start(time);
+        tone.stop(time + 0.17);
+    }
 
     window.onload = function () {
 
@@ -113,6 +369,22 @@
             all_fish.push(createFish(offset, color, scale, 1));
         }
 
+
+        document.addEventListener("keydown", function (event) {
+            var bigFishOffset = all_fish[0][2];
+
+            if (event.key === "ArrowUp") {
+                bigFishOffset[1] += 0.05;
+            } else if (event.key === "ArrowDown") {
+                bigFishOffset[1] -= 0.05;
+            } else {
+                return;
+            }
+
+            event.preventDefault();
+        });
+
+        document.getElementById("soundButton").addEventListener("click", toggleOceanSound);
 
         animate();
 
@@ -203,6 +475,7 @@
 
             // update offsets: move along X, reverse direction at edges, small random Y wiggle
             if (current_offset[0] >= 1.) {
+                if (r === 0) playEdgeSound();
                 if (current_direction.length !== undefined) {
                     current_direction[0] = -1;
                 } else {
@@ -210,6 +483,7 @@
                     current_direction = -1;
                 }
             } else if (current_offset[0] <= -1.) {
+                if (r === 0) playEdgeSound();
                 if (current_direction.length !== undefined) {
                     current_direction[0] = 1;
                 } else {
@@ -311,6 +585,25 @@
 
 <body>
     <canvas id="c"></canvas>
+
+    <div class="bubble-layer">
+        <i class="bubble"></i>
+        <i class="bubble"></i>
+        <i class="bubble"></i>
+        <i class="bubble"></i>
+        <i class="bubble"></i>
+        <i class="bubble"></i>
+    </div>
+
+    <div class="seaweed-layer">
+        <i class="seaweed"></i>
+        <i class="seaweed"></i>
+        <i class="seaweed"></i>
+        <i class="seaweed"></i>
+        <i class="seaweed"></i>
+    </div>
+
+    <button id="soundButton">🔊 Start ocean sound</button>
 </body>
 
 </html>
