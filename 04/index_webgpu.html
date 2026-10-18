@@ -1,0 +1,1359 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta content="text/html;charset=utf-8" http-equiv="Content-Type">
+    <meta content="utf-8" http-equiv="encoding">
+    <title>CS460 WebGPU Fish!</title>
+    <style>
+      html, body { 
+        background: url('https://cs460.org/assignments/04/bg.jpg');
+        background-size: cover;
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden !important;  
+      }
+
+      #c {
+        width: 100%;
+        height: 100%;
+        display: block;
+        transition: transform 0.05s ease-out;
+      }
+
+      #hud {
+        position: absolute;
+        top: 16px;
+        left: 20px;
+        z-index: 10;
+        pointer-events: none;
+        user-select: none;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      }
+
+      .hud-card {
+        background: rgba(8, 28, 52, 0.78);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(120, 210, 255, 0.35);
+        border-radius: 14px;
+        padding: 12px 20px;
+        color: #fff;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45), 0 0 15px rgba(0, 180, 255, 0.2);
+      }
+
+      .hud-title {
+        font-size: 13px;
+        font-weight: 800;
+        letter-spacing: 1.5px;
+        color: #ff5555;
+        text-shadow: 0 0 10px rgba(255, 85, 85, 0.6);
+        display: block;
+        margin-bottom: 4px;
+      }
+
+      .hud-stats {
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+        margin-bottom: 6px;
+        flex-wrap: wrap;
+      }
+
+      .hud-timer {
+        font-size: 14px;
+        font-weight: 700;
+        color: #88ddff;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .hud-timer b {
+        color: #ffffff;
+        font-size: 26px;
+        font-weight: 900;
+        text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+      }
+
+      .score-label {
+        font-size: 13px;
+        font-weight: 600;
+        color: #88ddff;
+      }
+
+      .score-val {
+        font-size: 26px;
+        font-weight: 900;
+        color: #ffffff;
+        font-variant-numeric: tabular-nums;
+        text-shadow: 0 0 12px rgba(255, 255, 255, 0.7);
+      }
+
+      .score-boost {
+        margin-left: 10px;
+        font-size: 11px;
+        font-weight: 700;
+        color: #ffd700;
+        letter-spacing: 0.5px;
+      }
+
+      .energy-container {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 6px 0 8px 0;
+        font-size: 11px;
+        font-weight: 700;
+      }
+
+      .energy-label {
+        color: #ffaa55;
+      }
+
+      .energy-bar-bg {
+        width: 130px;
+        height: 10px;
+        background: rgba(0, 0, 0, 0.5);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 6px;
+        overflow: hidden;
+      }
+
+      .energy-bar-fill {
+        height: 100%;
+        width: 100%;
+        background: linear-gradient(90deg, #ff4444, #ffbb33, #44ff88);
+        background-size: 130px 10px;
+        border-radius: 5px;
+        transition: width 0.08s linear;
+      }
+
+      .hud-help {
+        font-size: 11px;
+        line-height: 1.4;
+        color: rgba(220, 240, 255, 0.8);
+      }
+
+      .bubble {
+        position: absolute;
+        bottom: -40px;
+        background: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.7), rgba(255,255,255,0.1) 70%);
+        border: 1px solid rgba(255,255,255,0.3);
+        border-radius: 50%;
+        pointer-events: none;
+        animation: rise linear infinite;
+        z-index: 1;
+      }
+
+      @keyframes rise {
+        0% { transform: translateY(0) translateX(0); opacity: 0; }
+        15% { opacity: 0.55; }
+        85% { opacity: 0.55; }
+        100% { transform: translateY(-110vh) translateX(30px); opacity: 0; }
+      }
+
+      #game-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 15, 35, 0.78);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+      }
+
+      .modal-card {
+        background: rgba(10, 30, 60, 0.94);
+        border: 2px solid rgba(100, 200, 255, 0.5);
+        border-radius: 20px;
+        padding: 32px 40px;
+        text-align: center;
+        color: #fff;
+        max-width: 420px;
+        box-shadow: 0 15px 50px rgba(0, 0, 0, 0.7), 0 0 30px rgba(0, 180, 255, 0.4);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        animation: popIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      }
+
+      @keyframes popIn {
+        from { transform: scale(0.85); opacity: 0; }
+        to { transform: scale(1); opacity: 1; }
+      }
+
+      .modal-card h1 {
+        margin: 0 0 10px 0;
+        font-size: 32px;
+        letter-spacing: 1px;
+      }
+
+      .modal-card p {
+        font-size: 14px;
+        color: rgba(220, 240, 255, 0.85);
+        margin: 0 0 20px 0;
+        line-height: 1.5;
+      }
+
+      .modal-stats {
+        display: flex;
+        justify-content: space-around;
+        background: rgba(0, 0, 0, 0.4);
+        border-radius: 12px;
+        padding: 12px;
+        margin-bottom: 24px;
+      }
+
+      .modal-stat {
+        font-size: 12px;
+        color: #88ddff;
+        font-weight: 600;
+      }
+
+      .modal-stat b {
+        color: #ffffff;
+        font-size: 20px;
+        display: block;
+        margin-top: 3px;
+      }
+
+      #modal-btn {
+        background: linear-gradient(135deg, #00b4db, #0083b0);
+        color: #fff;
+        border: none;
+        padding: 12px 32px;
+        font-size: 15px;
+        font-weight: 800;
+        border-radius: 25px;
+        cursor: pointer;
+        letter-spacing: 1px;
+        box-shadow: 0 6px 20px rgba(0, 150, 255, 0.4);
+        transition: transform 0.15s, box-shadow 0.15s;
+      }
+
+      #modal-btn:hover {
+        transform: scale(1.05);
+        box-shadow: 0 8px 25px rgba(0, 180, 255, 0.6);
+      }
+
+      #modal-btn:active {
+        transform: scale(0.98);
+      }
+
+      #gpu-error {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(10, 20, 35, 0.95);
+        color: #fff;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        z-index: 200;
+        padding: 40px;
+        text-align: center;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+      }
+      #gpu-error h2 {
+        color: #ff5555;
+        margin-bottom: 15px;
+      }
+      #gpu-error p {
+        max-width: 600px;
+        line-height: 1.6;
+        color: rgba(220, 240, 255, 0.85);
+      }
+    </style>
+  </head>
+  
+  <body>
+    <div id="gpu-error">
+      <h2>WebGPU Not Supported</h2>
+      <p>
+        Your current browser does not have WebGPU support enabled.<br>
+        Please open this page in Chrome (version 113+), Microsoft Edge (113+), or Safari (version 18+) with WebGPU enabled.
+      </p>
+    </div>
+
+    <div id="hud">
+      <div class="hud-card">
+        <span class="hud-title">RED SHARK FRENZY &bull; WEBGPU EDITION</span>
+        <div class="hud-stats">
+          <span class="hud-timer">⏳ <b id="timer-val">25.0s</b></span>
+          <span class="score-label">CAUGHT: <b id="caught-val" class="score-val">0</b> / 10</span>
+          <span class="score-label" style="margin-left: 8px;">SCORE: <b id="score-val" class="score-val">0</b></span>
+          <span class="score-boost" id="speed-meter">🚀 SPEED: 1.0x</span>
+          <span id="combo-badge" style="display: none; color: #ffd700; font-weight: 800; font-size: 13px; text-shadow: 0 0 10px rgba(255,215,0,0.8);">🔥 COMBO x2!</span>
+        </div>
+        <div class="energy-container">
+          <span class="energy-label">STAMINA:</span>
+          <div class="energy-bar-bg">
+            <div id="stamina-fill" class="energy-bar-fill" style="width: 100%;"></div>
+          </div>
+          <span id="boost-status" style="font-size: 11px; color: #44ff88; font-weight: 700;">READY (SPACE)</span>
+        </div>
+        <div class="hud-help">
+          <b>Hunt:</b> 🐟 Blue Prey (They Dodge!) &bull; ⭐ Golden (+5s) &bull; <b>Avoid:</b> ⚡ Purple Jellyfish (-3s & Stun)<br>
+          <b>Controls:</b> WASD / Mouse &bull; <b>Space / Shift:</b> Dash Sprint
+        </div>
+      </div>
+    </div>
+
+    <div id="floating-alert" style="position: absolute; top: 110px; left: 50%; transform: translateX(-50%); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 22px; font-weight: 900; color: #ff3333; text-shadow: 0 0 16px rgba(255,0,0,0.8); pointer-events: none; opacity: 0; transition: opacity 0.3s, transform 0.3s; z-index: 50;"></div>
+
+    <div id="game-modal" style="display: none;">
+      <div class="modal-card">
+        <h1 id="modal-title">🏆 VICTORY!</h1>
+        <p id="modal-desc">You captured all 10 fish before the timer ran out!</p>
+        <div class="modal-stats">
+          <div class="modal-stat">FISH CAUGHT<b id="modal-score">10 / 10</b></div>
+          <div class="modal-stat">PEAK SPEED<b id="modal-speed">2.8x</b></div>
+        </div>
+        <button id="modal-btn" onclick="resetGame()">PLAY AGAIN</button>
+      </div>
+    </div>
+
+    <canvas id="c"></canvas>
+
+    <script>
+      //************************************************************//
+      //
+      // WEBGPU APPLICATION STATE
+      //
+      var c, device, context, presentationFormat;
+      var pipeline, bindGroupLayout;
+      var sharedBodyVertexBuffer, sharedBodyIndexBuffer;
+      var sharedEyeVertexBufferUp, sharedEyeVertexBufferDown, sharedEyeIndexBuffer;
+      var eyeIndexCount = 0;
+
+      var all_fish = [];
+      var rectangles;
+      var keys = {};
+      var mouseTarget = null;
+      var userControlling = false;
+
+      // Gameplay state
+      var score = 0;
+      var fishCaught = 0;
+      var targetFish = 10;
+      var maxTime = 25;
+      var timeLeft = maxTime;
+      var lastTime = null;
+      var audioCtx = null;
+      var boostActive = false;
+      var small_fish_speed = 0.01;
+      var gameState = 'playing'; // 'playing', 'won', 'lost'
+      var NUM_SMALL_FISH = 3;
+
+      var stamina = 100;
+      var maxStamina = 100;
+      var staminaExhausted = false;
+      var stunTimer = 0;
+      var chompTimer = 0;
+      var comboCount = 0;
+      var comboTimer = 0;
+      var shakeTimer = 0;
+
+      // Web Audio sound synthesizer
+      function initAudio() {
+        if (!audioCtx && (typeof window !== 'undefined') && (window.AudioContext || window.webkitAudioContext)) {
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtx && audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+      }
+
+      function playBubbleSound() {
+        if (!audioCtx) return;
+        try {
+          var osc = audioCtx.createOscillator();
+          var gain = audioCtx.createGain();
+          osc.type = 'sine';
+          var baseFreq = 300 + (small_fish_speed - 0.01) * 6000 + Math.random() * 100;
+          osc.frequency.setValueAtTime(baseFreq, audioCtx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(baseFreq * 2.3, audioCtx.currentTime + 0.12);
+
+          gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.14);
+
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.15);
+        } catch (e) {}
+      }
+
+      function playDashSound() {
+        if (!audioCtx) return;
+        try {
+          var osc = audioCtx.createOscillator();
+          var gain = audioCtx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(140, audioCtx.currentTime);
+          osc.frequency.linearRampToValueAtTime(280, audioCtx.currentTime + 0.18);
+
+          gain.gain.setValueAtTime(0.14, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
+
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.22);
+        } catch (e) {}
+      }
+
+      function playShockSound() {
+        if (!audioCtx) return;
+        try {
+          var osc = audioCtx.createOscillator();
+          var gain = audioCtx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(120, audioCtx.currentTime);
+          osc.frequency.linearRampToValueAtTime(45, audioCtx.currentTime + 0.32);
+          gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.35);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.38);
+        } catch (e) {}
+      }
+
+      function playGoldSound() {
+        if (!audioCtx) return;
+        try {
+          [880, 1108.73, 1318.51, 1760].forEach(function(freq, i) {
+            var osc = audioCtx.createOscillator();
+            var gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime + i * 0.05);
+            gain.gain.setValueAtTime(0.18, audioCtx.currentTime + i * 0.05);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + i * 0.05 + 0.18);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(audioCtx.currentTime + i * 0.05);
+            osc.stop(audioCtx.currentTime + i * 0.05 + 0.2);
+          });
+        } catch (e) {}
+      }
+
+      function playWinSound() {
+        if (!audioCtx) return;
+        try {
+          var notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+          notes.forEach(function(freq, index) {
+            var osc = audioCtx.createOscillator();
+            var gain = audioCtx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime + index * 0.12);
+            gain.gain.setValueAtTime(0.2, audioCtx.currentTime + index * 0.12);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + index * 0.12 + 0.35);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(audioCtx.currentTime + index * 0.12);
+            osc.stop(audioCtx.currentTime + index * 0.12 + 0.38);
+          });
+        } catch(e) {}
+      }
+
+      function playLoseSound() {
+        if (!audioCtx) return;
+        try {
+          var osc = audioCtx.createOscillator();
+          var gain = audioCtx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(280, audioCtx.currentTime);
+          osc.frequency.linearRampToValueAtTime(80, audioCtx.currentTime + 0.5);
+          gain.gain.setValueAtTime(0.22, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.55);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.6);
+        } catch(e) {}
+      }
+
+      function triggerFloatingAlert(text, color) {
+        if (typeof document === 'undefined') return;
+        var el = document.getElementById('floating-alert');
+        if (!el) return;
+        el.innerText = text;
+        el.style.color = color;
+        el.style.textShadow = '0 0 16px ' + color;
+        el.style.opacity = '1';
+        el.style.transform = 'translate(-50%, -10px) scale(1.15)';
+        setTimeout(function() {
+          if (el) {
+            el.style.opacity = '0';
+            el.style.transform = 'translate(-50%, -35px) scale(0.9)';
+          }
+        }, 1000);
+      }
+
+      function triggerScreenShake() {
+        shakeTimer = 0.35;
+      }
+
+      function spawnBiteBubbles(ndcX, ndcY) {
+        if (typeof document === 'undefined' || !document.body) return;
+        var screenX = ((ndcX + 1) / 2) * window.innerWidth;
+        var screenY = ((-ndcY + 1) / 2) * window.innerHeight;
+        for (var i = 0; i < 5; i++) {
+          var b = document.createElement('div');
+          b.className = 'bubble';
+          var size = Math.random() * 16 + 6;
+          b.style.width = size + 'px';
+          b.style.height = size + 'px';
+          b.style.left = (screenX + (Math.random() - 0.5) * 35) + 'px';
+          b.style.bottom = (window.innerHeight - screenY + (Math.random() - 0.5) * 25) + 'px';
+          b.style.animationDuration = (Math.random() * 1.5 + 1.0) + 's';
+          document.body.appendChild(b);
+          setTimeout(function(el) {
+            if (el && el.parentNode) el.parentNode.removeChild(el);
+          }, 1800, b);
+        }
+      }
+
+      function showEndModal(won) {
+        if (typeof document === 'undefined') return;
+        var modal = document.getElementById('game-modal');
+        var title = document.getElementById('modal-title');
+        var desc = document.getElementById('modal-desc');
+        var scoreVal = document.getElementById('modal-score');
+        var speedVal = document.getElementById('modal-speed');
+
+        if (modal) modal.style.display = 'flex';
+        if (scoreVal) scoreVal.innerText = fishCaught + ' / ' + targetFish;
+        if (speedVal) speedVal.innerText = (small_fish_speed / 0.01).toFixed(1) + 'x';
+
+        if (won) {
+          if (title) title.innerHTML = '🏆 VICTORY!';
+          if (desc) desc.innerText = 'Apex Predator! You captured ' + targetFish + ' fish with ' + timeLeft.toFixed(1) + 's remaining! Final Score: ' + score;
+          playWinSound();
+        } else {
+          if (title) title.innerHTML = '⏳ TIME\'S UP!';
+          if (desc) desc.innerText = 'Out of time! You captured ' + fishCaught + ' of ' + targetFish + ' fish. Final Score: ' + score;
+          playLoseSound();
+        }
+      }
+
+      function resetGame() {
+        score = 0;
+        fishCaught = 0;
+        timeLeft = maxTime;
+        lastTime = null;
+        small_fish_speed = 0.01;
+        gameState = 'playing';
+        userControlling = true;
+        stunTimer = 0;
+        stamina = maxStamina;
+        staminaExhausted = false;
+        comboCount = 0;
+        comboTimer = 0;
+        chompTimer = 0;
+        shakeTimer = 0;
+
+        // Reset Player Shark
+        all_fish[0][4] = [0, 0, 0];
+        all_fish[0][5] = 1.0;
+        all_fish[0][6] = -1;
+
+        // Reset Regular Prey Fish across lanes
+        var lanes = [0.4, -0.4, 0.0];
+        for (var i = 0; i < NUM_SMALL_FISH; i++) {
+          all_fish[i + 1][4] = [-1.05 - (i * 0.45), lanes[i % lanes.length], 0];
+        }
+
+        // Reset Golden Sprinter Fish
+        if (all_fish[4]) {
+          all_fish[4][4] = [-1.8, 0.25, 0];
+        }
+
+        // Reset Electric Jellyfish Hazard
+        if (all_fish[5]) {
+          all_fish[5][4] = [-1.5, -0.25, 0];
+        }
+
+        if (typeof document !== 'undefined') {
+          var modal = document.getElementById('game-modal');
+          if (modal) modal.style.display = 'none';
+          var caughtEl = document.getElementById('caught-val');
+          if (caughtEl) caughtEl.innerText = '0';
+          var scoreEl = document.getElementById('score-val');
+          if (scoreEl) scoreEl.innerText = '0';
+          var timerEl = document.getElementById('timer-val');
+          if (timerEl) {
+            timerEl.innerText = maxTime.toFixed(1) + 's';
+            timerEl.style.color = '#ffffff';
+            timerEl.style.textShadow = 'none';
+          }
+          var speedEl = document.getElementById('speed-meter');
+          if (speedEl) speedEl.innerText = '🚀 SPEED: 1.0x';
+          var comboBadge = document.getElementById('combo-badge');
+          if (comboBadge) comboBadge.style.display = 'none';
+        }
+      }
+
+      function createAmbientBubbles() {
+        if (typeof document === 'undefined' || !document.body) return;
+        for (var i = 0; i < 16; i++) {
+          var b = document.createElement('div');
+          b.className = 'bubble';
+          var size = Math.random() * 22 + 8;
+          b.style.width = size + 'px';
+          b.style.height = size + 'px';
+          b.style.left = Math.random() * 100 + 'vw';
+          b.style.animationDuration = (Math.random() * 7 + 5) + 's';
+          b.style.animationDelay = (Math.random() * 8) + 's';
+          document.body.appendChild(b);
+        }
+      }
+
+      // Generate circular mesh for the eye in local fish space
+      function createEyeMesh(eyeY, radius) {
+        var segs = 14;
+        var verts = [0.2, eyeY, 0.0]; // center vertex at index 0
+        for (var i = 0; i < segs; i++) {
+          var ang = (i / segs) * Math.PI * 2;
+          verts.push(0.2 + Math.cos(ang) * radius, eyeY + Math.sin(ang) * radius, 0.0);
+        }
+        var inds = [];
+        for (var i = 1; i <= segs; i++) {
+          var next = (i === segs) ? 1 : i + 1;
+          inds.push(0, i, next);
+        }
+        return {
+          vertices: new Float32Array(verts),
+          indices: new Uint32Array(inds) // 42 indices * 4 = 168 bytes (multiple of 4)
+        };
+      }
+
+      // WebGPU Factory for a fish object
+      function createFish(offset, color, scale, direction) {
+        if (scale === undefined) scale = 1;
+        if (direction === undefined) direction = 1;
+
+        if (offset && offset.length === 4 && color && color.length === 3) {
+          var tmp = offset;
+          offset = color;
+          color = tmp;
+        }
+
+        // Uniform buffer for body (256 bytes for universal alignment)
+        var bodyUniformBuffer = device.createBuffer({
+          size: 256,
+          usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+        });
+
+        var bodyBindGroup = device.createBindGroup({
+          layout: bindGroupLayout,
+          entries: [{ binding: 0, resource: { buffer: bodyUniformBuffer } }]
+        });
+
+        // Uniform buffer for eye
+        var eyeUniformBuffer = device.createBuffer({
+          size: 256,
+          usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+        });
+
+        var eyeBindGroup = device.createBindGroup({
+          layout: bindGroupLayout,
+          entries: [{ binding: 0, resource: { buffer: eyeUniformBuffer } }]
+        });
+
+        return [
+          sharedBodyVertexBuffer,
+          sharedBodyIndexBuffer,
+          (direction === -1) ? sharedEyeVertexBufferDown : sharedEyeVertexBufferUp,
+          color,
+          offset,
+          scale,
+          direction,
+          bodyUniformBuffer,
+          bodyBindGroup,
+          eyeUniformBuffer,
+          eyeBindGroup
+        ];
+      }
+
+      function createRectangle(offset, color, scale, direction) {
+        return createFish(offset, color, scale, direction);
+      }
+
+
+      //************************************************************//
+      //
+      // INITIALIZE WEBGPU
+      //
+      async function initWebGPU() {
+        if (!navigator.gpu) {
+          var errEl = document.getElementById('gpu-error');
+          if (errEl) errEl.style.display = 'flex';
+          return false;
+        }
+
+        var adapter = await navigator.gpu.requestAdapter();
+        if (!adapter) {
+          var errEl = document.getElementById('gpu-error');
+          if (errEl) errEl.style.display = 'flex';
+          return false;
+        }
+
+        device = await adapter.requestDevice();
+
+        device.addEventListener('uncapturederror', function(event) {
+          console.error('WebGPU Uncaptured Error:', event.error ? event.error.message : event);
+        });
+
+        c = document.getElementById('c');
+        c.width = window.innerWidth || 800;
+        c.height = window.innerHeight || 600;
+
+        context = c.getContext('webgpu');
+        presentationFormat = navigator.gpu.getPreferredCanvasFormat();
+
+        context.configure({
+          device: device,
+          format: presentationFormat,
+          alphaMode: 'premultiplied'
+        });
+
+        // WGSL Shaders
+        var wgslCode = `
+          struct Uniforms {
+            transform: mat4x4<f32>,
+            color: vec4<f32>,
+          };
+
+          @group(0) @binding(0) var<uniform> u: Uniforms;
+
+          struct VertexInput {
+            @location(0) position: vec3<f32>,
+          };
+
+          struct VertexOutput {
+            @builtin(position) position: vec4<f32>,
+          };
+
+          @vertex
+          fn vs_main(input: VertexInput) -> VertexOutput {
+            var out: VertexOutput;
+            var pos = u.transform * vec4<f32>(input.position, 1.0);
+            out.position = vec4<f32>(pos.xy, 0.5 * pos.w, pos.w);
+            return out;
+          }
+
+          @fragment
+          fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
+            return u.color;
+          }
+        `;
+
+        var shaderModule = device.createShaderModule({
+          code: wgslCode
+        });
+
+        bindGroupLayout = device.createBindGroupLayout({
+          entries: [{
+            binding: 0,
+            visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+            buffer: { type: 'uniform' }
+          }]
+        });
+
+        var pipelineLayout = device.createPipelineLayout({
+          bindGroupLayouts: [bindGroupLayout]
+        });
+
+        pipeline = device.createRenderPipeline({
+          layout: pipelineLayout,
+          vertex: {
+            module: shaderModule,
+            entryPoint: 'vs_main',
+            buffers: [{
+              arrayStride: 12, // 3 floats * 4 bytes = 12 bytes
+              attributes: [{
+                shaderLocation: 0,
+                offset: 0,
+                format: 'float32x3'
+              }]
+            }]
+          },
+          fragment: {
+            module: shaderModule,
+            entryPoint: 'fs_main',
+            targets: [{
+              format: presentationFormat,
+              blend: {
+                color: {
+                  srcFactor: 'src-alpha',
+                  dstFactor: 'one-minus-src-alpha',
+                  operation: 'add'
+                },
+                alpha: {
+                  srcFactor: 'one',
+                  dstFactor: 'one-minus-src-alpha',
+                  operation: 'add'
+                }
+              }
+            }]
+          },
+          primitive: {
+            topology: 'triangle-list',
+            cullMode: 'none'
+          }
+        });
+
+        // Shared 7-vertex fish body
+        var bodyVertices = new Float32Array([
+          0.5, 0.0, 0.0,   // 0: nose
+          0.2, 0.25, 0.0,  // 1: upper body
+          -0.2, 0.15, 0.0, // 2: upper tail base
+          -0.4, 0.3, 0.0,  // 3: upper tail tip
+          -0.4, -0.3, 0.0, // 4: lower tail tip
+          -0.2, -0.15, 0.0,// 5: lower tail base
+          0.2, -0.25, 0.0  // 6: lower body
+        ]);
+
+        // Using Uint32Array ensures byteLength is 15 * 4 = 60 (multiple of 4)
+        var bodyIndices = new Uint32Array([
+          0, 1, 6, // main body
+          1, 2, 6, // upper mid-body
+          2, 5, 6, // rear body
+          2, 3, 5, // tail top
+          3, 4, 5  // tail fin
+        ]);
+
+        sharedBodyVertexBuffer = device.createBuffer({
+          size: bodyVertices.byteLength, // 84 bytes (multiple of 4)
+          usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+          mappedAtCreation: true
+        });
+        new Float32Array(sharedBodyVertexBuffer.getMappedRange()).set(bodyVertices);
+        sharedBodyVertexBuffer.unmap();
+
+        sharedBodyIndexBuffer = device.createBuffer({
+          size: bodyIndices.byteLength, // 60 bytes (multiple of 4)
+          usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST,
+          mappedAtCreation: true
+        });
+        new Uint32Array(sharedBodyIndexBuffer.getMappedRange()).set(bodyIndices);
+        sharedBodyIndexBuffer.unmap();
+
+        // Eye geometry meshes
+        var eyeUp = createEyeMesh(0.2, 0.038);
+        var eyeDown = createEyeMesh(-0.2, 0.038);
+        eyeIndexCount = eyeUp.indices.length;
+
+        sharedEyeVertexBufferUp = device.createBuffer({
+          size: eyeUp.vertices.byteLength,
+          usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+          mappedAtCreation: true
+        });
+        new Float32Array(sharedEyeVertexBufferUp.getMappedRange()).set(eyeUp.vertices);
+        sharedEyeVertexBufferUp.unmap();
+
+        sharedEyeVertexBufferDown = device.createBuffer({
+          size: eyeDown.vertices.byteLength,
+          usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+          mappedAtCreation: true
+        });
+        new Float32Array(sharedEyeVertexBufferDown.getMappedRange()).set(eyeDown.vertices);
+        sharedEyeVertexBufferDown.unmap();
+
+        sharedEyeIndexBuffer = device.createBuffer({
+          size: eyeUp.indices.byteLength,
+          usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST,
+          mappedAtCreation: true
+        });
+        new Uint32Array(sharedEyeIndexBuffer.getMappedRange()).set(eyeUp.indices);
+        sharedEyeIndexBuffer.unmap();
+
+        // Create fish instances
+        all_fish = [];
+        // 0: Big Red Shark (flipped direction -1)
+        all_fish.push( createFish([0, 0, 0], [1, 0, 0, 1], 1, -1) );
+
+        // 1, 2, 3: Evasive Blue Prey Fish
+        var lanes = [0.4, -0.4, 0.0];
+        for (var i = 0; i < NUM_SMALL_FISH; i++) {
+          var random_color = [Math.random(), Math.random(), Math.random(), Math.random()];
+          var random_offset = [-1.05 - (i * 0.45), lanes[i % lanes.length], 0];
+          var random_scale = 0.16 + Math.random() * 0.08;
+          all_fish.push( createFish(random_color, random_offset, random_scale, 1) );
+        }
+
+        // 4: Golden Sprinter Fish (+5.0s, agile)
+        all_fish.push( createFish([1.0, 0.85, 0.15, 0.95], [-1.8, 0.25, 0], 0.18, 1) );
+
+        // 5: Electric Jellyfish Hazard
+        all_fish.push( createFish([0.9, 0.1, 0.95, 0.9], [-1.5, -0.25, 0], 0.26, 1) );
+
+        rectangles = all_fish;
+
+        return true;
+      }
+
+
+      //************************************************************//
+      //
+      // EVENT LISTENERS & CONTROLS
+      //
+      window.addEventListener('resize', function() {
+        if (c) {
+          c.width = window.innerWidth;
+          c.height = window.innerHeight;
+        }
+      });
+
+      window.addEventListener('keydown', function(e) {
+        if (gameState !== 'playing' && (e.code === 'Space' || e.code === 'Enter')) {
+          resetGame();
+          return;
+        }
+        keys[e.code] = true;
+        userControlling = true;
+        initAudio();
+      });
+
+      window.addEventListener('keyup', function(e) {
+        keys[e.code] = false;
+      });
+
+      window.addEventListener('mousemove', function(e) {
+        var ndcX = (e.clientX / window.innerWidth) * 2 - 1;
+        var ndcY = -(e.clientY / window.innerHeight) * 2 + 1;
+        mouseTarget = [ndcX, ndcY];
+      });
+
+      window.addEventListener('mousedown', function(e) {
+        userControlling = true;
+        initAudio();
+      });
+
+
+      //************************************************************//
+      //
+      // ANIMATION & RENDER LOOP
+      //
+      function animate() {
+        requestAnimationFrame(animate);
+
+        // Keep canvas size matching window
+        if (c && (c.width !== window.innerWidth || c.height !== window.innerHeight)) {
+          c.width = window.innerWidth;
+          c.height = window.innerHeight;
+        }
+
+        var dt = 0.016;
+        if (gameState === 'playing' && userControlling) {
+          var now = performance.now();
+          if (!lastTime) lastTime = now;
+          dt = Math.min(0.1, (now - lastTime) * 0.001);
+          lastTime = now;
+          timeLeft = Math.max(0, timeLeft - dt);
+
+          if (stunTimer > 0) stunTimer = Math.max(0, stunTimer - dt);
+          if (chompTimer > 0) chompTimer = Math.max(0, chompTimer - dt);
+          if (comboTimer > 0) {
+            comboTimer = Math.max(0, comboTimer - dt);
+            if (comboTimer <= 0) comboCount = 0;
+          }
+
+          if (shakeTimer > 0) {
+            shakeTimer -= dt;
+            var intensity = shakeTimer * 16;
+            c.style.transform = 'translate(' + (Math.random() * intensity - intensity/2) + 'px, ' + (Math.random() * intensity - intensity/2) + 'px)';
+          } else {
+            c.style.transform = 'none';
+          }
+
+          var wantsBoost = (keys['Space'] || keys['ShiftLeft'] || keys['ShiftRight']) && !staminaExhausted && stunTimer <= 0;
+          if (wantsBoost && stamina > 5) {
+            if (!boostActive) playDashSound();
+            boostActive = true;
+            stamina = Math.max(0, stamina - dt * 48);
+            if (stamina <= 0) {
+              staminaExhausted = true;
+              boostActive = false;
+            }
+          } else {
+            boostActive = false;
+            stamina = Math.min(maxStamina, stamina + dt * 32);
+            if (stamina >= 25) {
+              staminaExhausted = false;
+            }
+          }
+
+          if (typeof document !== 'undefined') {
+            var timerEl = document.getElementById('timer-val');
+            if (timerEl) {
+              timerEl.innerText = timeLeft.toFixed(1) + 's';
+              if (timeLeft <= 5.0) {
+                timerEl.style.color = '#ff4444';
+                timerEl.style.textShadow = '0 0 12px rgba(255, 60, 60, 0.9)';
+              } else if (timeLeft <= 10.0) {
+                timerEl.style.color = '#ffbb33';
+                timerEl.style.textShadow = '0 0 8px rgba(255, 180, 50, 0.6)';
+              } else {
+                timerEl.style.color = '#ffffff';
+                timerEl.style.textShadow = 'none';
+              }
+            }
+
+            var staminaFill = document.getElementById('stamina-fill');
+            if (staminaFill) {
+              staminaFill.style.width = (stamina / maxStamina * 100) + '%';
+              if (staminaExhausted) {
+                staminaFill.style.background = '#ff4444';
+              } else if (stamina < 30) {
+                staminaFill.style.background = '#ffbb33';
+              } else {
+                staminaFill.style.background = 'linear-gradient(90deg, #ffbb33, #44ff88)';
+              }
+            }
+
+            var boostStatus = document.getElementById('boost-status');
+            if (boostStatus) {
+              if (stunTimer > 0) {
+                boostStatus.innerText = '⚡ STUNNED!';
+                boostStatus.style.color = '#ff4444';
+              } else if (staminaExhausted) {
+                boostStatus.innerText = 'EXHAUSTED!';
+                boostStatus.style.color = '#ff8844';
+              } else if (boostActive) {
+                boostStatus.innerText = 'DASHING!';
+                boostStatus.style.color = '#ffd700';
+              } else {
+                boostStatus.innerText = 'READY (SPACE)';
+                boostStatus.style.color = '#44ff88';
+              }
+            }
+
+            var comboBadge = document.getElementById('combo-badge');
+            if (comboBadge) {
+              if (comboTimer > 0 && comboCount > 1) {
+                comboBadge.style.display = 'inline';
+                comboBadge.innerText = '🔥 COMBO x' + comboCount + ' (' + comboTimer.toFixed(1) + 's)';
+              } else {
+                comboBadge.style.display = 'none';
+              }
+            }
+          }
+
+          if (timeLeft <= 0) {
+            gameState = 'lost';
+            showEndModal(false);
+          }
+        } else {
+          lastTime = performance.now();
+        }
+
+        var player_offset = all_fish[0] ? all_fish[0][4] : [0,0,0];
+
+        // Process movement and AI for all fish
+        for (var r = 0; r < all_fish.length; r++) {
+          var current_buffers = all_fish[r];
+          var current_color = current_buffers[3];
+          var current_offset = current_buffers[4];
+          var current_scale = current_buffers[5];
+          var current_direction = current_buffers[6];
+
+          if (gameState === 'playing') {
+            if (r === 0 && userControlling) {
+              if (stunTimer > 0) {
+                current_offset[0] += (Math.random() - 0.5) * 0.005;
+                current_offset[1] += (Math.random() - 0.5) * 0.005;
+              } else {
+                var speed = boostActive ? 0.024 : 0.012;
+                var moved = false;
+                var vx = 0;
+                var vy = 0;
+
+                if (keys['KeyW'] || keys['ArrowUp']) { vy += speed; moved = true; }
+                if (keys['KeyS'] || keys['ArrowDown']) { vy -= speed; moved = true; }
+                if (keys['KeyA'] || keys['ArrowLeft']) { vx -= speed; moved = true; }
+                if (keys['KeyD'] || keys['ArrowRight']) { vx += speed; moved = true; }
+
+                if (mouseTarget && !moved) {
+                  var mdx = mouseTarget[0] - current_offset[0];
+                  var mdy = mouseTarget[1] - current_offset[1];
+                  var mdist = Math.hypot(mdx, mdy);
+                  if (mdist > 0.03) {
+                    vx = (mdx / mdist) * Math.min(speed, mdist * 0.12);
+                    vy = (mdy / mdist) * Math.min(speed, mdist * 0.12);
+                    moved = true;
+                  }
+                }
+
+                if (moved) {
+                  current_offset[0] += vx;
+                  current_offset[1] += vy;
+                  if (vx < -0.001) current_direction = -1;
+                  else if (vx > 0.001) current_direction = 1;
+                  current_buffers[6] = current_direction;
+                } else {
+                  current_offset[1] += 0.002 * Math.sin(performance.now() * 0.005);
+                }
+
+                current_offset[0] = Math.max(-1.1, Math.min(1.1, current_offset[0]));
+                current_offset[1] = Math.max(-0.95, Math.min(0.95, current_offset[1]));
+
+                // Update eye buffer to match direction
+                current_buffers[2] = (current_direction === -1) ? sharedEyeVertexBufferDown : sharedEyeVertexBufferUp;
+              }
+            } else {
+              if (r === 0) {
+                current_offset[0] += 0.01;
+                current_offset[1] += 0.1 * Math.random();
+                current_offset[1] -= 0.1 * Math.random();
+                if (current_offset[0] >= 1) {
+                  current_direction = -1;
+                }
+                current_offset[0] *= current_direction;
+              } else if (r === 5) {
+                // Hazard
+                current_offset[0] += 0.004;
+                current_offset[1] += 0.006 * Math.sin(performance.now() * 0.0025);
+              } else if (r === 4) {
+                // Golden sprinter
+                current_offset[0] += small_fish_speed * 1.35;
+                current_offset[1] += 0.008 * Math.sin(performance.now() * 0.006 + r);
+              } else {
+                // Prey
+                current_offset[0] += small_fish_speed;
+                current_offset[1] += 0.003 * Math.sin(performance.now() * 0.0035 + r);
+              }
+
+              // SMART DODGING AI
+              if (r >= 1 && r <= 4 && userControlling && stunTimer <= 0) {
+                var dx = current_offset[0] - player_offset[0];
+                var dy = current_offset[1] - player_offset[1];
+                var dist = Math.hypot(dx, dy);
+                var dangerRadius = (r === 4) ? 0.45 : 0.38;
+
+                if (dist < dangerRadius && dist > 0.01) {
+                  var fleeX = dx / dist;
+                  var fleeY = dy / dist;
+                  var dodgeSpeed = (r === 4) ? 0.018 : 0.011;
+
+                  current_offset[0] += fleeX * dodgeSpeed;
+                  current_offset[1] += fleeY * dodgeSpeed;
+
+                  if (current_offset[1] > 0.82) current_offset[1] -= 0.018;
+                  if (current_offset[1] < -0.82) current_offset[1] += 0.018;
+                }
+              }
+
+              if (current_offset[0] >= 1.2) {
+                current_offset[0] = -1.15 - Math.random() * 0.4;
+                current_offset[1] = Math.random() * 1.4 - 0.7;
+              }
+            }
+
+            // Collisions
+            if (r > 0) {
+              var big_scale = all_fish[0][5];
+              var cdx = player_offset[0] - current_offset[0];
+              var cdy = player_offset[1] - current_offset[1];
+              var cdist = Math.hypot(cdx, cdy);
+
+              if (r === 5) {
+                // Hazard
+                if (cdist < 0.16 * big_scale + 0.12 * current_scale) {
+                  if (stunTimer <= 0 && gameState === 'playing' && userControlling) {
+                    stunTimer = 1.2;
+                    timeLeft = Math.max(0, timeLeft - 3.0);
+                    triggerScreenShake();
+                    triggerFloatingAlert('⚡ STUNNED! -3.0s', '#ff4444');
+                    playShockSound();
+                    current_offset[0] = -1.35 - Math.random() * 0.3;
+                    current_offset[1] = Math.random() * 1.4 - 0.7;
+                  }
+                }
+              } else {
+                // Prey
+                if (cdist < 0.15 * big_scale + 0.1 * current_scale) {
+                  spawnBiteBubbles(current_offset[0], current_offset[1]);
+                  current_offset[0] = -1.15 - Math.random() * 0.35;
+                  current_offset[1] = Math.random() * 1.4 - 0.7;
+
+                  fishCaught++;
+                  chompTimer = 0.22;
+
+                  if (comboTimer > 0) {
+                    comboCount++;
+                    var bonusTime = 1.0 + (comboCount * 0.5);
+                    timeLeft = Math.min(maxTime, timeLeft + bonusTime);
+                    score += (comboCount * 15);
+                    triggerFloatingAlert('🔥 COMBO x' + comboCount + '! +' + bonusTime.toFixed(1) + 's', '#ffaa22');
+                  } else {
+                    comboCount = 1;
+                    score += 10;
+                  }
+                  comboTimer = 2.6;
+
+                  if (r === 4) {
+                    timeLeft = Math.min(maxTime, timeLeft + 5.0);
+                    score += 35;
+                    triggerFloatingAlert('⭐ GOLDEN PREY! +5.0s', '#ffd700');
+                    playGoldSound();
+                  } else {
+                    playBubbleSound();
+                  }
+
+                  small_fish_speed += 0.0016;
+
+                  if (typeof document !== 'undefined') {
+                    var caughtEl = document.getElementById('caught-val');
+                    if (caughtEl) caughtEl.innerText = fishCaught;
+                    var scoreEl = document.getElementById('score-val');
+                    if (scoreEl) scoreEl.innerText = score;
+                    var speedEl = document.getElementById('speed-meter');
+                    if (speedEl) {
+                      var mult = (small_fish_speed / 0.01).toFixed(1);
+                      speedEl.innerText = '🚀 SPEED: ' + mult + 'x';
+                    }
+                  }
+
+                  if (all_fish[0][5] < 1.6) {
+                    all_fish[0][5] += 0.005;
+                  }
+
+                  if (fishCaught >= targetFish && gameState === 'playing') {
+                    gameState = 'won';
+                    showEndModal(true);
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        //************************************************************//
+        //
+        // WEBGPU RENDER PASS
+        //
+        var commandEncoder = device.createCommandEncoder();
+        var textureView = context.getCurrentTexture().createView();
+
+        var renderPassDescriptor = {
+          colorAttachments: [{
+            view: textureView,
+            clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 0.0 }, // Transparent canvas for CSS background!
+            loadOp: 'clear',
+            storeOp: 'store'
+          }]
+        };
+
+        var passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
+        passEncoder.setPipeline(pipeline);
+
+        var t = performance.now() * 0.001;
+        var a = 0.6 + 0.4 * Math.sin(t * 2.0);
+
+        for (var r = 0; r < all_fish.length; r++) {
+          var fish = all_fish[r];
+          var current_eye_v_buffer = fish[2];
+          var current_offset = fish[4];
+          var current_scale = fish[5];
+          var current_direction = fish[6];
+          var bodyUniformBuffer = fish[7];
+          var bodyBindGroup = fish[8];
+          var eyeUniformBuffer = fish[9];
+          var eyeBindGroup = fish[10];
+
+          var theta = Math.random() * 10 * Math.PI / 180;
+          if (r === 5) {
+            theta = (performance.now() * 0.003) % (Math.PI * 2);
+          }
+
+          var display_scale = current_scale;
+          if (r === 0 && chompTimer > 0) {
+            display_scale *= (1.0 + chompTimer * 1.1);
+          }
+
+          // 4x4 Transformation Matrix (Column-Major)
+          var transform = [
+            current_direction * display_scale * Math.cos(theta), Math.sin(theta), 0, 0,
+            -Math.sin(theta), current_direction * display_scale * Math.cos(theta), 0, 0,
+            0, 0, current_direction * display_scale * 1, 0,
+            current_offset[0], current_offset[1], current_offset[2], 1
+          ];
+
+          // Compute Fish Body Color
+          var fishColor = [
+            0.3 + 0.2 * Math.sin(t + 0.0),
+            0.6 + 0.2 * Math.sin(t + 2.0),
+            0.9 + 0.1 * Math.sin(t + 4.0),
+            a
+          ];
+
+          if (r === 0) {
+            if (stunTimer > 0 && Math.sin(performance.now() * 0.03) > 0) {
+              fishColor = [1.0, 1.0, 0.2, 0.9];
+            } else {
+              fishColor = [1.0, 0.0, 0.0, 0.7];
+            }
+          } else if (r === 4) {
+            fishColor = [1.0, 0.85, 0.15, 0.95];
+          } else if (r === 5) {
+            var pulse = 0.7 + 0.3 * Math.sin(t * 8.0);
+            fishColor = [0.95 * pulse, 0.1, 0.95 * pulse, 0.9];
+          }
+
+          // Compute Eye Color
+          var eyeColor = (r === 5) ? [0.2, 1.0, 1.0, 0.95] : (r === 4 ? [1.0, 1.0, 1.0, 0.95] : [0.0, 0.0, 0.0, 0.6]);
+
+          // Write Uniforms (16 floats transform + 4 floats color = 20 floats = 80 bytes)
+          var bodyData = new Float32Array(20);
+          bodyData.set(transform, 0);
+          bodyData.set(fishColor, 16);
+          device.queue.writeBuffer(bodyUniformBuffer, 0, bodyData);
+
+          var eyeData = new Float32Array(20);
+          eyeData.set(transform, 0);
+          eyeData.set(eyeColor, 16);
+          device.queue.writeBuffer(eyeUniformBuffer, 0, eyeData);
+
+          // 1. Draw Fish Body (15 indices, 5 triangles)
+          passEncoder.setBindGroup(0, bodyBindGroup);
+          passEncoder.setVertexBuffer(0, sharedBodyVertexBuffer);
+          passEncoder.setIndexBuffer(sharedBodyIndexBuffer, 'uint32');
+          passEncoder.drawIndexed(15);
+
+          // 2. Draw Fish Eye
+          passEncoder.setBindGroup(0, eyeBindGroup);
+          passEncoder.setVertexBuffer(0, current_eye_v_buffer);
+          passEncoder.setIndexBuffer(sharedEyeIndexBuffer, 'uint32');
+          passEncoder.drawIndexed(eyeIndexCount);
+        }
+
+        passEncoder.end();
+        device.queue.submit([commandEncoder.finish()]);
+      }
+
+
+      //************************************************************//
+      //
+      // APPLICATION STARTUP
+      //
+      async function startApp() {
+        var supported = await initWebGPU();
+        if (supported) {
+          createAmbientBubbles();
+          animate();
+        }
+      }
+
+      if (document.readyState === 'loading') {
+        window.addEventListener('DOMContentLoaded', startApp);
+      } else {
+        startApp();
+      }
+
+    </script>
+  </body>
+</html>
