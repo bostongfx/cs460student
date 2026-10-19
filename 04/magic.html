@@ -1,0 +1,929 @@
+<html>
+
+<head>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        html,
+        body {
+            background-color: #000;
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden !important;
+        }
+
+        #gameboy {
+            background: url("https://cs460.org/assignments/breakout/gameboy_bg.jpg");
+            width: 1200px;
+            height: 675px;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            transition: transform 0.05s ease;
+        }
+
+        /* Screen shake animation */
+        @keyframes shake {
+            0%   { transform: translate(-50%, -50%) translate(0,0); }
+            20%  { transform: translate(-50%, -50%) translate(-4px, 2px); }
+            40%  { transform: translate(-50%, -50%) translate(4px, -2px); }
+            60%  { transform: translate(-50%, -50%) translate(-3px, 3px); }
+            80%  { transform: translate(-50%, -50%) translate(3px, -1px); }
+            100% { transform: translate(-50%, -50%) translate(0,0); }
+        }
+
+        #gameboy.shake {
+            animation: shake 0.25s ease;
+        }
+
+        #c {
+            width: 600px;
+            height: 360px;
+            position: absolute;
+            top: 53%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .top_bar {
+            color: rgb(0, 255, 0);
+            font-size: 20px;
+            font-weight: bolder;
+            font-family: 'Press Start 2P';
+            /* Pixel-green glow on the score/lives labels */
+            text-shadow: 0 0 6px rgba(0, 255, 0, 0.8), 0 0 14px rgba(0, 255, 0, 0.4);
+        }
+
+        #score {
+            position: absolute;
+            top: 148px;
+            left: 520px;
+        }
+
+        #score_name {
+            position: absolute;
+            top: 148px;
+            left: 400px;
+        }
+
+        #lives {
+            position: absolute;
+            top: 148px;
+            left: 820px;
+        }
+
+        #lives_name {
+            position: absolute;
+            top: 148px;
+            left: 700px;
+        }
+
+        .result {
+            width: 300px;
+            height: 300px;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: none;
+        }
+
+        #overlay {
+            background-color: rgba(0, 0, 0, 0.7);
+            position: absolute;
+            top: 0px;
+            left: 0px;
+            width: 100%;
+            height: 100%;
+            z-index: 1000;
+            display: none;
+        }
+
+        #countdown {
+            position: absolute;
+            top: 53%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 70px;
+            font-weight: bolder;
+            font-family: 'Press Start 2P';
+            color: rgb(255, 0, 0);
+            text-shadow: 0 0 15px rgba(255, 255, 255, 0.8), 0 0 30px rgba(255,80,80,0.6);
+            z-index: 500;
+            display: none;
+            text-align: center;
+            pointer-events: none;
+        }
+
+        /* Floating score pop-up */
+        .score-pop {
+            position: absolute;
+            font-family: 'Press Start 2P';
+            font-size: 14px;
+            font-weight: bold;
+            pointer-events: none;
+            z-index: 600;
+            animation: popFade 0.9s ease-out forwards;
+        }
+
+        @keyframes popFade {
+            0%   { opacity: 1; transform: translateY(0) scale(1.2); }
+            70%  { opacity: 0.9; transform: translateY(-28px) scale(1); }
+            100% { opacity: 0; transform: translateY(-50px) scale(0.8); }
+        }
+
+        /* Combo display */
+        #combo_display {
+            position: absolute;
+            font-family: 'Press Start 2P';
+            font-size: 13px;
+            color: #fff;
+            text-shadow: 0 0 8px #ff0, 0 0 16px #f80;
+            top: 175px;
+            left: 400px;
+            display: none;
+            z-index: 600;
+            pointer-events: none;
+        }
+    </style>
+
+    <!-- ============================================================ -->
+    <!-- VERTEX SHADER — now passes tex-coords for glow effect        -->
+    <!-- ============================================================ -->
+    <script id="vertexshader" type="glsl">
+      attribute vec3 position;
+      uniform mat4 transform;
+      varying vec2 vPos;   /* clip-space xy forwarded to fragment */
+
+      void main(void) {
+        vec4 final_position = transform * vec4(position, 1.0);
+        gl_Position = final_position;
+        vPos = final_position.xy;
+        gl_PointSize = 10.0;   /* slightly larger ball point */
+      }
+    </script>
+
+    <!-- ============================================================ -->
+    <!-- FRAGMENT SHADER — solid colour + optional centre glow        -->
+    <!-- ============================================================ -->
+    <script id="fragmentshader" type="glsl">
+      precision mediump float;
+      uniform vec4  color;
+      uniform float uGlow;      /* 0 = plain, 1 = glow overlay */
+      uniform float uTime;      /* global time for shimmer        */
+      varying vec2  vPos;
+
+      void main(void) {
+        vec4 col = color;
+
+        /* ---- SHIMMER: tiny brightness pulse driven by time ---- */
+        if (uGlow > 0.5) {
+            float shimmer = 0.07 * sin(uTime * 4.0 + vPos.x * 12.0 + vPos.y * 8.0);
+            col.rgb = clamp(col.rgb + shimmer, 0.0, 1.0);
+
+            /* additive glow — brighten centre of each brick */
+            float edgeDist = 1.0 - max(abs(vPos.x), abs(vPos.y));
+            float glow = smoothstep(0.0, 0.3, edgeDist) * 0.25;
+            col.rgb = clamp(col.rgb + glow, 0.0, 1.0);
+        }
+
+        gl_FragColor = col;
+      }
+    </script>
+
+    <!-- ============================================================ -->
+    <!-- PARTICLE VERTEX SHADER                                       -->
+    <!-- ============================================================ -->
+    <script id="particleVertexShader" type="glsl">
+      attribute vec3 aPosition;
+      attribute float aSize;
+      void main(void) {
+        gl_Position = vec4(aPosition, 1.0);
+        gl_PointSize = aSize;
+      }
+    </script>
+
+    <!-- ============================================================ -->
+    <!-- PARTICLE FRAGMENT SHADER — soft round sprite                 -->
+    <!-- ============================================================ -->
+    <script id="particleFragmentShader" type="glsl">
+      precision mediump float;
+      uniform vec4 uParticleColor;
+      void main(void) {
+        /* round soft-edged particle */
+        vec2 coord = gl_PointCoord - vec2(0.5);
+        float r = length(coord);
+        float alpha = smoothstep(0.5, 0.1, r);
+        if (alpha < 0.01) discard;
+        gl_FragColor = vec4(uParticleColor.rgb, uParticleColor.a * alpha);
+      }
+    </script>
+
+    <!-- ============================================================ -->
+    <!-- TRAIL VERTEX SHADER                                          -->
+    <!-- ============================================================ -->
+    <script id="trailVertexShader" type="glsl">
+      attribute vec3 aTrailPos;
+      attribute float aTrailAlpha;
+      varying float vAlpha;
+      void main(void) {
+        gl_Position  = vec4(aTrailPos, 1.0);
+        gl_PointSize = 8.0;
+        vAlpha = aTrailAlpha;
+      }
+    </script>
+
+    <!-- ============================================================ -->
+    <!-- TRAIL FRAGMENT SHADER                                        -->
+    <!-- ============================================================ -->
+    <script id="trailFragmentShader" type="glsl">
+      precision mediump float;
+      varying float vAlpha;
+      void main(void) {
+        vec2 coord = gl_PointCoord - vec2(0.5);
+        float r = length(coord);
+        float alpha = smoothstep(0.5, 0.05, r) * vAlpha;
+        if (alpha < 0.01) discard;
+        gl_FragColor = vec4(1.0, 0.9, 0.4, alpha);
+      }
+    </script>
+
+    <script>
+        // ============================================================
+        // GLOBAL STATE
+        // ============================================================
+        var STOPPED        = false;
+        var PAUSED         = true;
+        var COUNTING_DOWN  = false;
+        var BALLDIRECTION  = 0;
+        var PADDLE_TIME    = 0;
+        var PADDLE_SCALE   = 1.0;
+        var BRICK_TIMER    = 0;
+        var LAST_FRAME_TIME= performance.now();
+        var BRICK_ROWS_ADDED = 0;
+        var COMBO          = 0;      // consecutive brick hits
+        var COMBO_TIMER    = 0;
+        var COLOR_INDEX    = 0;
+        var GLOBAL_TIME    = 0;
+
+        // Particle pool
+        var PARTICLES = [];
+
+        // Ball trail ring-buffer
+        var TRAIL_LEN    = 18;
+        var trailPositions = [];   // [{x,y,alpha}]
+
+        // ============================================================
+        // BRICK COLOR SETS
+        // ============================================================
+        var INITIAL_BRICK_COLORS = [
+            [1, 0, 0, 1],         // red
+            [1, 0.5, 0.0, 1],     // orange
+            [1, 1, 0, 1],         // yellow
+            [0, 1, 0, 1],         // green
+        ];
+
+        var BRICK_COLORS = [
+            [0, 1, 0.8, 1],       // teal
+            [1, 0.4, 1, 1],       // pink
+            [0, 0.5, 1, 1],       // blue
+            [0.6, 0.2, 1, 1]      // purple
+        ];
+
+        // ============================================================
+        // INIT
+        // ============================================================
+        window.onload = function () {
+            c  = document.getElementById("c");
+            gl = c.getContext("webgl", { alpha: true });
+            gl.viewport(0, 0, c.width, c.height);
+
+            // Enable alpha blending for particles / trail
+            gl.enable(gl.BLEND);
+            gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+            // ---- Main shader program --------------------------------
+            shaderprogram = buildProgram(
+                document.getElementById("vertexshader").innerText,
+                document.getElementById("fragmentshader").innerText
+            );
+
+            // ---- Particle shader program ----------------------------
+            particleProgram = buildProgram(
+                document.getElementById("particleVertexShader").innerText,
+                document.getElementById("particleFragmentShader").innerText
+            );
+
+            // ---- Trail shader program --------------------------------
+            trailProgram = buildProgram(
+                document.getElementById("trailVertexShader").innerText,
+                document.getElementById("trailFragmentShader").innerText
+            );
+
+            // Particle GPU buffer (will be re-uploaded each frame)
+            particleVBO = gl.createBuffer();
+            particleSizeVBO = gl.createBuffer();
+
+            // Trail GPU buffer
+            trailPosVBO   = gl.createBuffer();
+            trailAlphaVBO = gl.createBuffer();
+
+            STOPPED = false;
+            PAUSED  = true;
+
+            OBJECTS = [];
+            OBJECTS.push(createPaddle([1, 1, 1, 1], [0, -0.9, 0]));  // BOTTOM PADDLE
+            OBJECTS.push(createBall([1, 1, 0.5, 1], [0, 0, 0]));      // BALL (slightly warm white)
+            createBricks();
+
+            resetBall();
+            animate();
+            startCountdown();
+        };
+
+        // ============================================================
+        // SHADER BUILDER HELPER
+        // ============================================================
+        function buildProgram(vertSrc, fragSrc) {
+            var vs = gl.createShader(gl.VERTEX_SHADER);
+            gl.shaderSource(vs, vertSrc);
+            gl.compileShader(vs);
+            if (!gl.getShaderParameter(vs, gl.COMPILE_STATUS))
+                console.error("VS error:", gl.getShaderInfoLog(vs));
+
+            var fs = gl.createShader(gl.FRAGMENT_SHADER);
+            gl.shaderSource(fs, fragSrc);
+            gl.compileShader(fs);
+            if (!gl.getShaderParameter(fs, gl.COMPILE_STATUS))
+                console.error("FS error:", gl.getShaderInfoLog(fs));
+
+            var prog = gl.createProgram();
+            gl.attachShader(prog, vs);
+            gl.attachShader(prog, fs);
+            gl.linkProgram(prog);
+            gl.useProgram(prog);
+            return prog;
+        }
+
+        // ============================================================
+        // COUNTDOWN
+        // ============================================================
+        function startCountdown() {
+            COUNTING_DOWN = true;
+            PAUSED = true;
+            var count = 3;
+            var countdownElem = document.getElementById("countdown");
+            countdownElem.style.display = "block";
+            countdownElem.innerText = count;
+
+            var timer = setInterval(function () {
+                count--;
+                if (count > 0) {
+                    countdownElem.innerText = count;
+                } else if (count === 0) {
+                    countdownElem.innerText = "START!";
+                    var sound = document.getElementById("start_sound");
+                    if (sound) { sound.currentTime = 0; sound.play(); }
+                    COUNTING_DOWN = false;
+                    PAUSED = false;
+                } else {
+                    clearInterval(timer);
+                    countdownElem.style.display = "none";
+                }
+            }, 1000);
+        }
+
+        // ============================================================
+        // GEOMETRY CREATORS  (same logic as original)
+        // ============================================================
+        function createPaddle(color, offset) {
+            var vertices = new Float32Array([
+                -0.15,  0.03, 0.0,
+                -0.15, -0.03, 0.0,
+                 0.15,  0.03, 0.0,
+                 0.15, -0.03, 0.0
+            ]);
+            var indices = new Uint8Array([0, 1, 2, 2, 1, 3]);
+
+            var vb = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, vb);
+            gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+            gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+            var ib = gl.createBuffer();
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib);
+            gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+
+            return [vb, ib, color, offset, 6, gl.TRIANGLES];
+        }
+
+        function createBall(color, offset) {
+            var vertices = new Float32Array([0.0, 0.0, 0.0]);
+            var indices  = new Uint8Array([0]);
+
+            var vb = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, vb);
+            gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+            gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+            var ib = gl.createBuffer();
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib);
+            gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+
+            return [vb, ib, color, offset, 1, gl.POINTS];
+        }
+
+        function createBrick(color, offset, score) {
+            var vertices = new Float32Array([
+                -0.095,  0.05, 0.0,
+                -0.095, -0.05, 0.0,
+                 0.095,  0.05, 0.0,
+                 0.095, -0.05, 0.0
+            ]);
+            var indices = new Uint8Array([0, 1, 2, 2, 1, 3]);
+
+            var vb = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, vb);
+            gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+            gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+            var ib = gl.createBuffer();
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib);
+            gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+
+            return [vb, ib, color, offset, 6, gl.TRIANGLES, score];
+        }
+
+        function createBricks() {
+            var offset_x = -0.8;
+            var offset_y = 0.9;
+            for (let i = 0; i < 4; i++) {
+                for (let j = 0; j < 9; j++) {
+                    OBJECTS.push(createBrick(INITIAL_BRICK_COLORS[i], [offset_x, offset_y, 0], 4 - i));
+                    offset_x += 0.2;
+                }
+                offset_x = -0.8;
+                offset_y -= 0.14;
+            }
+        }
+
+        function addBrickRow() {
+            for (let i = 2; i < OBJECTS.length; i++) {
+                OBJECTS[i][3][1] -= 0.14;
+            }
+            let offset_x = -0.8;
+            let color = BRICK_COLORS[COLOR_INDEX];
+            COLOR_INDEX = (COLOR_INDEX + 1) % BRICK_COLORS.length;
+            for (let j = 0; j < 9; j++) {
+                OBJECTS.push(createBrick(color, [offset_x, 0.9, 0], 5));
+                offset_x += 0.2;
+            }
+        }
+
+        // ============================================================
+        // PARTICLE SYSTEM
+        // ============================================================
+        function spawnParticles(x, y, color, count) {
+            for (var i = 0; i < count; i++) {
+                var angle  = Math.random() * Math.PI * 2;
+                var speed  = 0.008 + Math.random() * 0.022;
+                var life   = 0.6 + Math.random() * 0.5;
+                // slight colour variation
+                var cr = Math.min(1, color[0] + (Math.random() - 0.5) * 0.3);
+                var cg = Math.min(1, color[1] + (Math.random() - 0.5) * 0.3);
+                var cb = Math.min(1, color[2] + (Math.random() - 0.5) * 0.3);
+                PARTICLES.push({
+                    x: x, y: y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    life: life,
+                    maxLife: life,
+                    r: cr, g: cg, b: cb,
+                    size: 3 + Math.random() * 6
+                });
+            }
+        }
+
+        function updateParticles(dt) {
+            var dtSec = dt / 1000;
+            for (var i = PARTICLES.length - 1; i >= 0; i--) {
+                var p = PARTICLES[i];
+                p.x    += p.vx;
+                p.y    += p.vy;
+                p.vy   -= 0.0005; // gentle gravity pull
+                p.life -= dtSec;
+                if (p.life <= 0) PARTICLES.splice(i, 1);
+            }
+        }
+
+        function drawParticles() {
+            if (PARTICLES.length === 0) return;
+
+            gl.useProgram(particleProgram);
+
+            var posData  = new Float32Array(PARTICLES.length * 3);
+            var sizeData = new Float32Array(PARTICLES.length);
+
+            for (var i = 0; i < PARTICLES.length; i++) {
+                var p = PARTICLES[i];
+                posData[i * 3]     = p.x;
+                posData[i * 3 + 1] = p.y;
+                posData[i * 3 + 2] = 0.0;
+                sizeData[i] = p.size * (p.life / p.maxLife);
+            }
+
+            var aPos = gl.getAttribLocation(particleProgram, "aPosition");
+            gl.bindBuffer(gl.ARRAY_BUFFER, particleVBO);
+            gl.bufferData(gl.ARRAY_BUFFER, posData, gl.DYNAMIC_DRAW);
+            gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, 0, 0);
+            gl.enableVertexAttribArray(aPos);
+
+            var aSz = gl.getAttribLocation(particleProgram, "aSize");
+            gl.bindBuffer(gl.ARRAY_BUFFER, particleSizeVBO);
+            gl.bufferData(gl.ARRAY_BUFFER, sizeData, gl.DYNAMIC_DRAW);
+            gl.vertexAttribPointer(aSz, 1, gl.FLOAT, false, 0, 0);
+            gl.enableVertexAttribArray(aSz);
+
+            // Draw each particle individually so we can set per-particle colour
+            // (batch by colour group in a real engine; fine here for <200 particles)
+            for (var i = 0; i < PARTICLES.length; i++) {
+                var p   = PARTICLES[i];
+                var alpha = p.life / p.maxLife;
+                var uCol = gl.getUniformLocation(particleProgram, "uParticleColor");
+                gl.uniform4f(uCol, p.r, p.g, p.b, alpha);
+                gl.drawArrays(gl.POINTS, i, 1);
+            }
+
+            // Cleanup attribs
+            gl.disableVertexAttribArray(aPos);
+            gl.disableVertexAttribArray(aSz);
+        }
+
+        // ============================================================
+        // BALL TRAIL
+        // ============================================================
+        function pushTrail(x, y) {
+            trailPositions.unshift({ x: x, y: y });
+            if (trailPositions.length > TRAIL_LEN) trailPositions.pop();
+        }
+
+        function drawTrail() {
+            var n = trailPositions.length;
+            if (n < 2) return;
+
+            gl.useProgram(trailProgram);
+
+            var posData   = new Float32Array(n * 3);
+            var alphaData = new Float32Array(n);
+
+            for (var i = 0; i < n; i++) {
+                var t = trailPositions[i];
+                posData[i * 3]     = t.x;
+                posData[i * 3 + 1] = t.y;
+                posData[i * 3 + 2] = 0.0;
+                alphaData[i] = 1.0 - i / n;  // fade toward tail
+            }
+
+            var aTPos = gl.getAttribLocation(trailProgram, "aTrailPos");
+            gl.bindBuffer(gl.ARRAY_BUFFER, trailPosVBO);
+            gl.bufferData(gl.ARRAY_BUFFER, posData, gl.DYNAMIC_DRAW);
+            gl.vertexAttribPointer(aTPos, 3, gl.FLOAT, false, 0, 0);
+            gl.enableVertexAttribArray(aTPos);
+
+            var aTAlpha = gl.getAttribLocation(trailProgram, "aTrailAlpha");
+            gl.bindBuffer(gl.ARRAY_BUFFER, trailAlphaVBO);
+            gl.bufferData(gl.ARRAY_BUFFER, alphaData, gl.DYNAMIC_DRAW);
+            gl.vertexAttribPointer(aTAlpha, 1, gl.FLOAT, false, 0, 0);
+            gl.enableVertexAttribArray(aTAlpha);
+
+            gl.drawArrays(gl.POINTS, 0, n);
+
+            gl.disableVertexAttribArray(aTPos);
+            gl.disableVertexAttribArray(aTAlpha);
+        }
+
+        // ============================================================
+        // SCREEN SHAKE
+        // ============================================================
+        function triggerShake() {
+            var gb = document.getElementById("gameboy");
+            gb.classList.remove("shake");
+            void gb.offsetWidth; // reflow to restart animation
+            gb.classList.add("shake");
+        }
+
+        // ============================================================
+        // FLOATING SCORE POP-UP
+        // ============================================================
+        function showScorePop(brickX, brickY, value, color) {
+            // Convert clip-space coords → screen pixel coords relative to #gameboy
+            var canvas = document.getElementById("c");
+            var gb     = document.getElementById("gameboy");
+
+            // canvas is centred at (600, ~357) inside gameboy (1200×675)
+            var canvasCenterX = 600;
+            var canvasCenterY = gb.clientHeight * 0.53;
+            var halfW = canvas.clientWidth  / 2; // 300
+            var halfH = canvas.clientHeight / 2; // 180
+
+            var px = canvasCenterX + brickX * halfW;
+            var py = canvasCenterY - brickY * halfH;
+
+            var el = document.createElement("span");
+            el.className  = "score-pop";
+            el.innerText  = "+" + value;
+            el.style.left = px + "px";
+            el.style.top  = py + "px";
+            el.style.color = "rgb(" +
+                Math.round(color[0]*255) + "," +
+                Math.round(color[1]*255) + "," +
+                Math.round(color[2]*255) + ")";
+            el.style.textShadow = "0 0 8px rgba(255,255,255,0.7)";
+            gb.appendChild(el);
+            setTimeout(function() { gb.removeChild(el); }, 900);
+        }
+
+        // ============================================================
+        // COMBO DISPLAY
+        // ============================================================
+        function showCombo(count) {
+            var el = document.getElementById("combo_display");
+            el.style.display = "block";
+            el.innerText = count + "x COMBO!";
+            clearTimeout(window._comboTimeout);
+            window._comboTimeout = setTimeout(function() {
+                el.style.display = "none";
+                COMBO = 0;
+            }, 1200);
+        }
+
+        // ============================================================
+        // MAIN ANIMATION LOOP
+        // ============================================================
+        function animate() {
+            if (STOPPED) return;
+
+            var now   = performance.now();
+            var delta = now - LAST_FRAME_TIME;
+            LAST_FRAME_TIME = now;
+
+            if (!PAUSED) {
+                GLOBAL_TIME += delta / 1000;
+                BRICK_TIMER += delta;
+
+                if (BRICK_TIMER >= 15000 && BRICK_ROWS_ADDED < 4) {
+                    addBrickRow();
+                    BRICK_ROWS_ADDED++;
+                    BRICK_TIMER = 0;
+                }
+
+                updateBall();
+                pushTrail(OBJECTS[1][3][0], OBJECTS[1][3][1]);
+
+                PADDLE_TIME  += 0.03;
+                PADDLE_SCALE  = 1.0 + 0.4 * Math.sin(PADDLE_TIME);
+
+                updateParticles(delta);
+            }
+
+            requestAnimationFrame(animate);
+
+            // ---- Clear ----
+            gl.clearColor(0, 0, 0, 0);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+
+            // ---- Draw trail (behind ball) ----
+            drawTrail();
+
+            // ---- Draw particles ----
+            drawParticles();
+
+            // ---- Draw main objects (paddle, ball, bricks) ----
+            gl.useProgram(shaderprogram);
+
+            for (var o = 0; o < OBJECTS.length; o++) {
+                var current     = OBJECTS[o];
+                var v_buffer    = current[0];
+                var i_buffer    = current[1];
+                var COLOR       = current[2];
+                var OFFSET      = current[3];
+                var VERTEXCOUNT = current[4];
+                var primitive   = current[5];
+                var isBrick     = (o >= 2);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER,         v_buffer);
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, i_buffer);
+
+                var a_position = gl.getAttribLocation(shaderprogram, "position");
+                gl.vertexAttribPointer(a_position, 3, gl.FLOAT, false, 0, 0);
+                gl.enableVertexAttribArray(a_position);
+
+                gl.uniform4fv(
+                    gl.getUniformLocation(shaderprogram, "color"),
+                    new Float32Array(COLOR)
+                );
+
+                gl.uniform1f(
+                    gl.getUniformLocation(shaderprogram, "uGlow"),
+                    isBrick ? 1.0 : 0.0
+                );
+                gl.uniform1f(
+                    gl.getUniformLocation(shaderprogram, "uTime"),
+                    GLOBAL_TIME
+                );
+
+                var scale_x = (o === 0) ? PADDLE_SCALE : 1.0;
+                var current_transform = new Float32Array([
+                    scale_x, 0, 0, 0,
+                    0,       1, 0, 0,
+                    0,       0, 1, 0,
+                    OFFSET[0], OFFSET[1], 0, 1,
+                ]);
+                gl.uniformMatrix4fv(
+                    gl.getUniformLocation(shaderprogram, "transform"),
+                    false,
+                    current_transform
+                );
+
+                gl.drawElements(primitive, VERTEXCOUNT, gl.UNSIGNED_BYTE, 0);
+            }
+        }
+
+        // ============================================================
+        // RESET BALL
+        // ============================================================
+        function resetBall() {
+            trailPositions = [];    // clear trail on reset
+            OBJECTS[1][3][0] = Math.random() / 10;
+            OBJECTS[1][3][1] = Math.random() / 10;
+            BALLDIRECTION = Math.PI / 8 + Math.random();
+            BALLDIRECTION *= -1;
+            COMBO = 0;
+        }
+
+        // ============================================================
+        // SCORE
+        // ============================================================
+        function score(score_value) {
+            var old_score = document.getElementById("score").innerText;
+            document.getElementById("score").innerText = parseInt(old_score) + score_value;
+            if (OBJECTS.length == 2) {
+                createBricks();
+            }
+        }
+
+        // ============================================================
+        // LOSE LIFE
+        // ============================================================
+        function loseLife() {
+            var old_life = document.getElementById("lives").innerText;
+            document.getElementById("lives").innerText = parseInt(old_life) - 1;
+            triggerShake();
+            COMBO = 0;
+            if (old_life == 1) {
+                STOPPED = true;
+                document.getElementById("overlay").style.display = "block";
+                document.getElementById("game_over").style.display = "block";
+                var gameover_audio = document.getElementById("gameover_sound");
+                gameover_audio.currentTime = 0;
+                gameover_audio.play();
+            }
+        }
+
+        // ============================================================
+        // UPDATE BALL  (identical collision logic, plus VFX hooks)
+        // ============================================================
+        function updateBall() {
+            var BALL_X = OBJECTS[1][3][0];
+            var BALL_Y = OBJECTS[1][3][1];
+
+            var BOTTOM_PADDLE_X     = OBJECTS[0][3][0];
+            var BOTTOM_PADDLE_Y     = OBJECTS[0][3][1];
+            var BOTTOM_PADDLE_WIDTH = 0.3 * PADDLE_SCALE;
+
+            if (BALL_X >= 0.95) {
+                BALLDIRECTION = Math.PI - BALLDIRECTION;
+                spawnParticles(BALL_X, BALL_Y, [0.6, 0.8, 1.0, 1], 6);
+            } else if (BALL_X <= -0.95) {
+                BALLDIRECTION = Math.PI - BALLDIRECTION;
+                spawnParticles(BALL_X, BALL_Y, [0.6, 0.8, 1.0, 1], 6);
+            } else if (BALL_Y >= 0.96) {
+                BALLDIRECTION = -BALLDIRECTION;
+                spawnParticles(BALL_X, BALL_Y, [0.6, 0.8, 1.0, 1], 6);
+            } else if (BALL_Y >= -0.85) {
+                // Brick collision zone
+                for (let i = 2; i < OBJECTS.length; i++) {
+                    var BX = OBJECTS[i][3][0];
+                    var BY = OBJECTS[i][3][1];
+                    if (BALL_X > BX - 0.095 && BALL_X < BX + 0.095 &&
+                        BALL_Y > BY - 0.05  && BALL_Y < BY + 0.05) {
+
+                        BALLDIRECTION = -BALLDIRECTION;
+                        var score_num  = OBJECTS[i][6];
+                        var brickColor = OBJECTS[i][2].slice();
+
+                        // ---- Visual effects on brick hit ----
+                        // Particles — more for combos
+                        var pCount = 14 + COMBO * 4;
+                        spawnParticles(BX, BY, brickColor, Math.min(pCount, 40));
+
+                        // Floating +score pop-up
+                        showScorePop(BX, BY, score_num, brickColor);
+
+                        // Combo tracking
+                        COMBO++;
+                        if (COMBO >= 2) showCombo(COMBO);
+
+                        OBJECTS.splice(i, 1);
+                        score(score_num);
+
+                        var audio = document.getElementById("brick_sound");
+                        audio.currentTime = 0;
+                        audio.play();
+                    }
+                }
+            } else if (BALL_Y <= -0.85) {
+                var BOTTOM_PADDLE_LEFT  = BOTTOM_PADDLE_X - BOTTOM_PADDLE_WIDTH / 2;
+                var BOTTOM_PADDLE_RIGHT = BOTTOM_PADDLE_X + BOTTOM_PADDLE_WIDTH / 2;
+
+                if (BALL_X >= BOTTOM_PADDLE_LEFT && BALL_X <= BOTTOM_PADDLE_RIGHT) {
+                    BALLDIRECTION = -BALLDIRECTION;
+
+                    // Paddle bounce sparks
+                    spawnParticles(BALL_X, BOTTOM_PADDLE_Y + 0.04, [0.4, 1.0, 0.4, 1], 8);
+
+                    var paddle_audio = document.getElementById("paddle_sound");
+                    paddle_audio.currentTime = 0;
+                    paddle_audio.play();
+                } else {
+                    loseLife();
+                    resetBall();
+                    return;
+                }
+            }
+
+            var current_score = parseInt(document.getElementById("score").innerText);
+            var base_speed = 0.012;
+            var speed = base_speed * (1 + current_score * 0.02);
+            speed = Math.min(speed, 0.04);
+
+            OBJECTS[1][3][0] += Math.cos(BALLDIRECTION) * speed;
+            OBJECTS[1][3][1] += Math.sin(BALLDIRECTION) * speed;
+        }
+
+        // ============================================================
+        // KEYBOARD  (identical to original)
+        // ============================================================
+        window.onkeydown = function (e) {
+            if (STOPPED) {
+                window.location.reload();
+            }
+
+            if (e.key == "x") {
+                if (COUNTING_DOWN) return;
+                PAUSED = !PAUSED;
+                return;
+            }
+            if (PAUSED && !COUNTING_DOWN) return;
+
+            var step = 0.2;
+            if (e.key == "ArrowLeft") {
+                if (OBJECTS[0][3][0] - step >= -0.9)
+                    OBJECTS[0][3][0] -= step;
+            } else if (e.key == "ArrowRight") {
+                if (OBJECTS[0][3][0] + step <= 0.9)
+                    OBJECTS[0][3][0] += step;
+            }
+        };
+    </script>
+</head>
+
+<body>
+    <div id="gameboy">
+        <span id="score_name" class="top_bar">SCORE:</span>
+        <span id="score"      class="top_bar">0</span>
+
+        <span id="lives_name" class="top_bar">LIVES:</span>
+        <span id="lives"      class="top_bar">3</span>
+
+        <div id="overlay">
+            <img id="game_over" class="result" src="https://cs460.org/assignments/breakout/game_over.jpg" />
+        </div>
+
+        <div id="countdown"></div>
+        <div id="combo_display"></div>
+
+        <canvas id="c" width="600" height="360"></canvas>
+
+        <audio id="brick_sound"   src="assets/brickhit.mp3"         preload="auto"></audio>
+        <audio id="start_sound"   src="assets/gamestart.mp3"        preload="auto"></audio>
+        <audio id="paddle_sound"  src="assets/bounce%20paddle.mp3"  preload="auto"></audio>
+        <audio id="gameover_sound" src="assets/gameover.mp3"        preload="auto"></audio>
+    </div>
+</body>
+
+</html>

@@ -1,2 +1,1225 @@
-Ready for assignment 2.
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SPIRAL CUBE LINE // XTK WebGL Framework</title>
 
+  <!-- XTK Framework & CS460 Scene Loader -->
+  <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+  <script type="text/javascript" src="loader.js"></script>
+
+  <style>
+    :root {
+      --primary: #00f0ff;
+      --secondary: #ff007f;
+      --accent: #ffe600;
+      --bg-panel: rgba(8, 12, 24, 0.76);
+      --border-panel: rgba(0, 240, 255, 0.32);
+      --font-mono: 'SF Mono', 'Fira Code', 'Roboto Mono', Menlo, Consolas, monospace;
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #04050a;
+      font-family: var(--font-sans);
+      color: #e6f1ff;
+      user-select: none;
+    }
+
+    /* XTK WebGL Render Canvas Container */
+    #container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at center, #0d1224 0%, #030408 100%);
+      z-index: 1;
+      cursor: crosshair;
+    }
+
+    /* Ambient atmospheric glow */
+    #ambientGlow {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 2;
+      background: radial-gradient(circle at 50% 50%, rgba(0, 240, 255, 0.08) 0%, transparent 65%);
+      transition: background 0.6s ease;
+    }
+
+    /* Screen Flash / Explosion Shockwave */
+    #shockwave {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 5;
+      opacity: 0;
+      background: #ffffff;
+      transition: opacity 0.08s ease-out;
+    }
+
+    /* Center Toast / Status Announcer */
+    #toast {
+      position: absolute;
+      top: 48%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.9);
+      font-family: var(--font-mono);
+      font-size: 34px;
+      font-weight: 900;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: #fff;
+      text-shadow: 0 0 35px var(--secondary), 0 0 10px #fff;
+      pointer-events: none;
+      opacity: 0;
+      z-index: 25;
+      transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      white-space: nowrap;
+    }
+
+    #toast.show {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
+
+    /* Floating Glassmorphic HUD */
+    #hud {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 18px 22px;
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+
+    #hud.hidden {
+      opacity: 0;
+      transform: scale(0.98);
+      pointer-events: none;
+    }
+
+    .glass-panel {
+      pointer-events: auto;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-panel);
+      border-radius: 12px;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.55), 0 0 12px rgba(0, 240, 255, 0.12);
+      padding: 10px 16px;
+    }
+
+    /* Top Navigation Bar */
+    #topBar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .brand-section {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-cube {
+      width: 22px;
+      height: 22px;
+      background: linear-gradient(135deg, var(--secondary), var(--primary));
+      border-radius: 5px;
+      box-shadow: 0 0 16px var(--secondary);
+      animation: logoSpin 5s infinite ease-in-out;
+    }
+
+    @keyframes logoSpin {
+      0%, 100% { transform: rotate(0deg) scale(1); }
+      50% { transform: rotate(180deg) scale(1.12); }
+    }
+
+    .brand-title {
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      background: linear-gradient(90deg, #ffffff, var(--primary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand-subtitle {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: rgba(255, 255, 255, 0.55);
+      letter-spacing: 0.05em;
+    }
+
+    /* Stats display */
+    .stats-bar {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .stat-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .stat-label {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      color: rgba(255, 255, 255, 0.45);
+      text-transform: uppercase;
+    }
+
+    .stat-value {
+      font-family: var(--font-mono);
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--primary);
+      text-shadow: 0 0 10px rgba(0, 240, 255, 0.4);
+    }
+
+    /* Action Buttons */
+    .btn-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .action-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 8px;
+      padding: 7px 14px;
+      color: #fff;
+      font-family: var(--font-sans);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .action-btn:hover {
+      background: rgba(0, 240, 255, 0.2);
+      border-color: var(--primary);
+      box-shadow: 0 0 16px rgba(0, 240, 255, 0.4);
+      transform: translateY(-1px);
+    }
+
+    .action-btn.active {
+      background: var(--primary);
+      color: #030814;
+      border-color: var(--primary);
+      box-shadow: 0 0 18px rgba(0, 240, 255, 0.55);
+    }
+
+    /* BURST EFFECT BUTTON (Prominent neon glow & pulse) */
+    .burst-btn {
+      background: linear-gradient(135deg, #ff007f, #ff6600) !important;
+      border: 1px solid #ff99bb !important;
+      color: #ffffff !important;
+      font-weight: 800 !important;
+      padding: 8px 18px !important;
+      box-shadow: 0 0 20px rgba(255, 0, 127, 0.6) !important;
+      animation: burstPulse 2s infinite ease-in-out;
+    }
+
+    .burst-btn:hover {
+      transform: scale(1.05) translateY(-1px) !important;
+      box-shadow: 0 0 30px rgba(255, 0, 127, 0.9), 0 0 10px #ff6600 !important;
+    }
+
+    .burst-btn.charging {
+      animation: chargeFlicker 0.1s infinite alternate;
+      background: #ffffff !important;
+      color: #ff007f !important;
+      box-shadow: 0 0 40px #ffffff, 0 0 80px #ff007f !important;
+    }
+
+    @keyframes burstPulse {
+      0%, 100% { box-shadow: 0 0 18px rgba(255, 0, 127, 0.5); }
+      50% { box-shadow: 0 0 28px rgba(255, 100, 0, 0.85); }
+    }
+
+    @keyframes chargeFlicker {
+      0% { opacity: 0.8; transform: scale(1.03); }
+      100% { opacity: 1; transform: scale(1.08); }
+    }
+
+    /* Bottom Control Bar */
+    #bottomBar {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 16px;
+    }
+
+    /* Formation Tabs */
+    .mode-selector {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px;
+    }
+
+    .mode-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 7px;
+      padding: 7px 13px;
+      color: rgba(255, 255, 255, 0.65);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .mode-btn:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .mode-btn.active {
+      background: linear-gradient(135deg, rgba(0, 240, 255, 0.28), rgba(255, 0, 127, 0.22));
+      border-color: var(--primary);
+      color: #fff;
+      box-shadow: 0 0 14px rgba(0, 240, 255, 0.35);
+    }
+
+    /* Dynamics & Sliders */
+    .controls-panel {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .slider-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: rgba(255, 255, 255, 0.65);
+    }
+
+    input[type=range] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 95px;
+      height: 4px;
+      border-radius: 2px;
+      background: rgba(255, 255, 255, 0.2);
+      outline: none;
+      cursor: pointer;
+    }
+
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--primary);
+      box-shadow: 0 0 10px var(--primary);
+      cursor: pointer;
+    }
+
+    /* Floating UI Toggle Button */
+    #uiToggleBtn {
+      position: absolute;
+      top: 18px;
+      right: 22px;
+      z-index: 30;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-panel);
+      color: var(--primary);
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 4px 18px rgba(0,0,0,0.45);
+      transition: all 0.2s ease;
+    }
+
+    #uiToggleBtn:hover {
+      background: var(--primary);
+      color: #000;
+      box-shadow: 0 0 15px var(--primary);
+    }
+
+    /* Shortcuts Hint */
+    #shortcutsHint {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      color: rgba(255, 255, 255, 0.45);
+      pointer-events: none;
+      z-index: 10;
+      white-space: nowrap;
+    }
+
+    kbd {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      border-radius: 4px;
+      padding: 1px 5px;
+      color: #fff;
+      font-size: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- WebGL Render Canvas -->
+  <div id="container"></div>
+  <div id="ambientGlow"></div>
+  <div id="shockwave"></div>
+  <div id="toast"></div>
+
+  <!-- UI Visibility Toggle -->
+  <button id="uiToggleBtn" title="Toggle HUD (H)">👁</button>
+
+  <!-- Shortcuts Bar -->
+  <div id="shortcutsHint">
+    <kbd>SPACE</kbd> Pause &bull; <kbd>E</kbd> Burst Effect &bull; <kbd>C</kbd> Palette &bull; <kbd>M</kbd> Spiral Shape &bull; <kbd>MOVE MOUSE</kbd> Lead Spiral Line &bull; <kbd>H</kbd> Hide UI
+  </div>
+
+  <!-- Interactive HUD -->
+  <div id="hud">
+    <!-- Top Header -->
+    <div id="topBar">
+      <div class="glass-panel brand-section">
+        <div class="logo-cube"></div>
+        <div>
+          <div class="brand-title">SPIRAL CUBE LINE</div>
+          <div class="brand-subtitle">Kinetic Spiral Chain &bull; Cursor Follow &bull; Speed-Up Burst</div>
+        </div>
+      </div>
+
+      <!-- Live Counters -->
+      <div class="glass-panel stats-bar">
+        <div class="stat-item">
+          <span class="stat-label">Cubes In Line</span>
+          <span class="stat-value" id="cubeCountVal">80</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">FPS</span>
+          <span class="stat-value" id="fpsVal">60</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Spiral RPM</span>
+          <span class="stat-value" id="rpmVal" style="color: var(--accent);">45</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Theme</span>
+          <span class="stat-value" id="paletteNameVal" style="font-size: 13px; color: var(--secondary);">SYNTHWAVE</span>
+        </div>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="glass-panel btn-group">
+        <button class="action-btn burst-btn" id="burstBtn" title="Accelerate & Explode (E)">💥 BURST EFFECT</button>
+        <button class="action-btn" id="paletteBtn" title="Cycle Palette (C)">🎨 Theme</button>
+        <button class="action-btn" id="audioBtn" title="Toggle Sound Synthesizer">🔇 Audio: OFF</button>
+        <button class="action-btn" id="downloadBtn" title="Export scene.json (CS460)">💾 Save</button>
+      </div>
+    </div>
+
+    <!-- Bottom Controls -->
+    <div id="bottomBar">
+      <!-- Spiral Formations -->
+      <div class="glass-panel mode-selector">
+        <button class="mode-btn active" data-pattern="archimedean">🌀 Spiral Coil</button>
+        <button class="mode-btn" data-pattern="logarithmic">🐚 Nautilus Spiral</button>
+        <button class="mode-btn" data-pattern="funnel">🌪 3D Tornado</button>
+        <button class="mode-btn" data-pattern="waveLine">🌊 S-Curve Ribbon</button>
+      </div>
+
+      <!-- Dynamics Sliders -->
+      <div class="glass-panel controls-panel">
+        <div class="slider-group">
+          <div class="slider-header">
+            <span>SPEED</span>
+            <span id="speedDisplay">1.0×</span>
+          </div>
+          <input type="range" id="speedSlider" min="20" max="250" value="100" />
+        </div>
+
+        <div class="slider-group">
+          <div class="slider-header">
+            <span>RADIUS</span>
+            <span id="radiusDisplay">1.0×</span>
+          </div>
+          <input type="range" id="radiusSlider" min="50" max="200" value="100" />
+        </div>
+
+        <button class="action-btn" id="pauseBtn" title="Play/Pause (Space)">⏸ Pause</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    // =========================================================================
+    // CS460 Globals & XTK Engine State
+    // =========================================================================
+    var r;
+    var CAMERAS = [];
+    var ALL_OBJECTS = [];
+
+    // Configuration for the continuous line of spiraling cubes
+    var NUM_CUBES = 80;          // Single continuous chain of 80 cubes along the spiral line
+    var currentPattern = 'archimedean'; // 'archimedean', 'logarithmic', 'funnel', 'waveLine'
+    var animTime = 0;
+    var baseAngularSpeed = 2.0;  // radians per second
+    var spiralRotationAngle = 0;
+    var userSpeedMult = 1.0;
+    var radiusMult = 1.0;
+    var isPaused = false;
+
+    // Cursor Tracking: Spiral head/center follows mouse cursor
+    var cursorTarget = { x: 0, y: 0 };
+    var spiralCenter = { x: 0, y: 0, z: 0 };
+    var boundX = 110;
+    var boundY = 68;
+
+    // Burst State Machine: "Spiral speeds up & explodes -> BOOM!"
+    // States: 'IDLE', 'ACCELERATING', 'EXPLODING', 'REASSEMBLING'
+    var burstState = 'IDLE';
+    var burstTimer = 0;
+    var speedUpFactor = 1.0;
+
+    // Array of cubes forming the continuous spiral line
+    var cubesLine = [];
+
+    // =========================================================================
+    // Color Palettes (Theme Colors along the spiral line)
+    // =========================================================================
+    var PALETTES = [
+      {
+        name: 'SYNTHWAVE',
+        glow: 'rgba(255, 0, 127, 0.12)',
+        colors: [
+          [1.00, 0.00, 0.50], // Neon Magenta
+          [0.61, 0.00, 1.00], // Deep Violet
+          [0.00, 0.94, 1.00], // Electric Cyan
+          [1.00, 0.90, 0.00], // Laser Yellow
+          [1.00, 0.35, 0.00]  // Solar Orange
+        ]
+      },
+      {
+        name: 'CYBERPUNK',
+        glow: 'rgba(0, 255, 140, 0.12)',
+        colors: [
+          [0.00, 1.00, 0.55], // Neo Green
+          [0.00, 0.85, 1.00], // Cyan
+          [0.10, 0.20, 0.95], // Cyber Blue
+          [0.95, 0.05, 0.40], // Hot Pink
+          [0.70, 1.00, 0.00]  // Toxic Lime
+        ]
+      },
+      {
+        name: 'AURORA',
+        glow: 'rgba(0, 245, 212, 0.12)',
+        colors: [
+          [0.00, 0.96, 0.83], // Arctic Teal
+          [0.48, 0.17, 0.75], // Twilight Purple
+          [0.00, 0.73, 0.98], // Glacial Blue
+          [0.62, 0.94, 0.10], // Aurora Green
+          [0.98, 0.40, 0.85]  // Soft Orchid
+        ]
+      },
+      {
+        name: 'SOLAR FLARE',
+        glow: 'rgba(255, 100, 0, 0.12)',
+        colors: [
+          [1.00, 0.20, 0.00], // Inferno Red
+          [1.00, 0.55, 0.00], // Corona Orange
+          [1.00, 0.85, 0.10], // Golden Yellow
+          [0.95, 0.10, 0.35], // Crimson
+          [1.00, 1.00, 0.70]  // White Heat
+        ]
+      },
+      {
+        name: 'PRISM CHROMA',
+        glow: 'rgba(0, 240, 255, 0.12)',
+        dynamic: true // Continuous HSV spectrum gradient flowing along the line
+      }
+    ];
+
+    var paletteIndex = 0;
+
+    // =========================================================================
+    // Web Audio Synthesizer (Charge whistle + Explosion BOOM + Synth Chimes)
+    // =========================================================================
+    var audioCtx = null;
+    var audioEnabled = false;
+
+    function initAudio() {
+      if (!audioCtx) {
+        var AudioContext = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContext();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    function playTone(freq, type, duration, vol) {
+      if (!audioEnabled || !audioCtx) return;
+      try {
+        var osc = audioCtx.createOscillator();
+        var gain = audioCtx.createGain();
+        osc.type = type || 'sine';
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+
+        gain.gain.setValueAtTime(vol || 0.15, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch (e) {}
+    }
+
+    function playChargeSound() {
+      if (!audioEnabled || !audioCtx) return;
+      try {
+        var osc = audioCtx.createOscillator();
+        var gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(160, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.85);
+
+        gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.25, audioCtx.currentTime + 0.85);
+        gain.gain.linearRampToValueAtTime(0.001, audioCtx.currentTime + 0.9);
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.9);
+      } catch (e) {}
+    }
+
+    function playExplosionSound() {
+      if (!audioEnabled || !audioCtx) return;
+      try {
+        // Deep bass impact boom
+        var osc = audioCtx.createOscillator();
+        var gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(130, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(25, audioCtx.currentTime + 0.8);
+
+        gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.9);
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.9);
+
+        // Harmonic cascade chimes
+        var chords = [523.25, 659.25, 783.99, 1046.50];
+        chords.forEach(function (freq, i) {
+          setTimeout(function () {
+            playTone(freq, 'sine', 0.8, 0.15);
+          }, i * 40);
+        });
+      } catch (e) {}
+    }
+
+    // =========================================================================
+    // Utilities
+    // =========================================================================
+    function hsvToRgb(h, s, v) {
+      var r, g, b;
+      var i = Math.floor(h * 6);
+      var f = h * 6 - i;
+      var p = v * (1 - s);
+      var q = v * (1 - f * s);
+      var t = v * (1 - (1 - f) * s);
+      switch (i % 6) {
+        case 0: r = v; g = t; b = p; break;
+        case 1: r = q; g = v; b = p; break;
+        case 2: r = p; g = v; b = t; break;
+        case 3: r = p; g = q; b = v; break;
+        case 4: r = t; g = p; b = v; break;
+        case 5: r = v; g = p; b = q; break;
+      }
+      return [r, g, b];
+    }
+
+    function lerp(a, b, t) {
+      return a + (b - a) * t;
+    }
+
+    function setCubePos(obj, x, y, z) {
+      var m = obj.transform.matrix;
+      m[12] = x;
+      m[13] = y;
+      m[14] = z;
+      obj.transform.modified();
+    }
+
+    function showToast(msg) {
+      var t = document.getElementById('toast');
+      t.innerText = msg;
+      t.classList.add('show');
+      clearTimeout(t.timer);
+      t.timer = setTimeout(function () {
+        t.classList.remove('show');
+      }, 1100);
+    }
+
+    function updateBounds() {
+      var w = window.innerWidth;
+      var h = window.innerHeight;
+      var aspect = w / h;
+      boundY = 68;
+      boundX = boundY * aspect;
+    }
+
+    // =========================================================================
+    // Continuous Spiral Line Position Generator
+    // Computes relative offset (dx, dy, dz) for cube i along the spiral line
+    // =========================================================================
+    function computeSpiralLineOffset(i, total, angleOffset, pattern, radiusScale, t) {
+      // s goes from 0.0 (head / center of spiral) to 1.0 (outer tail of the line)
+      var s = i / (total - 1);
+      var maxRadius = 95 * radiusScale;
+      var r, theta, z;
+
+      if (pattern === 'archimedean') {
+        // Classic Archimedean spiral line: r = a * theta
+        var turns = 3.6; // 3.6 full coils in the spiral line
+        theta = s * (turns * 2 * Math.PI) + angleOffset;
+        r = Math.pow(s, 0.85) * maxRadius + 3.0;
+        z = Math.sin(s * Math.PI * 4 - t * 3) * 14; // undulating wave along the line
+      }
+      else if (pattern === 'logarithmic') {
+        // Golden ratio / logarithmic nautilus shell line
+        var turns = 3.2;
+        theta = s * (turns * 2 * Math.PI) + angleOffset;
+        r = (Math.pow(1.8, s * 3.5) - 1) / (Math.pow(1.8, 3.5) - 1) * maxRadius + 2.0;
+        z = Math.cos(s * Math.PI * 5 + t * 2) * 12;
+      }
+      else if (pattern === 'funnel') {
+        // 3D Whirlpool / Tornado Funnel line
+        var turns = 4.2;
+        theta = s * (turns * 2 * Math.PI) + angleOffset;
+        r = Math.sqrt(s) * maxRadius + 4.0;
+        z = (s - 0.5) * 85; // deep vertical funnel along Z
+      }
+      else if (pattern === 'waveLine') {
+        // Dynamic S-Curve Ribbon Spiral
+        var turns = 2.8;
+        theta = s * (turns * 2 * Math.PI) + angleOffset + Math.sin(t * 2 + s * 4) * 0.4;
+        r = s * maxRadius + 5.0;
+        z = Math.sin(s * Math.PI * 6 + t * 4) * 22;
+      }
+
+      var dx = Math.cos(theta) * r;
+      var dy = Math.sin(theta) * r;
+      return { dx: dx, dy: dy, dz: z, r: r };
+    }
+
+    // =========================================================================
+    // Burst Effect Trigger: Line Speeds Up -> Explodes Outwards -> Snaps Back
+    // =========================================================================
+    function startBurstSequence() {
+      if (burstState !== 'IDLE') return;
+
+      burstState = 'ACCELERATING';
+      burstTimer = 0;
+
+      var burstBtn = document.getElementById('burstBtn');
+      burstBtn.classList.add('charging');
+
+      playChargeSound();
+      showToast('⚡ WINDING UP SPIRAL...');
+    }
+
+    function triggerExplosion() {
+      burstState = 'EXPLODING';
+      burstTimer = 0;
+
+      var burstBtn = document.getElementById('burstBtn');
+      burstBtn.classList.remove('charging');
+
+      // Full screen white flash
+      var sw = document.getElementById('shockwave');
+      sw.style.opacity = '0.9';
+      setTimeout(function () { sw.style.opacity = '0'; }, 180);
+
+      playExplosionSound();
+      showToast('💥 BOOM!');
+
+      // Violent explosion velocities blasted outward from the spiral line
+      for (var i = 0; i < cubesLine.length; i++) {
+        var c = cubesLine[i];
+        var angle = Math.random() * Math.PI * 2;
+        var elevation = (Math.random() - 0.5) * Math.PI;
+        var speed = 130 + Math.random() * 160;
+
+        c.vx = Math.cos(elevation) * Math.cos(angle) * speed;
+        c.vy = Math.cos(elevation) * Math.sin(angle) * speed;
+        c.vz = Math.sin(elevation) * speed;
+
+        // Rapid tumble spins
+        c.spinX = (Math.random() - 0.5) * 26;
+        c.spinY = (Math.random() - 0.5) * 26;
+        c.spinZ = (Math.random() - 0.5) * 26;
+
+        c.burstFactor = 1.0;
+      }
+    }
+
+    // =========================================================================
+    // Initialization: XTK Renderer & Continuous Spiral Line of Cubes
+    // =========================================================================
+    window.onload = function () {
+      updateBounds();
+
+      // 1. Initialize XTK 3D Renderer
+      r = new X.renderer3D();
+      r.container = 'container';
+      r.init();
+
+      // Deep dark cyber background
+      r.bgColor = [0.015, 0.02, 0.04];
+
+      // Camera
+      r.camera.position = [0, 0, 220];
+      r.camera.view[14] = -220;
+      CAMERAS.push(r.camera.view);
+
+      // 2. Build the continuous line of spiraling cubes (80 cubes in a continuous chain)
+      // Cube sizes scale gracefully from head (center: ~5.0) to outer tail (~9.0)
+      for (var i = 0; i < NUM_CUBES; i++) {
+        var s = i / (NUM_CUBES - 1);
+        var xc = new X.cube();
+
+        // Size along the line: sleek, uniform yet subtly tapered
+        var cubeSize = 5.2 + Math.sin(s * Math.PI) * 2.8;
+        xc.lengthX = cubeSize;
+        xc.lengthY = cubeSize;
+        xc.lengthZ = cubeSize;
+
+        var col = PALETTES[paletteIndex].colors[i % PALETTES[paletteIndex].colors.length];
+        xc.color = col;
+
+        var offset = computeSpiralLineOffset(i, NUM_CUBES, 0, currentPattern, 1.0, 0);
+        xc.center = [offset.dx, offset.dy, offset.dz];
+
+        r.add(xc);
+        ALL_OBJECTS.push(xc);
+
+        cubesLine.push({
+          obj: xc,
+          index: i,
+          size: cubeSize,
+          x: offset.dx,
+          y: offset.dy,
+          z: offset.dz,
+          vx: 0,
+          vy: 0,
+          vz: 0,
+          spinX: (Math.random() - 0.5) * 3,
+          spinY: (Math.random() - 0.5) * 3,
+          spinZ: (Math.random() - 0.5) * 3,
+          burstFactor: 0,
+          lineLag: s * 0.18 // outer cubes lag slightly during rapid cursor movement for fluid snake/whip tail motion!
+        });
+      }
+
+      // =======================================================================
+      // Render Loop & Animation Frame
+      // =======================================================================
+      var lastTime = performance.now();
+      var frameCount = 0;
+      var lastFpsTime = lastTime;
+
+      r.onRender = function () {
+        var now = performance.now();
+        var dt = Math.min((now - lastTime) / 1000, 0.05);
+        lastTime = now;
+
+        // FPS Calculation
+        frameCount++;
+        if (now - lastFpsTime >= 500) {
+          var fps = Math.round((frameCount * 1000) / (now - lastFpsTime));
+          document.getElementById('fpsVal').innerText = fps;
+          frameCount = 0;
+          lastFpsTime = now;
+        }
+
+        // =====================================================================
+        // Burst State Machine Handling (Line speeds up & explodes)
+        // =====================================================================
+        if (burstState === 'ACCELERATING') {
+          burstTimer += dt;
+          // Exponential speed ramp up (from 1x up to 14x!)
+          var chargeProgress = Math.min(burstTimer / 0.85, 1.0);
+          speedUpFactor = 1.0 + Math.pow(chargeProgress, 2.5) * 13.0;
+
+          if (burstTimer >= 0.85) {
+            triggerExplosion();
+          }
+        }
+        else if (burstState === 'EXPLODING') {
+          burstTimer += dt;
+          speedUpFactor = Math.max(1.0, 14.0 - burstTimer * 10.0);
+          if (burstTimer >= 1.2) {
+            burstState = 'REASSEMBLING';
+            burstTimer = 0;
+            showToast('🧲 RE-FORMING SPIRAL');
+          }
+        }
+        else if (burstState === 'REASSEMBLING') {
+          burstTimer += dt;
+          speedUpFactor = 1.0;
+          if (burstTimer >= 0.9) {
+            burstState = 'IDLE';
+          }
+        } else {
+          speedUpFactor = 1.0;
+        }
+
+        // Angular rotation progression
+        if (!isPaused) {
+          animTime += dt * userSpeedMult * speedUpFactor;
+          spiralRotationAngle += dt * baseAngularSpeed * userSpeedMult * speedUpFactor;
+
+          // Update RPM readout
+          var currentRPM = Math.round(((baseAngularSpeed * userSpeedMult * speedUpFactor) / (2 * Math.PI)) * 60);
+          document.getElementById('rpmVal').innerText = currentRPM;
+        }
+
+        // =====================================================================
+        // Cursor Follow Physics
+        // The center/head of the spiral line glides smoothly to cursor target
+        // =====================================================================
+        var followEase = 0.14;
+        spiralCenter.x += (cursorTarget.x - spiralCenter.x) * followEase;
+        spiralCenter.y += (cursorTarget.y - spiralCenter.y) * followEase;
+        spiralCenter.z = Math.sin(animTime * 2.2) * 6; // subtle breathing depth
+
+        // =====================================================================
+        // Animate Each Cube in the Continuous Spiral Line
+        // =====================================================================
+        var curPalette = PALETTES[paletteIndex];
+
+        for (var i = 0; i < cubesLine.length; i++) {
+          var c = cubesLine[i];
+          var s = i / (NUM_CUBES - 1);
+
+          // Compute ideal target position along the active spiral line
+          var offset = computeSpiralLineOffset(i, NUM_CUBES, spiralRotationAngle, currentPattern, radiusMult, animTime);
+
+          // Add slight inertial lag along the line so the spiral flexes dynamically when cursor darts
+          var lagOffsetX = (spiralCenter.x - cursorTarget.x) * c.lineLag;
+          var lagOffsetY = (spiralCenter.y - cursorTarget.y) * c.lineLag;
+
+          var targetX = spiralCenter.x + offset.dx + lagOffsetX;
+          var targetY = spiralCenter.y + offset.dy + lagOffsetY;
+          var targetZ = spiralCenter.z + offset.dz;
+
+          if (c.burstFactor > 0.001) {
+            // Explosive Physics
+            c.x += c.vx * dt;
+            c.y += c.vy * dt;
+            c.z += c.vz * dt;
+
+            // Air drag & damping
+            c.vx *= (1 - 2.2 * dt);
+            c.vy *= (1 - 2.2 * dt);
+            c.vz *= (1 - 2.2 * dt);
+
+            // Gravitational magnetic pull back to target position along the spiral line
+            var pullStrength = (1.0 - c.burstFactor) * 9.5;
+            c.x = lerp(c.x, targetX, pullStrength * dt);
+            c.y = lerp(c.y, targetY, pullStrength * dt);
+            c.z = lerp(c.z, targetZ, pullStrength * dt);
+
+            c.burstFactor -= dt * 0.72;
+            if (c.burstFactor < 0) c.burstFactor = 0;
+          } else {
+            // Fluid trailing motion keeping the spiral line smooth and connected
+            var ease = (9.0 - s * 2.0) * dt;
+            c.x = lerp(c.x, targetX, ease);
+            c.y = lerp(c.y, targetY, ease);
+            c.z = lerp(c.z, targetZ, ease);
+          }
+
+          setCubePos(c.obj, c.x, c.y, c.z);
+
+          // Kinetic Tumbling along the line
+          if (!isPaused) {
+            var tumbleMult = c.burstFactor > 0 ? 120 : (30 * speedUpFactor);
+            c.obj.transform.rotateX((c.spinX + Math.sin(animTime + s * 4)) * dt * tumbleMult);
+            c.obj.transform.rotateY((c.spinY + Math.cos(animTime + s * 4)) * dt * tumbleMult);
+            c.obj.transform.rotateZ(c.spinZ * dt * tumbleMult * 0.6);
+          }
+
+          // Dynamic Color Gradient Flowing Along the Spiral Line
+          if (curPalette.dynamic) {
+            // Rainbow HSV propagating continuously along the chain
+            var hue = (animTime * 0.15 + s * 1.5) % 1.0;
+            c.obj.color = hsvToRgb(hue, 0.9, 1.0);
+          } else {
+            // Theme colors mapped sequentially along the line of cubes
+            var colorCount = curPalette.colors.length;
+            var colorProgress = (s * colorCount * 1.8 + animTime * 1.5) % colorCount;
+            var idxA = Math.floor(colorProgress);
+            var idxB = (idxA + 1) % colorCount;
+            var blend = colorProgress - idxA;
+
+            var colA = curPalette.colors[idxA];
+            var colB = curPalette.colors[idxB];
+
+            var rCol = lerp(colA[0], colB[0], blend);
+            var gCol = lerp(colA[1], colB[1], blend);
+            var bCol = lerp(colA[2], colB[2], blend);
+
+            // Shading highlight for waves and burst charge
+            var glow = c.burstFactor > 0 ? (1.0 + c.burstFactor * 0.6) : (0.85 + Math.sin(s * Math.PI * 6 - animTime * 3) * 0.25);
+            c.obj.color = [
+              Math.min(1, rCol * glow),
+              Math.min(1, gCol * glow),
+              Math.min(1, bCol * glow)
+            ];
+          }
+        }
+      };
+
+      r.render();
+
+      setupUI();
+    };
+
+    // =========================================================================
+    // UI Event Handlers & Interactive Controls
+    // =========================================================================
+    function setupUI() {
+      // 1. Mouse Tracking: Follow cursor across screen
+      window.addEventListener('mousemove', function (e) {
+        var w = window.innerWidth;
+        var h = window.innerHeight;
+        // Map 2D mouse coordinates to 3D world coordinates
+        var normX = (e.clientX / w) * 2 - 1; // -1 to 1
+        var normY = -(e.clientY / h) * 2 + 1; // -1 to 1
+        cursorTarget.x = normX * boundX;
+        cursorTarget.y = normY * boundY;
+      });
+
+      // Window Resize Handler
+      window.addEventListener('resize', function () {
+        updateBounds();
+      });
+
+      // 2. BURST EFFECT BUTTON (Speeds up & Explodes)
+      document.getElementById('burstBtn').addEventListener('click', function () {
+        initAudio();
+        startBurstSequence();
+      });
+
+      // 3. Theme Palette Cycle Button
+      document.getElementById('paletteBtn').addEventListener('click', cyclePalette);
+
+      // 4. Audio Synthesizer Toggle
+      var audioBtn = document.getElementById('audioBtn');
+      audioBtn.addEventListener('click', function () {
+        initAudio();
+        audioEnabled = !audioEnabled;
+        this.classList.toggle('active', audioEnabled);
+        this.innerText = audioEnabled ? '🔊 Audio: ON' : '🔇 Audio: OFF';
+        if (audioEnabled) {
+          playTone(523.25, 'triangle', 0.4, 0.2);
+          showToast('AUDIO SYNTH: ON');
+        } else {
+          showToast('AUDIO SYNTH: OFF');
+        }
+      });
+
+      // 5. Download scene.json (CS460 Compatibility)
+      document.getElementById('downloadBtn').addEventListener('click', function () {
+        download();
+        showToast('SCENE EXPORTED');
+      });
+
+      // 6. Play / Pause Button
+      var pauseBtn = document.getElementById('pauseBtn');
+      pauseBtn.addEventListener('click', togglePause);
+
+      // 7. Speed Slider
+      var speedSlider = document.getElementById('speedSlider');
+      speedSlider.addEventListener('input', function () {
+        userSpeedMult = parseFloat(this.value) / 100;
+        document.getElementById('speedDisplay').innerText = userSpeedMult.toFixed(1) + '×';
+      });
+
+      // 8. Radius / Expansion Slider
+      var radiusSlider = document.getElementById('radiusSlider');
+      radiusSlider.addEventListener('input', function () {
+        radiusMult = parseFloat(this.value) / 100;
+        document.getElementById('radiusDisplay').innerText = radiusMult.toFixed(1) + '×';
+      });
+
+      // 9. Spiral Shape Pattern Buttons
+      var modeButtons = document.querySelectorAll('.mode-btn');
+      modeButtons.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          setPattern(this.getAttribute('data-pattern'));
+        });
+      });
+
+      // 10. HUD Toggle
+      var uiToggleBtn = document.getElementById('uiToggleBtn');
+      var hud = document.getElementById('hud');
+      var shortcutsHint = document.getElementById('shortcutsHint');
+
+      function toggleHUD() {
+        hud.classList.toggle('hidden');
+        shortcutsHint.classList.toggle('hidden');
+        uiToggleBtn.innerText = hud.classList.contains('hidden') ? '👁‍🗨' : '👁';
+      }
+      uiToggleBtn.addEventListener('click', toggleHUD);
+
+      // 11. Click canvas to trigger quick impulse or burst
+      window.addEventListener('click', function (e) {
+        if (e.target.closest('#hud') || e.target.closest('#uiToggleBtn')) return;
+        initAudio();
+        playTone(440, 'sine', 0.25, 0.15);
+      });
+
+      // 12. Keyboard Shortcuts
+      window.addEventListener('keydown', function (e) {
+        var key = e.key.toLowerCase();
+        if (key === ' ') {
+          e.preventDefault();
+          togglePause();
+        } else if (key === 'e' || key === 'b') {
+          initAudio();
+          startBurstSequence();
+        } else if (key === 'c') {
+          cyclePalette();
+        } else if (key === 'm') {
+          cyclePattern();
+        } else if (key === 'h') {
+          toggleHUD();
+        } else if (key === 'r') {
+          // Recenter
+          cursorTarget.x = 0;
+          cursorTarget.y = 0;
+          spiralCenter.x = 0;
+          spiralCenter.y = 0;
+          showToast('CENTER RESET');
+        } else if (key === 'd') {
+          download();
+        }
+      });
+    }
+
+    // =========================================================================
+    // Mode & Palette Switching
+    // =========================================================================
+    var PATTERNS = ['archimedean', 'logarithmic', 'funnel', 'waveLine'];
+
+    function setPattern(pat) {
+      currentPattern = pat;
+      var modeButtons = document.querySelectorAll('.mode-btn');
+      modeButtons.forEach(function (btn) {
+        btn.classList.toggle('active', btn.getAttribute('data-pattern') === pat);
+      });
+
+      var names = {
+        archimedean: '🌀 SPIRAL COIL',
+        logarithmic: '🐚 NAUTILUS SPIRAL',
+        funnel: '🌪 3D TORNADO',
+        waveLine: '🌊 S-CURVE RIBBON'
+      };
+
+      showToast(names[pat] || pat.toUpperCase());
+
+      if (audioEnabled) {
+        playTone(587.33, 'triangle', 0.3, 0.15);
+      }
+    }
+
+    function cyclePattern() {
+      var nextIdx = (PATTERNS.indexOf(currentPattern) + 1) % PATTERNS.length;
+      setPattern(PATTERNS[nextIdx]);
+    }
+
+    function cyclePalette() {
+      paletteIndex = (paletteIndex + 1) % PALETTES.length;
+      var pal = PALETTES[paletteIndex];
+      document.getElementById('paletteNameVal').innerText = pal.name;
+
+      var glow = document.getElementById('ambientGlow');
+      glow.style.background = 'radial-gradient(circle at 50% 50%, ' + pal.glow + ' 0%, transparent 65%)';
+
+      showToast('THEME: ' + pal.name);
+
+      if (audioEnabled) {
+        playTone(659.25, 'sine', 0.25, 0.12);
+      }
+    }
+
+    function togglePause() {
+      isPaused = !isPaused;
+      var pauseBtn = document.getElementById('pauseBtn');
+      pauseBtn.classList.toggle('active', isPaused);
+      pauseBtn.innerText = isPaused ? '▶ Play' : '⏸ Pause';
+      showToast(isPaused ? 'PAUSED' : 'PLAYING');
+    }
+  </script>
+</body>
+</html>

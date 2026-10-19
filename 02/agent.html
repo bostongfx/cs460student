@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CYBER-CUBE ART // XTK WebGL Generative Visualization</title>
+
+  <!-- XTK Library & CS460 Loader -->
+  <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+  <script type="text/javascript" src="loader.js"></script>
+
+  <style>
+    :root {
+      --primary: #00f0ff;
+      --secondary: #ff007f;
+      --accent: #ffe600;
+      --bg-glass: rgba(12, 16, 28, 0.72);
+      --border-glass: rgba(0, 240, 255, 0.28);
+      --font-mono: 'SF Mono', 'Fira Code', 'Roboto Mono', Menlo, monospace;
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #05060b;
+      font-family: var(--font-sans);
+      color: #e6f1ff;
+      user-select: none;
+    }
+
+    /* 3D Canvas Container */
+    #container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at center, #0a0e1c 0%, #030408 100%);
+      z-index: 1;
+    }
+
+    /* Subtle background grid / vignette overlay */
+    #ambientGlow {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 2;
+      background: radial-gradient(circle at 50% 50%, rgba(0, 240, 255, 0.05) 0%, transparent 70%);
+      transition: background 0.8s ease;
+    }
+
+    /* Flash shockwave overlay */
+    #shockwave {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 3;
+      opacity: 0;
+      background: radial-gradient(circle at center, rgba(255, 255, 255, 0.4) 0%, transparent 70%);
+      transition: opacity 0.12s ease-out;
+    }
+
+    /* Floating HUD UI */
+    #hud {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 20px;
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+
+    #hud.hidden {
+      opacity: 0;
+      transform: scale(0.98);
+      pointer-events: none;
+    }
+
+    .glass-panel {
+      pointer-events: auto;
+      background: var(--bg-glass);
+      border: 1px solid var(--border-glass);
+      border-radius: 14px;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      box-shadow: 0 10px 35px rgba(0, 0, 0, 0.5), 0 0 15px rgba(0, 240, 255, 0.08);
+      padding: 12px 18px;
+    }
+
+    /* Top Navigation / Header */
+    #topBar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .brand-section {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .logo-cube {
+      width: 22px;
+      height: 22px;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      border-radius: 5px;
+      box-shadow: 0 0 15px var(--primary);
+      animation: logoSpin 6s infinite ease-in-out;
+    }
+
+    @keyframes logoSpin {
+      0%, 100% { transform: rotate(0deg) scale(1); }
+      50% { transform: rotate(180deg) scale(1.1); }
+    }
+
+    .brand-title {
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      background: linear-gradient(90deg, #ffffff, var(--primary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand-subtitle {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: rgba(255, 255, 255, 0.55);
+      letter-spacing: 0.06em;
+    }
+
+    /* Stats display */
+    .stats-bar {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .stat-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .stat-label {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      color: rgba(255, 255, 255, 0.45);
+      text-transform: uppercase;
+    }
+
+    .stat-value {
+      font-family: var(--font-mono);
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--primary);
+      text-shadow: 0 0 8px rgba(0, 240, 255, 0.4);
+    }
+
+    /* Quick Action Pill Buttons */
+    .btn-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .action-btn {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 8px;
+      padding: 7px 13px;
+      color: #fff;
+      font-family: var(--font-sans);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .action-btn:hover {
+      background: rgba(0, 240, 255, 0.15);
+      border-color: var(--primary);
+      box-shadow: 0 0 14px rgba(0, 240, 255, 0.3);
+      transform: translateY(-1px);
+    }
+
+    .action-btn.active {
+      background: var(--primary);
+      color: #030814;
+      border-color: var(--primary);
+      box-shadow: 0 0 16px rgba(0, 240, 255, 0.5);
+    }
+
+    .action-btn.burst-btn {
+      background: linear-gradient(135deg, rgba(255, 0, 127, 0.2), rgba(255, 100, 0, 0.2));
+      border-color: var(--secondary);
+    }
+
+    .action-btn.burst-btn:hover {
+      background: var(--secondary);
+      color: #fff;
+      box-shadow: 0 0 20px var(--secondary);
+    }
+
+    /* Bottom Control Bar */
+    #bottomBar {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 16px;
+    }
+
+    /* Mode Selector Carousel/Tabs */
+    .mode-selector {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px;
+    }
+
+    .mode-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      padding: 8px 14px;
+      color: rgba(255, 255, 255, 0.65);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .mode-btn:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .mode-btn.active {
+      background: linear-gradient(135deg, rgba(0, 240, 255, 0.25), rgba(255, 0, 127, 0.2));
+      border-color: var(--primary);
+      color: #fff;
+      box-shadow: 0 0 16px rgba(0, 240, 255, 0.35);
+    }
+
+    /* Controls Panel */
+    .controls-panel {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .slider-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: rgba(255, 255, 255, 0.6);
+    }
+
+    input[type=range] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 90px;
+      height: 4px;
+      border-radius: 2px;
+      background: rgba(255, 255, 255, 0.18);
+      outline: none;
+      cursor: pointer;
+    }
+
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--primary);
+      box-shadow: 0 0 10px var(--primary);
+      cursor: pointer;
+    }
+
+    /* Center Toast Notification */
+    #toast {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.9);
+      font-family: var(--font-mono);
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #fff;
+      text-shadow: 0 0 25px var(--primary);
+      pointer-events: none;
+      opacity: 0;
+      z-index: 20;
+      transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      white-space: nowrap;
+    }
+
+    #toast.show {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
+
+    /* Keyboard legend floating pill */
+    #shortcutsHint {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      color: rgba(255, 255, 255, 0.45);
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    kbd {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 4px;
+      padding: 1px 5px;
+      color: #fff;
+      font-size: 10px;
+    }
+
+    /* Toggle UI Floating Button */
+    #uiToggleBtn {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      z-index: 30;
+      background: var(--bg-glass);
+      border: 1px solid var(--border-glass);
+      color: var(--primary);
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+      transition: all 0.2s ease;
+    }
+
+    #uiToggleBtn:hover {
+      background: var(--primary);
+      color: #000;
+      box-shadow: 0 0 15px var(--primary);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 3D Canvas Container -->
+  <div id="container"></div>
+  <div id="ambientGlow"></div>
+  <div id="shockwave"></div>
+  <div id="toast"></div>
+
+  <!-- HUD Toggle Button -->
+  <button id="uiToggleBtn" title="Toggle HUD (H)">👁</button>
+
+  <!-- Shortcuts Hint -->
+  <div id="shortcutsHint">
+    <kbd>SPACE</kbd> Pause &bull; <kbd>M</kbd> Mode &bull; <kbd>C</kbd> Palette &bull; <kbd>E</kbd> Burst &bull; <kbd>CLICK</kbd> Shockwave &bull; <kbd>H</kbd> Hide UI
+  </div>
+
+  <!-- Interactive HUD Interface -->
+  <div id="hud">
+    <!-- Top Header Bar -->
+    <div id="topBar">
+      <div class="glass-panel brand-section">
+        <div class="logo-cube"></div>
+        <div>
+          <div class="brand-title">CYBER-CUBE ART</div>
+          <div class="brand-subtitle">XTK WebGL Generative Engine</div>
+        </div>
+      </div>
+
+      <!-- Live Statistics -->
+      <div class="glass-panel stats-bar">
+        <div class="stat-item">
+          <span class="stat-label">Cubes</span>
+          <span class="stat-value" id="cubeCountVal">100</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">FPS</span>
+          <span class="stat-value" id="fpsVal">60</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Palette</span>
+          <span class="stat-value" id="paletteNameVal" style="font-size: 13px; color: var(--secondary);">SYNTHWAVE</span>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="glass-panel btn-group">
+        <button class="action-btn burst-btn" id="burstBtn" title="Explode Cubes (E)">💥 Burst</button>
+        <button class="action-btn" id="paletteBtn" title="Cycle Palette (C)">🎨 Theme</button>
+        <button class="action-btn" id="orbitBtn" title="Toggle Cinematic Orbit">🔄 Orbit: ON</button>
+        <button class="action-btn" id="audioBtn" title="Toggle Audio Synthesizer">🔇 Audio: OFF</button>
+        <button class="action-btn" id="downloadBtn" title="Download scene.json">💾 Save</button>
+      </div>
+    </div>
+
+    <!-- Bottom Formations Bar -->
+    <div id="bottomBar">
+      <!-- Mode Selection Tabs -->
+      <div class="glass-panel mode-selector">
+        <button class="mode-btn active" data-mode="vortex">🌀 Vortex Galaxy</button>
+        <button class="mode-btn" data-mode="wave">🌊 Cyber Matrix</button>
+        <button class="mode-btn" data-mode="sphere">🔮 Geodesic Sphere</button>
+        <button class="mode-btn" data-mode="helix">🧬 DNA Helix</button>
+        <button class="mode-btn" data-mode="attractor">✨ Lorenz Chaos</button>
+      </div>
+
+      <!-- Dynamics & Sliders -->
+      <div class="glass-panel controls-panel">
+        <div class="slider-group">
+          <div class="slider-header">
+            <span>SPEED</span>
+            <span id="speedDisplay">1.0×</span>
+          </div>
+          <input type="range" id="speedSlider" min="20" max="250" value="100" />
+        </div>
+
+        <div class="slider-group">
+          <div class="slider-header">
+            <span>EXPANSION</span>
+            <span id="spreadDisplay">1.0×</span>
+          </div>
+          <input type="range" id="spreadSlider" min="50" max="200" value="100" />
+        </div>
+
+        <button class="action-btn" id="pauseBtn" title="Play/Pause (Space)">⏸ Pause</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    // =========================================================================
+    // CS460 Required Globals & XTK Engine State
+    // =========================================================================
+    var r;
+    var CAMERAS = [];
+    var ALL_OBJECTS = [];
+
+    // Visualization Config
+    var NUM_CUBES = 100;
+    var cubes = [];            // Array of cube entities with physics & animation properties
+    var currentMode = 'vortex'; // 'vortex', 'wave', 'sphere', 'helix', 'attractor'
+    var animTime = 0;
+    var animSpeed = 1.0;
+    var spreadMult = 1.0;
+    var isPaused = false;
+    var autoOrbit = true;
+    var cameraAngle = 0;
+    var cameraDist = 260;
+
+    // Mouse Interaction
+    var mousePos = { x: 0, y: 0 };
+    var mouseWorld = { x: 0, y: 0 };
+    var shockwaveActive = false;
+
+    // =========================================================================
+    // Color Palettes
+    // =========================================================================
+    var PALETTES = [
+      {
+        name: 'SYNTHWAVE',
+        colors: [
+          [1.00, 0.00, 0.50], // Neon Magenta
+          [0.00, 0.94, 1.00], // Electric Cyan
+          [0.61, 0.00, 1.00], // Deep Violet
+          [1.00, 0.90, 0.00], // Laser Yellow
+          [1.00, 0.35, 0.00]  // Solar Orange
+        ]
+      },
+      {
+        name: 'CYBERPUNK',
+        colors: [
+          [0.00, 1.00, 0.55], // Neo Green
+          [0.00, 0.85, 1.00], // Cyan
+          [0.10, 0.15, 0.95], // Cyber Blue
+          [0.95, 0.05, 0.40], // Hot Pink
+          [0.70, 1.00, 0.00]  // Toxic Lime
+        ]
+      },
+      {
+        name: 'AURORA',
+        colors: [
+          [0.00, 0.96, 0.83], // Arctic Teal
+          [0.48, 0.17, 0.75], // Twilight Purple
+          [0.00, 0.73, 0.98], // Glacial Blue
+          [0.62, 0.94, 0.10], // Aurora Green
+          [0.98, 0.40, 0.85]  // Soft Orchid
+        ]
+      },
+      {
+        name: 'SOLAR FLARE',
+        colors: [
+          [1.00, 0.20, 0.00], // Inferno Red
+          [1.00, 0.55, 0.00], // Corona Orange
+          [1.00, 0.85, 0.10], // Golden Yellow
+          [0.95, 0.10, 0.35], // Crimson
+          [1.00, 1.00, 0.70]  // White Heat
+        ]
+      },
+      {
+        name: 'PRISM CHROMA',
+        dynamic: true // Generated on the fly with continuous HSV gradient
+      }
+    ];
+
+    var paletteIndex = 0;
+
+    // =========================================================================
+    // Web Audio Synthesizer (Generative ambient chime & explosion chords)
+    // =========================================================================
+    var audioCtx = null;
+    var audioEnabled = false;
+
+    function initAudio() {
+      if (!audioCtx) {
+        var AudioContext = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContext();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    function playTone(freq, type, duration, vol) {
+      if (!audioEnabled || !audioCtx) return;
+      try {
+        var osc = audioCtx.createOscillator();
+        var gain = audioCtx.createGain();
+        osc.type = type || 'sine';
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+
+        gain.gain.setValueAtTime(vol || 0.15, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch (e) {}
+    }
+
+    function playBurstSound() {
+      if (!audioEnabled || !audioCtx) return;
+      var notes = [261.63, 329.63, 392.00, 523.25, 659.25, 783.99]; // Pentatonic sweep
+      notes.forEach(function (n, idx) {
+        setTimeout(function () {
+          playTone(n * (1 + Math.random() * 0.1), 'triangle', 0.6, 0.18);
+        }, idx * 35);
+      });
+    }
+
+    // =========================================================================
+    // Math & Color Utilities
+    // =========================================================================
+    function hsvToRgb(h, s, v) {
+      var r, g, b;
+      var i = Math.floor(h * 6);
+      var f = h * 6 - i;
+      var p = v * (1 - s);
+      var q = v * (1 - f * s);
+      var t = v * (1 - (1 - f) * s);
+      switch (i % 6) {
+        case 0: r = v; g = t; b = p; break;
+        case 1: r = q; g = v; b = p; break;
+        case 2: r = p; g = v; b = t; break;
+        case 3: r = p; g = q; b = v; break;
+        case 4: r = t; g = p; b = v; break;
+        case 5: r = v; g = p; b = q; break;
+      }
+      return [r, g, b];
+    }
+
+    function lerp(a, b, t) {
+      return a + (b - a) * t;
+    }
+
+    function setCubePos(obj, x, y, z) {
+      var m = obj.transform.matrix;
+      m[12] = x;
+      m[13] = y;
+      m[14] = z;
+      obj.transform.modified();
+    }
+
+    function showToast(msg) {
+      var t = document.getElementById('toast');
+      t.innerText = msg;
+      t.classList.add('show');
+      clearTimeout(t.timer);
+      t.timer = setTimeout(function () {
+        t.classList.remove('show');
+      }, 1000);
+    }
+
+    // =========================================================================
+    // Core Formations Generator
+    // Computes target (x, y, z) for each cube given time and spread
+    // =========================================================================
+    function computeTargetPosition(index, total, mode, time, spread) {
+      var x = 0, y = 0, z = 0;
+      var t = time;
+
+      if (mode === 'vortex') {
+        // Double/Triple Spiral Galaxy Vortex
+        var arms = 3;
+        var armIndex = index % arms;
+        var progress = Math.floor(index / arms) / (total / arms);
+        var r = (15 + progress * 95) * spread;
+        var theta = progress * Math.PI * 4 + (armIndex * (Math.PI * 2 / arms)) + t * 0.8;
+        x = Math.cos(theta) * r;
+        y = Math.sin(theta) * r;
+        z = Math.sin(progress * Math.PI * 6 + t * 2) * 22 * spread;
+      }
+      else if (mode === 'wave') {
+        // 10x10 Cybernetic Wave Surface
+        var grid = Math.ceil(Math.sqrt(total)); // 10
+        var gx = (index % grid) - (grid - 1) / 2;
+        var gy = Math.floor(index / grid) - (grid - 1) / 2;
+        var spacing = 16 * spread;
+        x = gx * spacing;
+        y = gy * spacing;
+        var dist = Math.sqrt(gx * gx + gy * gy);
+        z = (Math.sin(dist * 0.9 - t * 3.0) + Math.cos(gx * 0.6 + t * 1.5)) * 24 * spread;
+      }
+      else if (mode === 'sphere') {
+        // Breathing Geodesic Fibonacci Sphere
+        var phi = Math.acos(1 - 2 * (index + 0.5) / total);
+        var goldenRatio = (1 + Math.sqrt(5)) / 2;
+        var theta = 2 * Math.PI * index / goldenRatio + t * 0.5;
+        var breath = 1.0 + 0.22 * Math.sin(t * 2.5 + (index % 5));
+        var radius = 75 * spread * breath;
+        x = radius * Math.sin(phi) * Math.cos(theta);
+        y = radius * Math.sin(phi) * Math.sin(theta);
+        z = radius * Math.cos(phi);
+      }
+      else if (mode === 'helix') {
+        // Rotating DNA Double Helix
+        var strand = index % 2;
+        var strandStep = Math.floor(index / 2);
+        var maxSteps = total / 2;
+        var height = (strandStep / maxSteps - 0.5) * 160 * spread;
+        var angle = strandStep * 0.35 + (strand * Math.PI) + t * 1.5;
+        var radius = 45 * spread;
+        x = Math.cos(angle) * radius;
+        y = height;
+        z = Math.sin(angle) * radius;
+      }
+      else if (mode === 'attractor') {
+        // Dynamic Lorenz Chaos Ribbon Flight
+        var step = index * 0.35 + t * 0.9;
+        var sigma = 10, rho = 28, beta = 8/3;
+        // Pseudo Lorenz path parametrization
+        var u = step * 0.4;
+        x = (Math.sin(u) * Math.cos(u * 1.6) * 75) * spread;
+        y = (Math.cos(u * 0.8) * 65) * spread;
+        z = ((Math.sin(u * 1.2) * Math.sin(u * 0.5) + 0.8) * 45) * spread - 30;
+      }
+
+      return { x: x, y: y, z: z };
+    }
+
+    // =========================================================================
+    // Cube Burst / Explosion Effect
+    // =========================================================================
+    function triggerBurst() {
+      playBurstSound();
+
+      // Screen shockwave flash
+      var sw = document.getElementById('shockwave');
+      sw.style.opacity = '0.65';
+      setTimeout(function () { sw.style.opacity = '0'; }, 220);
+
+      showToast('💥 QUANTUM BURST');
+
+      for (var i = 0; i < cubes.length; i++) {
+        var c = cubes[i];
+        // High explosive velocity radially outward
+        var angle = Math.random() * Math.PI * 2;
+        var elevation = (Math.random() - 0.5) * Math.PI;
+        var speed = 110 + Math.random() * 140;
+
+        c.vx = Math.cos(elevation) * Math.cos(angle) * speed;
+        c.vy = Math.cos(elevation) * Math.sin(angle) * speed;
+        c.vz = Math.sin(elevation) * speed;
+
+        // High spin tumble
+        c.spinX = (Math.random() - 0.5) * 20;
+        c.spinY = (Math.random() - 0.5) * 20;
+        c.spinZ = (Math.random() - 0.5) * 20;
+
+        c.burstFactor = 1.0;
+      }
+    }
+
+    // =========================================================================
+    // Initialization: XTK Scene & Cubes
+    // =========================================================================
+    window.onload = function () {
+      // Create XTK 3D Renderer
+      r = new X.renderer3D();
+      r.container = 'container';
+      r.init();
+
+      // Pure dark background with depth
+      r.bgColor = [0.02, 0.02, 0.04];
+
+      // Camera Configuration
+      r.camera.position = [0, 0, cameraDist];
+      CAMERAS.push(r.camera.view);
+
+      // Create 100 3D Cubes
+      for (var i = 0; i < NUM_CUBES; i++) {
+        var xc = new X.cube();
+        var cubeSize = 8.0 + (i % 3) * 2.0;
+
+        xc.lengthX = cubeSize;
+        xc.lengthY = cubeSize;
+        xc.lengthZ = cubeSize;
+        xc.color = [0.0, 0.9, 1.0];
+
+        // Initial target
+        var target = computeTargetPosition(i, NUM_CUBES, currentMode, 0, 1.0);
+        xc.center = [target.x, target.y, target.z];
+
+        r.add(xc);
+        ALL_OBJECTS.push(xc);
+
+        cubes.push({
+          obj: xc,
+          baseSize: cubeSize,
+          x: target.x,
+          y: target.y,
+          z: target.z,
+          vx: 0,
+          vy: 0,
+          vz: 0,
+          spinX: (Math.random() - 0.5) * 3,
+          spinY: (Math.random() - 0.5) * 3,
+          spinZ: (Math.random() - 0.5) * 3,
+          burstFactor: 0,
+          color: [0.0, 0.9, 1.0]
+        });
+      }
+
+      // =======================================================================
+      // Render Loop & Animation Frame
+      // =======================================================================
+      var lastTime = performance.now();
+      var frameCount = 0;
+      var lastFpsTime = lastTime;
+
+      r.onRender = function () {
+        var now = performance.now();
+        var dt = Math.min((now - lastTime) / 1000, 0.06);
+        lastTime = now;
+
+        // FPS Counter
+        frameCount++;
+        if (now - lastFpsTime >= 500) {
+          var fps = Math.round((frameCount * 1000) / (now - lastFpsTime));
+          document.getElementById('fpsVal').innerText = fps;
+          frameCount = 0;
+          lastFpsTime = now;
+        }
+
+        if (!isPaused) {
+          animTime += dt * animSpeed;
+        }
+
+        // Camera Auto-Orbit
+        if (autoOrbit && !isPaused) {
+          cameraAngle += dt * 0.35 * animSpeed;
+          var camX = Math.sin(cameraAngle) * cameraDist;
+          var camZ = Math.cos(cameraAngle) * cameraDist;
+          var camY = Math.sin(cameraAngle * 0.5) * 45;
+          r.camera.position = [camX, camY, camZ];
+        }
+
+        // Current Palette
+        var curPalette = PALETTES[paletteIndex];
+
+        // Animate each cube
+        for (var i = 0; i < cubes.length; i++) {
+          var c = cubes[i];
+          var target = computeTargetPosition(i, NUM_CUBES, currentMode, animTime, spreadMult);
+
+          if (c.burstFactor > 0.001) {
+            // Physics simulation during burst
+            c.x += c.vx * dt;
+            c.y += c.vy * dt;
+            c.z += c.vz * dt;
+
+            // Air drag
+            c.vx *= (1 - 2.0 * dt);
+            c.vy *= (1 - 2.0 * dt);
+            c.vz *= (1 - 2.0 * dt);
+
+            // Gravitational pull back to target formation
+            var pullStrength = (1.0 - c.burstFactor) * 8.0;
+            c.x = lerp(c.x, target.x, pullStrength * dt);
+            c.y = lerp(c.y, target.y, pullStrength * dt);
+            c.z = lerp(c.z, target.z, pullStrength * dt);
+
+            c.burstFactor -= dt * 0.65;
+            if (c.burstFactor < 0) c.burstFactor = 0;
+          } else {
+            // Smooth elastic easing towards formation target
+            var ease = 5.5 * dt;
+            c.x = lerp(c.x, target.x, ease);
+            c.y = lerp(c.y, target.y, ease);
+            c.z = lerp(c.z, target.z, ease);
+          }
+
+          // Mouse magnetic ripple when near
+          if (mousePos.active) {
+            var dx = c.x - mouseWorld.x;
+            var dy = c.y - mouseWorld.y;
+            var distSq = dx * dx + dy * dy;
+            if (distSq < 3200 && distSq > 1) { // 56 unit radius
+              var force = (1.0 - Math.sqrt(distSq) / 56) * 14;
+              c.x += (dx / Math.sqrt(distSq)) * force;
+              c.y += (dy / Math.sqrt(distSq)) * force;
+            }
+          }
+
+          setCubePos(c.obj, c.x, c.y, c.z);
+
+          // Kinetic Rotation & Tumbling
+          var rotX = (c.spinX + Math.sin(animTime + i)) * dt * 35;
+          var rotY = (c.spinY + Math.cos(animTime * 1.2 + i)) * dt * 45;
+          var rotZ = (c.spinZ) * dt * 25;
+          c.obj.transform.rotateX(rotX);
+          c.obj.transform.rotateY(rotY);
+          c.obj.transform.rotateZ(rotZ);
+
+          // Color Choreography
+          if (curPalette.dynamic) {
+            // Full Spectrum Prism
+            var hue = (animTime * 0.15 + (i / NUM_CUBES) + (c.z / 180)) % 1.0;
+            if (hue < 0) hue += 1.0;
+            c.obj.color = hsvToRgb(hue, 0.9, 1.0);
+          } else {
+            var colIdx = (i + Math.floor(animTime * 1.5)) % curPalette.colors.length;
+            var col = curPalette.colors[colIdx];
+            // Slight height-based tint modulation
+            var heightTint = Math.max(0.65, Math.min(1.2, 0.9 + c.z * 0.004));
+            c.obj.color = [
+              Math.min(1, col[0] * heightTint),
+              Math.min(1, col[1] * heightTint),
+              Math.min(1, col[2] * heightTint)
+            ];
+          }
+        }
+      };
+
+      r.render();
+
+      setupUIHandlers();
+    };
+
+    // =========================================================================
+    // UI Event Listeners & Interaction
+    // =========================================================================
+    function setupUIHandlers() {
+      // Mode Buttons
+      var modeButtons = document.querySelectorAll('.mode-btn');
+      modeButtons.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          setMode(this.getAttribute('data-mode'));
+        });
+      });
+
+      // Burst Button
+      document.getElementById('burstBtn').addEventListener('click', triggerBurst);
+
+      // Palette Cycle Button
+      document.getElementById('paletteBtn').addEventListener('click', cyclePalette);
+
+      // Orbit Toggle Button
+      var orbitBtn = document.getElementById('orbitBtn');
+      orbitBtn.addEventListener('click', function () {
+        autoOrbit = !autoOrbit;
+        this.classList.toggle('active', autoOrbit);
+        this.innerText = autoOrbit ? '🔄 Orbit: ON' : '🔄 Orbit: OFF';
+        showToast(autoOrbit ? 'ORBIT: ON' : 'ORBIT: FREE CAM');
+      });
+
+      // Audio Toggle Button
+      var audioBtn = document.getElementById('audioBtn');
+      audioBtn.addEventListener('click', function () {
+        initAudio();
+        audioEnabled = !audioEnabled;
+        this.classList.toggle('active', audioEnabled);
+        this.innerText = audioEnabled ? '🔊 Audio: ON' : '🔇 Audio: OFF';
+        if (audioEnabled) {
+          playTone(440, 'triangle', 0.4, 0.2);
+          showToast('AUDIO SYNTH: ON');
+        } else {
+          showToast('AUDIO SYNTH: OFF');
+        }
+      });
+
+      // Download scene.json (CS460 compatibility)
+      document.getElementById('downloadBtn').addEventListener('click', function () {
+        download();
+        showToast('SCENE SAVED');
+      });
+
+      // Pause/Play Button
+      var pauseBtn = document.getElementById('pauseBtn');
+      pauseBtn.addEventListener('click', togglePause);
+
+      // Speed Slider
+      var speedSlider = document.getElementById('speedSlider');
+      speedSlider.addEventListener('input', function () {
+        animSpeed = parseFloat(this.value) / 100;
+        document.getElementById('speedDisplay').innerText = animSpeed.toFixed(1) + '×';
+      });
+
+      // Expansion / Spread Slider
+      var spreadSlider = document.getElementById('spreadSlider');
+      spreadSlider.addEventListener('input', function () {
+        spreadMult = parseFloat(this.value) / 100;
+        document.getElementById('spreadDisplay').innerText = spreadMult.toFixed(1) + '×';
+      });
+
+      // HUD Toggle
+      var uiToggleBtn = document.getElementById('uiToggleBtn');
+      var hud = document.getElementById('hud');
+      var shortcutsHint = document.getElementById('shortcutsHint');
+
+      function toggleHUD() {
+        hud.classList.toggle('hidden');
+        shortcutsHint.classList.toggle('hidden');
+        uiToggleBtn.innerText = hud.classList.contains('hidden') ? '👁‍🗨' : '👁';
+      }
+      uiToggleBtn.addEventListener('click', toggleHUD);
+
+      // Mouse Move Tracking for Magnetic Repulsion
+      window.addEventListener('mousemove', function (e) {
+        mousePos.active = true;
+        // Map window coords to approx 3D world plane at z=0
+        var aspect = window.innerWidth / window.innerHeight;
+        mouseWorld.x = ((e.clientX / window.innerWidth) - 0.5) * 220 * aspect;
+        mouseWorld.y = -((e.clientY / window.innerHeight) - 0.5) * 220;
+      });
+
+      window.addEventListener('mouseleave', function () {
+        mousePos.active = false;
+      });
+
+      // Click to trigger Shockwave Impulse
+      window.addEventListener('click', function (e) {
+        // If clicking on UI, ignore shockwave
+        if (e.target.closest('#hud') || e.target.closest('#uiToggleBtn')) return;
+
+        initAudio();
+        playTone(330, 'sine', 0.35, 0.15);
+
+        // Radial impulse from mouse
+        for (var i = 0; i < cubes.length; i++) {
+          var c = cubes[i];
+          var dx = c.x - mouseWorld.x;
+          var dy = c.y - mouseWorld.y;
+          var dist = Math.sqrt(dx * dx + dy * dy) || 1;
+          if (dist < 120) {
+            var impulse = (1.0 - dist / 120) * 55;
+            c.vx += (dx / dist) * impulse;
+            c.vy += (dy / dist) * impulse;
+            c.vz += (Math.random() - 0.5) * impulse * 1.2;
+            c.burstFactor = Math.max(c.burstFactor, 0.45);
+          }
+        }
+      });
+
+      // Keyboard Shortcuts
+      window.addEventListener('keydown', function (e) {
+        var key = e.key.toLowerCase();
+        if (key === ' ') {
+          e.preventDefault();
+          togglePause();
+        } else if (key === 'm') {
+          cycleMode();
+        } else if (key === 'c') {
+          cyclePalette();
+        } else if (key === 'e') {
+          triggerBurst();
+        } else if (key === 'h') {
+          toggleHUD();
+        } else if (key === 'r') {
+          // Reset Camera
+          cameraAngle = 0;
+          r.camera.position = [0, 0, cameraDist];
+          showToast('CAMERA RESET');
+        } else if (key === 'd') {
+          download();
+        }
+      });
+    }
+
+    // =========================================================================
+    // Mode & Palette Switchers
+    // =========================================================================
+    var MODES = ['vortex', 'wave', 'sphere', 'helix', 'attractor'];
+
+    function setMode(mode) {
+      currentMode = mode;
+      var modeButtons = document.querySelectorAll('.mode-btn');
+      modeButtons.forEach(function (btn) {
+        btn.classList.toggle('active', btn.getAttribute('data-mode') === mode);
+      });
+
+      var names = {
+        vortex: '🌀 VORTEX GALAXY',
+        wave: '🌊 CYBER MATRIX',
+        sphere: '🔮 GEODESIC SPHERE',
+        helix: '🧬 DNA HELIX',
+        attractor: '✨ LORENZ CHAOS'
+      };
+
+      showToast(names[mode] || mode.toUpperCase());
+
+      if (audioEnabled) {
+        playTone(523.25, 'triangle', 0.3, 0.15);
+      }
+    }
+
+    function cycleMode() {
+      var nextIdx = (MODES.indexOf(currentMode) + 1) % MODES.length;
+      setMode(MODES[nextIdx]);
+    }
+
+    function cyclePalette() {
+      paletteIndex = (paletteIndex + 1) % PALETTES.length;
+      var pal = PALETTES[paletteIndex];
+      document.getElementById('paletteNameVal').innerText = pal.name;
+      showToast('PALETTE: ' + pal.name);
+
+      if (audioEnabled) {
+        playTone(659.25, 'sine', 0.25, 0.12);
+      }
+    }
+
+    function togglePause() {
+      isPaused = !isPaused;
+      var pauseBtn = document.getElementById('pauseBtn');
+      pauseBtn.classList.toggle('active', isPaused);
+      pauseBtn.innerText = isPaused ? '▶ Play' : '⏸ Pause';
+      showToast(isPaused ? 'PAUSED' : 'PLAYING');
+    }
+  </script>
+</body>
+</html>
