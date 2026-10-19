@@ -1,0 +1,739 @@
+<html>
+  <head>
+    <meta content="text/html;charset=utf-8" http-equiv="Content-Type">
+    <meta content="utf-8" http-equiv="encoding">
+    <title>WebGL Atari Breakout 1976</title>
+    <style>
+      html, body {
+        background-color:#000;
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden !important;
+        font-family: "Courier New", monospace;
+        color: #fff;
+      }
+
+      #c {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      /* HUD overlay drawn with HTML on top of the canvas */
+      #hud {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        padding: 12px 24px;
+        box-sizing: border-box;
+        display: flex;
+        justify-content: space-between;
+        pointer-events: none;      /* let clicks pass through to canvas */
+        font-size: 20px;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        user-select: none;
+      }
+
+      #hud .score { text-align: left; }
+      #hud .lives { text-align: right; }
+
+      /* Center banner for serve / game over / win messages */
+      #banner {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        pointer-events: none;
+        font-size: 28px;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+        user-select: none;
+        line-height: 1.6;
+      }
+
+      #banner .sub {
+        font-size: 16px;
+        letter-spacing: 2px;
+        opacity: 0.7;
+        margin-top: 10px;
+      }
+    </style>
+  </head>
+  <script type="text/javascript" src="https://cs460.org/js/glmatrix.js"></script>
+
+  <script id="vertexshader" type="glsl">
+    attribute vec3 a_position;
+
+    uniform vec3 u_offset;
+    uniform vec3 u_scale;
+
+    void main(void) {
+      // scale the unit quad first, then translate
+      vec3 final_position = a_position * u_scale;
+      final_position += u_offset;
+
+      gl_Position = vec4( final_position, 1.);
+    }
+  </script>
+
+  <script id="fragmentshader" type="glsl">
+    precision mediump float;
+
+    uniform vec4 u_color;
+
+    void main(void) {
+      gl_FragColor = u_color;
+    }
+  </script>
+
+  <script>
+
+    var c, gl;
+    var v_shader, f_shader, shaderprogram;
+    var unit_v_buffer, unit_i_buffer;
+
+    // cached locations
+    var a_position, u_offset, u_scale, u_color;
+
+    // HUD DOM elements
+    var hudScore, hudLives, banner;
+
+    // game objects
+    var rectangles;
+    var paddle, ball;
+    var bricks = [];
+
+    // input state
+    var keyLeft = false, keyRight = false;
+    var serveKey = false;
+
+    //==============================================================//
+    //
+    // GAME STATE
+    //
+    //==============================================================//
+
+    var SPEED_BASE = 0.014;
+    var SPEED_MULT = 1.30;
+    var SPEED_MAX  = 0.042;
+
+    // The 4 fixed paddle-hit angles (original arcade behaviour).
+    var ANGLE_SHALLOW = 0.577;   // tan(30 deg)
+    var ANGLE_STEEP   = 1.732;   // tan(60 deg)
+
+    var lives = 3;
+    var wallNumber = 1;
+    var score = 0;
+    var maxScore = 896;
+
+    var serving = true;
+    var gameOver = false;
+    var gameWon = false;
+
+    var paddleHits = 0;
+    var speedTier  = 1;
+    var canBreakBrick = true;
+    var paddleShrunk  = false;
+
+    // paddle dimensions
+    var PADDLE_W_FULL  = 0.30;
+    var PADDLE_W_HALF  = 0.15;
+    var PADDLE_H       = 0.04;
+
+    var BALL_SIZE = 0.04;
+
+    // Brick point values by row index (top row = 0). Rows come in pairs.
+    var ROW_POINTS = [7, 7, 5, 5, 3, 3, 1, 1];
+
+    var COLOR_YELLOW = [1.0, 1.0, 0.0, 1.0];
+    var COLOR_GREEN  = [0.0, 1.0, 0.0, 1.0];
+    var COLOR_ORANGE = [1.0, 0.5, 0.0, 1.0];
+    var COLOR_RED    = [1.0, 0.0, 0.0, 1.0];
+
+    var ROW_COLORS = [
+      COLOR_RED, COLOR_RED, COLOR_ORANGE, COLOR_ORANGE,
+      COLOR_GREEN, COLOR_GREEN, COLOR_YELLOW, COLOR_YELLOW
+    ];
+
+    // When true, ball bounces off bricks it isn't allowed to destroy
+    // When false, ball tunnels through them. Code based on the original 1976 behavior.
+    var BOUNCE_OFF_UNDESTROYABLE_BRICKS = true;
+
+
+    window.onload = function() {
+
+      //************************************************************//
+      //
+      // 0. GRAB HUD ELEMENTS
+      //
+      hudScore = document.getElementById( 'score' );
+      hudLives = document.getElementById( 'lives' );
+      banner   = document.getElementById( 'banner' );
+
+
+      //************************************************************//
+      //
+      // 1. INITIALIZE WEBGL
+      //
+      c = document.getElementById( 'c' );
+      c.width = window.innerWidth;
+      c.height = window.innerHeight;
+
+      gl = c.getContext( 'webgl' );
+      gl.viewport(0, 0, c.width, c.height );
+
+
+      //************************************************************//
+      //
+      // 2. SHADERS
+      //
+      v_shader = gl.createShader( gl.VERTEX_SHADER );
+      f_shader = gl.createShader( gl.FRAGMENT_SHADER );
+
+      gl.shaderSource( v_shader, document.getElementById( 'vertexshader' ).innerText );
+      gl.compileShader( v_shader );
+      if (!gl.getShaderParameter( v_shader, gl.COMPILE_STATUS)) {
+        console.log(gl.getShaderInfoLog( v_shader ));
+      }
+
+      gl.shaderSource( f_shader, document.getElementById( 'fragmentshader' ).innerText );
+      gl.compileShader( f_shader );
+      if (!gl.getShaderParameter( f_shader, gl.COMPILE_STATUS)) {
+        console.log(gl.getShaderInfoLog( f_shader ));
+      }
+
+      shaderprogram = gl.createProgram();
+      gl.attachShader( shaderprogram, v_shader );
+      gl.attachShader( shaderprogram, f_shader );
+      gl.linkProgram( shaderprogram );
+      gl.useProgram( shaderprogram );
+
+      a_position = gl.getAttribLocation( shaderprogram, 'a_position' );
+      u_offset   = gl.getUniformLocation( shaderprogram, 'u_offset' );
+      u_scale    = gl.getUniformLocation( shaderprogram, 'u_scale' );
+      u_color    = gl.getUniformLocation( shaderprogram, 'u_color' );
+
+
+      //************************************************************//
+      //
+      // 3. CREATES GEOMETRY
+      //
+      createUnitQuad();
+
+
+      //************************************************************//
+      //
+      // 4. BUILDS THE GAME SCENE
+      //
+      resetGame();
+
+
+      //************************************************************//
+      //
+      // 5. INPUT
+      //
+      window.addEventListener('keydown', function(e) {
+        if (e.key === 'ArrowLeft'  || e.key === 'a') keyLeft  = true;
+        if (e.key === 'ArrowRight' || e.key === 'd') keyRight = true;
+
+        if (e.key === ' ') {
+          e.preventDefault();
+          if (gameOver || gameWon) {
+            resetGame();
+          } else if (serving) {
+            serveKey = true;
+          }
+        }
+      });
+      window.addEventListener('keyup', function(e) {
+        if (e.key === 'ArrowLeft'  || e.key === 'a') keyLeft  = false;
+        if (e.key === 'ArrowRight' || e.key === 'd') keyRight = false;
+        if (e.key === ' ') serveKey = false;
+      });
+
+
+      //************************************************************//
+      //
+      // 6. DRAW
+      //
+      animate();
+
+    };
+
+
+    //************************************************************//
+    //
+    // HUD RENDERING
+    //
+    // Called whenever score/lives change, and once at startup.
+    // Also updates the center banner for serve / game-over / win.
+    //
+    function updateHUD() {
+
+      // ---- score ----
+      hudScore.textContent = 'SCORE  ' + padScore( score );
+
+      // ---- lives ----
+      // Draw the lives as small "ball" glyphs (circles) the arcade
+      // actually showed a number, but glyphs read better for a modern screen.
+      hudLives.textContent = 'LIVES  ' + livesAsGlyphs( lives );
+
+      // ---- center banner ----
+      if (gameOver) {
+        banner.innerHTML = 'GAME OVER' +
+          '<div class="sub">FINAL SCORE ' + padScore( score ) + '  -  PRESS SPACE TO RESTART</div>';
+        banner.style.display = 'block';
+      } else if (gameWon) {
+        banner.innerHTML = 'YOU WIN!' +
+          '<div class="sub">MAX SCORE ' + padScore( score ) + '  -  PRESS SPACE TO RESTART</div>';
+        banner.style.display = 'block';
+      } else if (serving) {
+        banner.innerHTML = 'PRESS SPACE TO SERVE';
+        banner.style.display = 'block';
+      } else {
+        banner.style.display = 'none';
+      }
+    }
+
+    // The arcade scores are 3-digit zero-padded. We will match that.
+    function padScore( n ) {
+      var s = '' + n;
+      while (s.length < 3) s = '0' + s;
+      return s;
+    }
+
+    // Render `lives` as filled ball glyphs.
+    function livesAsGlyphs( n ) {
+      var out = '';
+      for (var i = 0; i < n; i++) {
+        // U+25CF BLACK CIRCLE with a trailing space
+        out += '\u25CF ';
+      }
+      return out.trim();
+    }
+
+
+    //************************************************************//
+    //
+    // GEOMETRY
+    //
+    function createUnitQuad() {
+
+      var vertices = new Float32Array( [
+                                     -0.5,  0.5, 0.0,
+                                     -0.5, -0.5, 0.0,
+                                      0.5,  0.5, 0.0,
+                                      0.5, -0.5, 0.0
+                                    ] );
+
+      var indices = new Uint8Array( [ 0, 1, 2, 2, 1, 3 ] );
+
+      unit_v_buffer = gl.createBuffer();
+      gl.bindBuffer( gl.ARRAY_BUFFER, unit_v_buffer );
+      gl.bufferData( gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW );
+
+      unit_i_buffer = gl.createBuffer();
+      gl.bindBuffer( gl.ELEMENT_ARRAY_BUFFER, unit_i_buffer );
+      gl.bufferData( gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW );
+
+      gl.bindBuffer( gl.ARRAY_BUFFER, null );
+      gl.bindBuffer( gl.ELEMENT_ARRAY_BUFFER, null );
+    }
+
+
+    //************************************************************//
+    //
+    // OBJECT FACTORY
+    //
+    function makeObject(offset, scale, color) {
+      return {
+        offset: new Float32Array(offset),
+        scale:  new Float32Array(scale),
+        color:  new Float32Array(color),
+        alive:  true
+      };
+    }
+
+
+    //************************************************************//
+    //
+    // RESET / SETUP
+    //
+    function resetGame() {
+      lives = 3;
+      wallNumber = 1;
+      score = 0;
+      gameOver = false;
+      gameWon = false;
+      paddleShrunk = false;
+
+      buildScene();
+      startServe();
+      updateHUD();
+    }
+
+
+    function buildScene() {
+
+      rectangles = [];
+      bricks = [];
+
+      var pw = paddleShrunk ? PADDLE_W_HALF : PADDLE_W_FULL;
+      paddle = makeObject(
+        [0.0, -0.85, 0.0],
+        [pw, PADDLE_H, 1.0],
+        [1.0, 1.0, 1.0, 1.0]
+      );
+
+      ball = makeObject(
+        [0.0, -0.5, 0.0],
+        [BALL_SIZE, BALL_SIZE, 1.0],
+        [1.0, 1.0, 1.0, 1.0]
+      );
+      ball.vel = [0.0, 0.0];
+
+      buildBrickWall();
+
+      rectangles.push(paddle, ball);
+      for (var i = 0; i < bricks.length; i++) rectangles.push(bricks[i]);
+    }
+
+
+    // 8 rows x 14 cols = 112 bricks. Total points per wall = 448.
+    function buildBrickWall() {
+
+      var brick_w = 0.13, brick_h = 0.045;
+      var gap_x = 0.008, gap_y = 0.010;
+      var cols = 14, rows = 8;
+
+      var total_w = cols * brick_w + (cols - 1) * gap_x;
+      var start_x = -total_w / 2 + brick_w / 2;
+      var start_y = 0.88;
+
+      for (var r = 0; r < rows; r++) {
+        for (var col = 0; col < cols; col++) {
+          var bx = start_x + col * (brick_w + gap_x);
+          var by = start_y - r * (brick_h + gap_y);
+          var b = makeObject(
+            [bx, by, 0.0],
+            [brick_w, brick_h, 1.0],
+            ROW_COLORS[r]
+          );
+          b.points = ROW_POINTS[r];
+          b.rowIndex = r;
+          bricks.push(b);
+        }
+      }
+    }
+
+
+    //************************************************************//
+    //
+    // SERVE LOGIC
+    //
+    function startServe() {
+      serving = true;
+      ball.vel = [0.0, 0.0];
+      paddleHits = 0;
+      speedTier  = 1;
+      canBreakBrick = true;
+      ball.offset[0] = paddle.offset[0];
+      ball.offset[1] = paddle.offset[1] + PADDLE_H / 2 + BALL_SIZE / 2 + 0.001;
+    }
+
+    function launchBall() {
+      serving = false;
+      ball.vel = [0.0, SPEED_BASE];
+      updateHUD();
+    }
+
+
+    //************************************************************//
+    //
+    // DRAW ONE OBJECT
+    //
+    function drawObject(obj) {
+      gl.bindBuffer( gl.ARRAY_BUFFER, unit_v_buffer );
+      gl.bindBuffer( gl.ELEMENT_ARRAY_BUFFER, unit_i_buffer );
+
+      gl.vertexAttribPointer( a_position, 3, gl.FLOAT, false, 0, 0 );
+      gl.enableVertexAttribArray( a_position );
+
+      gl.uniform3fv( u_offset, obj.offset );
+      gl.uniform3fv( u_scale,  obj.scale );
+      gl.uniform4fv( u_color,  obj.color );
+
+      gl.drawElements( gl.TRIANGLES, 6, gl.UNSIGNED_BYTE, 0 );
+    }
+
+
+    //************************************************************//
+    //
+    // ANIMATE / UPDATE
+    //
+    function animate() {
+      requestAnimationFrame(animate);
+
+      if (!gameOver && !gameWon) {
+        updateGame();
+      }
+
+      gl.clearColor( 0., 0., 0., 1. );
+      gl.clear( gl.COLOR_BUFFER_BIT );
+
+      for (var i = 0; i < rectangles.length; i++) {
+        var obj = rectangles[i];
+        if (obj.alive === false) continue;
+        drawObject(obj);
+      }
+    }
+
+
+    //==============================================================//
+    //
+    // UPDATE LOOP
+    //
+    //==============================================================//
+    function updateGame() {
+
+      // ---- paddle input ----
+      var paddleSpeed = 0.03;
+      if (keyLeft)  paddle.offset[0] -= paddleSpeed;
+      if (keyRight) paddle.offset[0] += paddleSpeed;
+
+      var paddleHalfW = paddle.scale[0] / 2;
+      if (paddle.offset[0] < -1 + paddleHalfW) paddle.offset[0] = -1 + paddleHalfW;
+      if (paddle.offset[0] >  1 - paddleHalfW) paddle.offset[0] =  1 - paddleHalfW;
+
+      // ---- serve state ----
+      if (serving) {
+        ball.offset[0] = paddle.offset[0];
+        ball.offset[1] = paddle.offset[1] + PADDLE_H / 2 + BALL_SIZE / 2 + 0.001;
+        if (serveKey) {
+          serveKey = false;
+          launchBall();
+        }
+        return;
+      }
+
+      // ---- ball movement ----
+      // Save previous position for the paddle collision sweep test.
+      var prevBallY = ball.offset[1];
+
+      ball.offset[0] += ball.vel[0];
+      ball.offset[1] += ball.vel[1];
+
+      var ballHalf = BALL_SIZE / 2;
+
+      // ---- side-wall bounces ----
+      if (ball.offset[0] < -1 + ballHalf) {
+        ball.offset[0] = -1 + ballHalf;
+        ball.vel[0] = Math.abs(ball.vel[0]);
+      }
+      if (ball.offset[0] >  1 - ballHalf) {
+        ball.offset[0] =  1 - ballHalf;
+        ball.vel[0] = -Math.abs(ball.vel[0]);
+      }
+
+      // ---- top-wall bounce (shrinks paddle on first hit) ----
+      if (ball.offset[1] > 1 - ballHalf) {
+        ball.offset[1] = 1 - ballHalf;
+        ball.vel[1] = -Math.abs(ball.vel[1]);
+        canBreakBrick = true;   // reset per-trip flag
+
+        if (!paddleShrunk) {
+          shrinkPaddle();
+        }
+      }
+
+      // ---- bottom: lose a life ----
+      if (ball.offset[1] < -1 + ballHalf) {
+        lives--;
+        updateHUD();                 // <-- reflect the lost life
+        if (lives <= 0) {
+          gameOver = true;
+          ball.vel = [0.0, 0.0];
+          updateHUD();               // show GAME OVER banner
+          return;
+        }
+        startServe();
+        updateHUD();                 // show PRESS SPACE TO SERVE
+        return;
+      }
+
+      // ---- paddle collision (FIX #2: swept test) ----
+      var paddleTop    = paddle.offset[1] + paddle.scale[1] / 2;
+
+      var prevBottom = prevBallY - ballHalf;
+      var currBottom = ball.offset[1] - ballHalf;
+
+      var crossedPaddleTop = (prevBottom >= paddleTop - 0.0001) &&
+                             (currBottom <= paddleTop + 0.0001);
+      var withinPaddleX = Math.abs(ball.offset[0] - paddle.offset[0]) < paddleHalfW + ballHalf;
+
+      if (ball.vel[1] < 0 && crossedPaddleTop && withinPaddleX) {
+        ball.offset[1] = paddleTop + ballHalf + 0.001;
+
+        canBreakBrick = true;
+        paddleHits++;
+
+        if (paddleHits === 4 && speedTier < 2) {
+          speedTier = 2;
+          scaleBallSpeed(SPEED_MULT);
+        } else if (paddleHits === 12 && speedTier < 3) {
+          speedTier = 3;
+          scaleBallSpeed(SPEED_MULT);
+        }
+
+        applyFixedBounceAngle();
+      }
+
+      // ---- brick collision ----
+      for (var i = 0; i < bricks.length; i++) {
+        var b = bricks[i];
+        if (!b.alive) continue;
+
+        var dx = Math.abs(ball.offset[0] - b.offset[0]);
+        var dy = Math.abs(ball.offset[1] - b.offset[1]);
+        var overlapX = (b.scale[0] + BALL_SIZE) / 2;
+        var overlapY = (b.scale[1] + BALL_SIZE) / 2;
+
+        if (dx < overlapX && dy < overlapY) {
+
+          var penX = overlapX - dx;
+          var penY = overlapY - dy;
+
+          // Not allowed to destroy another brick on this trip (1976 gameplay restriction).
+          if (!canBreakBrick) {
+            if (BOUNCE_OFF_UNDESTROYABLE_BRICKS) {
+              if (penX < penY) {
+                ball.offset[0] += ball.vel[0] > 0 ? -penX : penX;
+                ball.vel[0] = -ball.vel[0];
+              } else {
+                ball.offset[1] += ball.vel[1] > 0 ? -penY : penY;
+                ball.vel[1] = -ball.vel[1];
+              }
+            }
+            break;
+          }
+
+          b.alive = false;
+          score += b.points;
+          canBreakBrick = false;
+          updateHUD();               // <-- reflect the score change
+
+          // Orange (5) or red (7) brick leading to immediate maximum speed.
+          if (b.points >= 5 && speedTier < 3) {
+            speedTier = 3;
+            setBallSpeedMagnitude(SPEED_MAX);
+          }
+
+          // Push out along incoming direction, then flip velocity.
+          if (penX < penY) {
+            ball.offset[0] += ball.vel[0] > 0 ? -penX : penX;
+            ball.vel[0] = -ball.vel[0];
+          } else {
+            ball.offset[1] += ball.vel[1] > 0 ? -penY : penY;
+            ball.vel[1] = -ball.vel[1];
+          }
+          break;
+        }
+      }
+
+      // ---- end-of-wall check ----
+      var remaining = 0;
+      for (var i = 0; i < bricks.length; i++) if (bricks[i].alive) remaining++;
+
+      if (remaining === 0) {
+        if (wallNumber === 1) {
+          wallNumber = 2;
+          paddleShrunk = false;
+          var keepPaddle = paddle;
+          var keepBall = ball;
+          rectangles = [];
+          bricks = [];
+          buildBrickWall();
+          rectangles.push(keepPaddle, keepBall);
+          for (var i = 0; i < bricks.length; i++) rectangles.push(bricks[i]);
+          startServe();
+          updateHUD();               // show PRESS SPACE TO SERVE
+        } else {
+          gameWon = true;
+          ball.vel = [0.0, 0.0];
+          updateHUD();               // show YOU WIN
+        }
+      }
+    }
+
+
+    //==============================================================//
+    //
+    // 1976 MECHANIC SYSTEM HELPERS
+    //
+    //==============================================================//
+
+    function applyFixedBounceAngle() {
+
+      var paddleHalfW = paddle.scale[0] / 2;
+      var rel = (ball.offset[0] - paddle.offset[0]) / paddleHalfW;
+
+      var absRel = Math.abs(rel);
+      var steep = absRel >= 0.5;
+      var slope = steep ? ANGLE_STEEP : ANGLE_SHALLOW;
+      var signX = rel < 0 ? -1 : 1;
+
+      var s = currentSpeed();
+      var vx = s / Math.sqrt(1 + slope * slope) * signX;
+      var vy = Math.abs(vx * slope);
+
+      ball.vel = [vx, vy];
+    }
+
+    function currentSpeed() {
+      var vx = ball.vel[0], vy = ball.vel[1];
+      var s = Math.sqrt(vx*vx + vy*vy);
+      return Math.min(Math.max(s, SPEED_BASE), SPEED_MAX);
+    }
+
+    function scaleBallSpeed(factor) {
+      var s = currentSpeed() * factor;
+      s = Math.min(s, SPEED_MAX);
+      setBallSpeedMagnitude(s);
+    }
+
+    function setBallSpeedMagnitude(s) {
+      s = Math.min(Math.max(s, SPEED_BASE), SPEED_MAX);
+      var vx = ball.vel[0], vy = ball.vel[1];
+      var mag = Math.sqrt(vx*vx + vy*vy);
+      if (mag < 1e-6) {
+        ball.vel = [0.0, s];
+        return;
+      }
+      var k = s / mag;
+      ball.vel = [vx * k, vy * k];
+    }
+
+    function shrinkPaddle() {
+      paddleShrunk = true;
+      paddle.scale[0] = PADDLE_W_HALF;
+      var halfW = paddle.scale[0] / 2;
+      if (paddle.offset[0] < -1 + halfW) paddle.offset[0] = -1 + halfW;
+      if (paddle.offset[0] >  1 - halfW) paddle.offset[0] =  1 - halfW;
+    }
+
+  </script>
+  <body>
+    <canvas id="c"></canvas>
+
+    <!-- HUD overlay (HTML on top of the WebGL canvas) -->
+    <div id="hud">
+      <div class="score" id="score">SCORE  000</div>
+      <div class="lives" id="lives">LIVES  &#9679; &#9679; &#9679;</div>
+    </div>
+    <div id="banner" style="display:none;"></div>
+  </body>
+</html>
