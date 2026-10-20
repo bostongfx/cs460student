@@ -1,0 +1,599 @@
+<html>
+
+<head>
+    <meta content="text/html;charset=utf-8" http-equiv="Content-Type">
+    <meta content="utf-8" http-equiv="encoding">
+    <title>Flashy Fish! — WebGPU</title>
+    <style>
+        html,
+        body {
+            background: url('https://cs460.org/assignments/04/bg.jpg');
+            background-size: cover;
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden !important;
+        }
+
+        #c {
+            width: 100%;
+            height: 100%;
+        }
+
+        .bubble-layer {
+            position: fixed;
+            inset: 0;
+            overflow: hidden;
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        .bubble {
+            position: absolute;
+            bottom: -30px;
+            left: var(--x);
+            width: var(--size);
+            height: var(--size);
+            border: 2px solid rgba(220, 250, 255, 0.65);
+            border-radius: 50%;
+            box-shadow: inset 2px 2px 5px rgba(220, 250, 255, 0.4);
+            animation: rise var(--duration) linear var(--delay) infinite;
+        }
+
+        @keyframes rise {
+            from {
+                transform: translateY(0);
+                opacity: 0;
+            }
+
+            10% {
+                opacity: 0.7;
+            }
+
+            90% {
+                opacity: 0.5;
+            }
+
+            to {
+                transform: translateY(-110vh);
+                opacity: 0;
+            }
+        }
+
+        .bubble:nth-child(1) {
+            --x: 8%;
+            --size: 12px;
+            --duration: 4s;
+            --delay: 0s;
+        }
+
+        .bubble:nth-child(2) {
+            --x: 22%;
+            --size: 20px;
+            --duration: 5s;
+            --delay: 2s;
+        }
+
+        .bubble:nth-child(3) {
+            --x: 39%;
+            --size: 10px;
+            --duration: 4.5s;
+            --delay: 4s;
+        }
+
+        .bubble:nth-child(4) {
+            --x: 58%;
+            --size: 17px;
+            --duration: 6s;
+            --delay: 1s;
+        }
+
+        .bubble:nth-child(5) {
+            --x: 76%;
+            --size: 13px;
+            --duration: 5.5s;
+            --delay: 3s;
+        }
+
+        .bubble:nth-child(6) {
+            --x: 91%;
+            --size: 22px;
+            --duration: 6.5s;
+            --delay: 5s;
+        }
+
+        .seaweed-layer {
+            position: fixed;
+            inset: 0;
+            overflow: hidden;
+            pointer-events: none;
+            z-index: 3;
+        }
+
+        .seaweed {
+            position: absolute;
+            bottom: -18px;
+            width: 22px;
+            height: 130px;
+            border-radius: 100% 0 70% 0;
+            background: linear-gradient(90deg,
+                    rgba(20, 100, 90, 0.25),
+                    rgba(75, 190, 145, 0.75),
+                    rgba(25, 110, 95, 0.35));
+            transform-origin: bottom center;
+            animation: seaweed-sway 3.5s ease-in-out infinite alternate;
+        }
+
+        .seaweed:nth-child(1) {
+            left: 3%;
+            height: 105px;
+            animation-delay: -1s;
+        }
+
+        .seaweed:nth-child(2) {
+            left: 7%;
+            height: 155px;
+            animation-duration: 4.5s;
+        }
+
+        .seaweed:nth-child(3) {
+            left: 12%;
+            height: 125px;
+            animation-delay: -2s;
+        }
+
+        .seaweed:nth-child(4) {
+            right: 7%;
+            height: 145px;
+            animation-duration: 4s;
+        }
+
+        .seaweed:nth-child(5) {
+            right: 3%;
+            height: 115px;
+            animation-delay: -1.5s;
+        }
+
+        @keyframes seaweed-sway {
+            from {
+                transform: rotate(-9deg);
+            }
+
+            to {
+                transform: rotate(9deg);
+            }
+        }
+
+        #soundButton {
+            position: fixed;
+            right: 18px;
+            bottom: 18px;
+            z-index: 5;
+            padding: 10px 14px;
+            color: white;
+            background: rgba(0, 35, 65, 0.8);
+            border: 1px solid rgba(220, 250, 255, 0.6);
+            border-radius: 20px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+
+
+<script id="wgslshader" type="text/wgsl">
+    struct FishUniforms {
+        transform: mat4x4<f32>,
+        color: vec4<f32>,
+    };
+
+    @group(0) @binding(0) var<uniform> fish: FishUniforms;
+
+    struct VertexInput {
+        @location(0) position: vec3<f32>,
+        @location(1) isEye: f32,
+    };
+
+    struct VertexOutput {
+        @builtin(position) position: vec4<f32>,
+        @location(0) color: vec4<f32>,
+    };
+
+    @vertex
+    fn vertexMain(input: VertexInput) -> VertexOutput {
+        var output: VertexOutput;
+        output.position = fish.transform * vec4<f32>(input.position, 1.0);
+        output.color = select(
+            fish.color,
+            vec4<f32>(0.02, 0.02, 0.03, 0.9),
+            input.isEye > 0.5
+        );
+        return output;
+    }
+
+    @fragment
+    fn fragmentMain(input: VertexOutput) -> @location(0) vec4<f32> {
+        return input.color;
+    }
+</script>
+
+<script>
+    var c;
+    var gpuDevice, gpuContext, renderPipeline, fishBindGroupLayout;
+    var fishVertexBuffer, uniformBuffer, fishBindGroup, fishUniformStride;
+    var all_fish = [];
+
+    var oceanAudioContext = null;
+    var lastEdgeToneTime = 0;
+
+    var bubbleSoundTimer = null;
+
+    function toggleOceanSound() {
+        var button = document.getElementById("soundButton");
+
+        if (!oceanAudioContext) {
+            oceanAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+            var buffer = oceanAudioContext.createBuffer(
+                1,
+                oceanAudioContext.sampleRate * 2,
+                oceanAudioContext.sampleRate
+            );
+            var data = buffer.getChannelData(0);
+
+            for (var i = 0; i < data.length; i++) { data[i] = (Math.random() * 2 - 1) * 0.25; } var
+                noise = oceanAudioContext.createBufferSource(); noise.buffer = buffer; noise.loop = true; var
+                    filter = oceanAudioContext.createBiquadFilter(); filter.type = "lowpass"; filter.frequency.value = 350; var
+                        oceanVolume = oceanAudioContext.createGain(); oceanVolume.gain.value = 0.025; noise.connect(filter);
+            filter.connect(oceanVolume); oceanVolume.connect(oceanAudioContext.destination); noise.start(); if
+                (bubbleSoundTimer === null) { bubbleSoundTimer = setInterval(playBubbleSound, 2800); }
+            button.textContent = "🔇 Mute ocean sound"; return;
+        } if (oceanAudioContext.state === "running") {
+            oceanAudioContext.suspend(); button.textContent = "🔊 Start ocean sound";
+        } else {
+            oceanAudioContext.resume();
+            button.textContent = "🔇 Mute ocean sound";
+        }
+    } function playEdgeSound() {
+        if (!oceanAudioContext ||
+            oceanAudioContext.state !== "running") return; var now = performance.now(); if (now - lastEdgeToneTime < 150) return;
+        lastEdgeToneTime = now; var time = oceanAudioContext.currentTime; var tone = oceanAudioContext.createOscillator(); var
+            volume = oceanAudioContext.createGain(); tone.type = "sine"; tone.frequency.setValueAtTime(520, time);
+        tone.frequency.exponentialRampToValueAtTime(260, time + 0.14); volume.gain.setValueAtTime(0.08, time);
+        volume.gain.exponentialRampToValueAtTime(0.001, time + 0.14); tone.connect(volume);
+        volume.connect(oceanAudioContext.destination); tone.start(time); tone.stop(time + 0.15);
+    } function
+        playBubbleSound() {
+        if (!oceanAudioContext || oceanAudioContext.state !== "running") return; var
+            time = oceanAudioContext.currentTime; var tone = oceanAudioContext.createOscillator(); var
+                volume = oceanAudioContext.createGain(); tone.type = "sine"; tone.frequency.setValueAtTime(420, time);
+        tone.frequency.exponentialRampToValueAtTime(700, time + 0.12); volume.gain.setValueAtTime(0.035, time);
+        volume.gain.exponentialRampToValueAtTime(0.001, time + 0.16); tone.connect(volume);
+        volume.connect(oceanAudioContext.destination); tone.start(time); tone.stop(time + 0.17);
+    }
+
+    window.onload = async function () {
+        c = document.getElementById("c");
+
+        if (!navigator.gpu) {
+            alert("WebGPU is not available. Open this page in a WebGPU-compatible browser using HTTPS or localhost.");
+            return;
+        }
+
+        const adapter = await navigator.gpu.requestAdapter();
+        if (!adapter) {
+            alert("Could not find a WebGPU graphics adapter.");
+            return;
+        }
+
+        gpuDevice = await adapter.requestDevice();
+        gpuContext = c.getContext("webgpu");
+
+        const format = navigator.gpu.getPreferredCanvasFormat();
+        gpuContext.configure({
+            device: gpuDevice,
+            format: format,
+            alphaMode: "premultiplied"
+        });
+
+        const shaderModule = gpuDevice.createShaderModule({
+            code: document.getElementById("wgslshader").textContent
+        });
+
+        fishBindGroupLayout = gpuDevice.createBindGroupLayout({
+            entries: [{
+                binding: 0,
+                visibility: GPUShaderStage.VERTEX,
+                buffer: {
+                    type: "uniform",
+                    hasDynamicOffset: true,
+                    minBindingSize: 80
+                }
+            }]
+        });
+
+        const pipelineLayout = gpuDevice.createPipelineLayout({
+            bindGroupLayouts: [fishBindGroupLayout]
+        });
+
+        renderPipeline = gpuDevice.createRenderPipeline({
+            layout: pipelineLayout,
+            vertex: {
+                module: shaderModule,
+                entryPoint: "vertexMain",
+                buffers: [{
+                    arrayStride: 16,
+                    attributes: [
+                        { shaderLocation: 0, offset: 0, format: "float32x3" },
+                        { shaderLocation: 1, offset: 12, format: "float32" }
+                    ]
+                }]
+            },
+            fragment: {
+                module: shaderModule,
+                entryPoint: "fragmentMain",
+                targets: [{
+                    format: format,
+                    blend: {
+                        color: {
+                            srcFactor: "src-alpha",
+                            dstFactor: "one-minus-src-alpha",
+                            operation: "add"
+                        },
+                        alpha: {
+                            srcFactor: "one",
+                            dstFactor: "one-minus-src-alpha",
+                            operation: "add"
+                        }
+                    }
+                }]
+            },
+            primitive: {
+                topology: "triangle-list",
+                cullMode: "none"
+            }
+        });
+        const geometry = buildFishGeometry();
+
+        fishVertexBuffer = gpuDevice.createBuffer({
+            size: geometry.byteLength,
+            usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
+        });
+        gpuDevice.queue.writeBuffer(fishVertexBuffer, 0, geometry);
+
+        const alignment = gpuDevice.limits.minUniformBufferOffsetAlignment;
+        fishUniformStride = Math.ceil(80 / alignment) * alignment;
+
+        uniformBuffer = gpuDevice.createBuffer({
+            size: fishUniformStride * 101,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+        });
+
+        fishBindGroup = gpuDevice.createBindGroup({
+            layout: fishBindGroupLayout,
+            entries: [{
+                binding: 0,
+                resource: {
+                    buffer: uniformBuffer,
+                    offset: 0,
+                    size: 80
+                }
+            }]
+        });
+
+        all_fish.push(createFish(
+            new Float32Array([0, 0, 0]),
+            new Float32Array([1, 0, 0, 1]),
+            1,
+            -1
+        ));
+
+        for (let i = 0; i < 100; i++) {
+            all_fish.push(createFish(
+                new Float32Array([Math.random() * 2 - 1, Math.random() * 2 - 1, 0]),
+                new Float32Array([Math.random(), Math.random(), Math.random(), Math.random()]),
+                Math.random() * 0.2 + 0.1,
+                1
+            ));
+        }
+
+        document.addEventListener("keydown", function (event) {
+            const bigFishOffset = all_fish[0][2];
+
+            if (event.key === "ArrowUp") {
+                bigFishOffset[1] += 0.05;
+            } else if (event.key === "ArrowDown") {
+                bigFishOffset[1] -= 0.05;
+            } else {
+                return;
+            }
+
+            event.preventDefault();
+        });
+
+        document.getElementById("soundButton")
+            .addEventListener("click", toggleOceanSound);
+
+        animate();
+    };
+
+    function createFish(offset, color, scale, direction) {
+        if (scale === undefined) scale = 1.0;
+
+        if (direction === undefined) {
+            direction = new Float32Array([-1, -1]);
+        } else if (typeof direction === "number") {
+            direction = new Float32Array([direction, direction]);
+        } else if (Array.isArray(direction)) {
+            direction = new Float32Array(direction);
+        }
+
+        return [null, null, offset, color, scale, direction, null];
+    }
+
+    function buildFishGeometry() {
+        const points = [
+            [0.5, 0.0, 0.0],
+            [0.2, 0.25, 0.0],
+            [-0.2, 0.15, 0.0],
+            [-0.4, 0.3, 0.0],
+            [-0.4, -0.3, 0.0],
+            [-0.2, -0.15, 0.0],
+            [0.2, -0.25, 0.0]
+        ];
+
+        const triangles = [
+            0, 1, 6, 1, 2, 6, 2, 5, 6,
+            2, 3, 5, 3, 4, 5
+        ];
+
+        const data = [];
+
+        for (const index of triangles) {
+            data.push(points[index][0], points[index][1], points[index][2], 0);
+        }
+
+        const centerX = 0.2;
+        const centerY = 0.2;
+        const radius = 0.035;
+        const sides = 12;
+
+        for (let i = 0; i < sides; i++) {
+            const angle1 = (i / sides) * Math.PI * 2;
+            const angle2 = ((i + 1) / sides) * Math.PI * 2;
+
+            data.push(centerX, centerY, 0, 1);
+            data.push(
+                centerX + Math.cos(angle1) * radius,
+                centerY + Math.sin(angle1) * radius,
+                0, 1
+            );
+            data.push(
+                centerX + Math.cos(angle2) * radius,
+                centerY + Math.sin(angle2) * radius,
+                0, 1
+            );
+        }
+
+        return new Float32Array(data);
+    }
+
+    var step_x = .01;
+    var step_y = .01;
+
+    function animate() {
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const width = Math.max(1, Math.floor(c.clientWidth * dpr));
+        const height = Math.max(1, Math.floor(c.clientHeight * dpr));
+
+        if (c.width !== width || c.height !== height) {
+            c.width = width;
+            c.height = height;
+        }
+
+        const uniformData = new ArrayBuffer(fishUniformStride * all_fish.length);
+        const view = new DataView(uniformData);
+        const time = performance.now() * 0.001;
+
+        for (let r = 0; r < all_fish.length; r++) {
+            const current = all_fish[r];
+            const offset = current[2];
+            const color = current[3];
+            const scale = current[4];
+            const direction = current[5];
+
+            if (offset[0] >= 1) {
+                if (r === 0) playEdgeSound();
+                direction[0] = -1;
+            } else if (offset[0] <= -1) {
+                if (r === 0) playEdgeSound();
+                direction[0] = 1;
+            }
+
+            offset[0] += direction[0] * step_x;
+            offset[1] += (Math.random() - 0.5) * 0.03;
+            offset[1] = Math.max(-1, Math.min(1, offset[1]));
+
+            const theta = r === 0 ? 0 : 5 * Math.PI / 180;
+            const cos = Math.cos(theta);
+            const sin = Math.sin(theta);
+
+            const matrix = [
+                direction[0] * scale * cos, scale * sin, 0, 0,
+                -direction[0] * scale * sin, scale * cos, 0, 0,
+                0, 0, scale, 0,
+                offset[0], offset[1], 0, 1
+            ];
+
+            const base = r * fishUniformStride;
+            for (let i = 0; i < 16; i++) {
+                view.setFloat32(base + i * 4, matrix[i], true);
+            }
+
+            let drawColor;
+            if (r === 0) {
+                drawColor = [1, 0, 0, 0.7];
+            } else {
+                drawColor = [
+                    0.3 + 0.2 * Math.sin(time),
+                    0.6 + 0.2 * Math.sin(time + 2),
+                    0.9 + 0.1 * Math.sin(time + 4),
+                    0.6 + 0.4 * Math.sin(time * 2)
+                ];
+            }
+
+            for (let i = 0; i < 4; i++) {
+                view.setFloat32(base + 64 + i * 4, drawColor[i], true);
+            }
+        }
+
+        gpuDevice.queue.writeBuffer(uniformBuffer, 0, uniformData);
+
+        const encoder = gpuDevice.createCommandEncoder();
+        const pass = encoder.beginRenderPass({
+            colorAttachments: [{
+                view: gpuContext.getCurrentTexture().createView(),
+                clearValue: { r: 0, g: 0, b: 0, a: 0 },
+                loadOp: "clear",
+                storeOp: "store"
+            }]
+        });
+
+        pass.setPipeline(renderPipeline);
+        pass.setVertexBuffer(0, fishVertexBuffer);
+
+        for (let r = 0; r < all_fish.length; r++) {
+            pass.setBindGroup(0, fishBindGroup, [r * fishUniformStride]);
+            pass.draw(51);
+        }
+
+        pass.end();
+        gpuDevice.queue.submit([encoder.finish()]);
+        requestAnimationFrame(animate);
+    }
+</script>
+
+<body>
+    <canvas id="c"></canvas>
+
+    <div class="bubble-layer">
+        <i class="bubble"></i>
+        <i class="bubble"></i>
+        <i class="bubble"></i>
+        <i class="bubble"></i>
+        <i class="bubble"></i>
+        <i class="bubble"></i>
+    </div>
+
+    <div class="seaweed-layer">
+        <i class="seaweed"></i>
+        <i class="seaweed"></i>
+        <i class="seaweed"></i>
+        <i class="seaweed"></i>
+        <i class="seaweed"></i>
+    </div>
+
+    <button id="soundButton">🔊 Start ocean sound</button>
+</body>
+
+</html>
