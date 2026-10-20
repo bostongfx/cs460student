@@ -1,0 +1,689 @@
+<html>
+
+<head>
+    <style>
+        html,
+        body {
+            background-color: #000;
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden !important;
+        }
+
+        #gameboy {
+            background: url("https://cs460.org/assignments/breakout/gameboy_bg.jpg");
+            width: 1200px;
+            height: 675px;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        #c {
+            width: 600px;
+            height: 360px;
+            position: absolute;
+            top: 53%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .top_bar {
+            color: rgb(0, 255, 0);
+            font-size: 30px;
+            font-weight: bolder;
+            display: inline-block;
+        }
+
+        #score {
+            position: absolute;
+            top: 148px;
+            left: 520px;
+        }
+
+        #score_name {
+            position: absolute;
+            top: 148px;
+            left: 400px;
+        }
+
+        #lives {
+            position: absolute;
+            top: 148px;
+            left: 820px;
+        }
+
+        #lives_name {
+            position: absolute;
+            top: 148px;
+            left: 700px;
+        }
+
+        /* MAGIC: little pop when score or lives change */
+        .bump {
+            animation: bump 0.3s ease-out;
+        }
+
+        .hurt {
+            animation: hurt 0.5s ease-out;
+        }
+
+        @keyframes bump {
+            0% { transform: scale(1.5); color: #fff; }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes hurt {
+            0% { transform: scale(1.5); color: #f33; }
+            100% { transform: scale(1); }
+        }
+
+        /* MAGIC: serve hint */
+        #hint {
+            position: absolute;
+            top: 470px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgb(0, 255, 0);
+            font-family: monospace;
+            font-size: 18px;
+            font-weight: bold;
+            letter-spacing: 2px;
+            animation: blink 1s steps(2, start) infinite;
+        }
+
+        @keyframes blink {
+            to { visibility: hidden; }
+        }
+
+        .result {
+            width: 300px;
+            height: 300px;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: none;
+        }
+
+        #overlay {
+            background-color: rgba(0, 0, 0, 0.7);
+            position: absolute;
+            top: 0px;
+            left: 0px;
+            width: 100%;
+            height: 100%;
+            z-index: 1000;
+            display: none;
+        }
+    </style>
+
+    <script id="vertexshader" type="glsl">
+      attribute vec3 position;
+
+      uniform mat4 transform;
+      uniform float pointsize;
+
+      varying vec2 v_local; // untransformed vertex position, used for shading
+
+      void main(void) {
+
+        vec4 final_position = transform * vec4( position, 1.);
+
+        gl_Position = final_position;
+
+        gl_PointSize = pointsize;
+
+        v_local = position.xy;
+
+      }
+    </script>
+
+    <script id="fragmentshader" type="glsl">
+      precision mediump float;
+
+      uniform vec4 color;
+      uniform int shape;     // 0 = rectangle, 1 = round point
+      uniform vec2 halfsize; // half width / half height of a rectangle
+
+      varying vec2 v_local;
+
+      void main(void) {
+
+        if (shape == 1) {
+
+          // MAGIC: turn the square point into a soft glowing circle
+          vec2 p = gl_PointCoord * 2. - 1.;
+          float d = dot(p, p);
+          if (d > 1.) discard;
+          float glow = 1. - d;
+          gl_FragColor = vec4(color.rgb * (0.7 + 0.5 * glow), color.a * smoothstep(0., 0.35, glow));
+
+        } else {
+
+          // MAGIC: vertical gradient (lighter on top) plus a darker bevel edge
+          float t = v_local.y / halfsize.y;
+          vec3 c = color.rgb * (0.8 + 0.3 * t);
+
+          vec2 d = halfsize - abs(v_local);
+          float edge = min(d.x, d.y);
+          c *= mix(0.55, 1., smoothstep(0., 0.012, edge));
+
+          gl_FragColor = vec4(c, color.a);
+
+        }
+
+      }
+    </script>
+
+    <script>
+        window.onload = function () {
+            //************************************************************//
+            //
+            // INITIALIZE WEBGL
+            //
+            c = document.getElementById("c"); // setup canvas
+
+            // MAGIC: render at full resolution (the default canvas is only 300x150)
+            DPR = window.devicePixelRatio || 1;
+            c.width = 600 * DPR;
+            c.height = 360 * DPR;
+
+            gl = c.getContext("webgl"); // setup GL context
+            gl.viewport(0, 0, c.width, c.height);
+
+            // MAGIC: alpha blending for fading trails and particles
+            gl.enable(gl.BLEND);
+            gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+            //************************************************************//
+            //
+            // SHADERS
+            //
+            v_shader = gl.createShader(gl.VERTEX_SHADER);
+            f_shader = gl.createShader(gl.FRAGMENT_SHADER);
+
+            // compile vertex shader
+            gl.shaderSource(
+                v_shader,
+                document.getElementById("vertexshader").innerText
+            );
+            gl.compileShader(v_shader);
+            if (!gl.getShaderParameter(v_shader, gl.COMPILE_STATUS)) {
+                console.log(gl.getShaderInfoLog(v_shader));
+            } else {
+                console.log("Vertex Shader compiled!");
+            }
+
+            // compile fragment shader
+            gl.shaderSource(
+                f_shader,
+                document.getElementById("fragmentshader").innerText
+            );
+            gl.compileShader(f_shader);
+            if (!gl.getShaderParameter(f_shader, gl.COMPILE_STATUS)) {
+                console.log(gl.getShaderInfoLog(f_shader));
+            } else {
+                console.log("Fragment Shader compiled!");
+            }
+
+            // attach and link the shaders
+            shaderprogram = gl.createProgram();
+            gl.attachShader(shaderprogram, v_shader);
+            gl.attachShader(shaderprogram, f_shader);
+
+            gl.linkProgram(shaderprogram);
+
+            gl.useProgram(shaderprogram);
+
+            // MAGIC: look up shader locations once instead of every draw
+            a_position = gl.getAttribLocation(shaderprogram, "position");
+            u_color = gl.getUniformLocation(shaderprogram, "color");
+            u_transform = gl.getUniformLocation(shaderprogram, "transform");
+            u_pointsize = gl.getUniformLocation(shaderprogram, "pointsize");
+            u_shape = gl.getUniformLocation(shaderprogram, "shape");
+            u_halfsize = gl.getUniformLocation(shaderprogram, "halfsize");
+
+            STOPPED = false;
+
+            // MAGIC: game feel state
+            KEYS = {};          // which keys are held down
+            SERVING = true;     // ball sits on the paddle until SPACE
+            BALLSPEED = 1.1;    // units per second
+            TRAIL = [];         // previous ball positions
+            PARTICLES = [];     // brick debris
+            SHAKE = 0;          // screen shake strength
+            LAST_TIME = 0;
+
+            BALL_SIZE = 12;                  // pixels
+            BALL_RX = (BALL_SIZE / 2) / 300; // radius in clip space (canvas is 600x360)
+            BALL_RY = (BALL_SIZE / 2) / 180;
+
+            OBJECTS = [];
+            OBJECTS.push(createPaddle([0.55, 0.9, 1, 1], [0, -0.9, 0])); // BOTTOM PADDLE
+            OBJECTS.push(createBall([1, 1, 1, 1], [0, 0, 0])); // BALL
+            createBricks(); // ADD BRICKS
+
+            resetBall();
+
+            requestAnimationFrame(animate);
+        };
+
+        //
+        // Every object is an array:
+        // [v_buffer, i_buffer, color, offset, vertexcount, primitive, score, size]
+        // size is [halfwidth, halfheight] for rectangles and a pixel size for points.
+        //
+
+        function createGeometry(vertices, indices) {
+            v_buffer = gl.createBuffer(); // create
+            gl.bindBuffer(gl.ARRAY_BUFFER, v_buffer); // bind
+            gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW); // put data in
+            gl.bindBuffer(gl.ARRAY_BUFFER, null); // unbind
+
+            i_buffer = gl.createBuffer(); // create
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, i_buffer); // bind
+            gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW); // put data in
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null); // unbind
+
+            return [v_buffer, i_buffer];
+        }
+
+        function createPaddle(color, offset) {
+            //************************************************************//
+            //
+            // CREATE GEOMETRY
+            //
+            vertices = new Float32Array([
+                -0.1, 0.05, 0.0, // V0      // 0
+                -0.1, -0.05, 0.0, // V1, V4  // 1
+                0.1, 0.05, 0.0, // V2, V3  // 2
+                0.1, -0.05, 0.0  // V5      // 3
+            ]);
+
+            indices = new Uint8Array([0, 1, 2,     // Triangle 1
+                2, 1, 3]); // Triangle 2
+
+            buffers = createGeometry(vertices, indices);
+
+            return [buffers[0], buffers[1], color, offset, 6, gl.TRIANGLES, 0, [0.1, 0.05]];
+        }
+
+        function createBall(color, offset) {
+            //************************************************************//
+            //
+            // CREATE GEOMETRY
+            //
+            // MAGIC: the point geometry is shared by the ball, its trail and the particles
+            if (typeof POINT_GEOMETRY == "undefined") {
+                POINT_GEOMETRY = createGeometry(
+                    new Float32Array([0.0, 0.0, 0.0]), // V0 // 0
+                    new Uint8Array([0])
+                );
+            }
+
+            return [POINT_GEOMETRY[0], POINT_GEOMETRY[1], color, offset, 1, gl.POINTS, 0, BALL_SIZE];
+        }
+
+        function createBrick(color, offset, score) {
+            //************************************************************//
+            //
+            // CREATE GEOMETRY
+            //
+            // MAGIC: all bricks share one set of buffers instead of 36 copies
+            if (typeof BRICK_GEOMETRY == "undefined") {
+                BRICK_GEOMETRY = createGeometry(
+                    new Float32Array([
+                        -0.095, 0.05, 0.0, // V0      // 0
+                        -0.095, -0.05, 0.0, // V1, V4  // 1
+                        0.095, 0.05, 0.0, // V2, V3  // 2
+                        0.095, -0.05, 0.0, // V5      // 3
+                    ]),
+                    new Uint8Array([0, 1, 2, // Triangle 1
+                        2, 1, 3]) // Triangle 2
+                );
+            }
+
+            return [BRICK_GEOMETRY[0], BRICK_GEOMETRY[1], color, offset, 6, gl.TRIANGLES, score, [0.095, 0.05]];
+        }
+
+        // MAGIC: random but always bright colors (random hue, fixed saturation / value)
+        function randomColor() {
+            var h = Math.random() * 6;
+            var i = Math.floor(h);
+            var f = h - i;
+            var s = 0.7;
+            var p = 1 - s, q = 1 - s * f, t = 1 - s * (1 - f);
+            var rgb = [[1, t, p], [q, 1, p], [p, 1, t], [p, q, 1], [t, p, 1], [1, p, q]][i];
+            return [rgb[0], rgb[1], rgb[2], 1];
+        }
+
+        function createBricks() {
+            offset_x = -0.8
+            offset_y = 0.9
+            for (let i = 0; i < 4; i++) {
+                for (let j = 0; j < 9; j++) {
+                    color = randomColor() // RANDOM COLOR
+                    OBJECTS.push(createBrick(color, [offset_x, offset_y, 0], 4 - i))
+                    offset_x += 0.2
+                }
+                offset_x = -0.8
+                offset_y -= 0.14
+            }
+        }
+
+        function draw(current, shake_x, shake_y) {
+            var v_buffer = current[0];
+            var i_buffer = current[1];
+            var COLOR = current[2];
+            var OFFSET = current[3];
+            var VERTEXCOUNT = current[4];
+            var PRIMITIVE = current[5];
+            var SIZE = current[7];
+
+            //************************************************************//
+            //
+            // CONNECT SHADER WITH GEOMETRY
+            //
+            gl.bindBuffer(gl.ARRAY_BUFFER, v_buffer);
+
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, i_buffer);
+
+            gl.vertexAttribPointer(a_position, 3, gl.FLOAT, false, 0, 0);
+
+            gl.enableVertexAttribArray(a_position);
+
+            gl.uniform4fv(u_color, new Float32Array(COLOR));
+
+            if (PRIMITIVE == gl.POINTS) {
+                gl.uniform1i(u_shape, 1);
+                gl.uniform1f(u_pointsize, SIZE * DPR);
+            } else {
+                gl.uniform1i(u_shape, 0);
+                gl.uniform2fv(u_halfsize, new Float32Array(SIZE));
+                gl.uniform1f(u_pointsize, 1.);
+            }
+
+            current_transform = new Float32Array([
+                1, 0, 0, 0,
+                0, 1, 0, 0,
+                0, 0, 1, 0,
+                OFFSET[0] + shake_x, OFFSET[1] + shake_y, 0, 1,
+            ]);
+
+            gl.uniformMatrix4fv(u_transform, false, current_transform);
+
+            //************************************************************//
+            //
+            // DRAW!
+            //
+            gl.drawElements(PRIMITIVE, VERTEXCOUNT, gl.UNSIGNED_BYTE, 0);
+        }
+
+        function animate(now) {
+            if (STOPPED) {
+                return;
+            }
+
+            requestAnimationFrame(animate);
+
+            // MAGIC: time-based movement, so the game runs the same speed at 60Hz and 120Hz
+            var dt = LAST_TIME ? Math.min((now - LAST_TIME) / 1000, 1 / 30) : 0;
+            LAST_TIME = now;
+
+            // CLEAR NOW BEFORE ANY DRAWING
+            gl.clearColor(0, 0, 0, 0);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+
+            updatePaddle(dt);
+            updateBall(dt);
+            updateParticles(dt);
+
+            // MAGIC: screen shake fades out
+            var shake_x = (Math.random() - 0.5) * SHAKE;
+            var shake_y = (Math.random() - 0.5) * SHAKE;
+            SHAKE = Math.max(0, SHAKE - dt * 0.15);
+
+            // bricks and paddle
+            for (var o = 0; o < OBJECTS.length; o++) {
+                if (o == 1) continue; // ball is drawn last, on top
+                draw(OBJECTS[o], shake_x, shake_y);
+            }
+
+            // MAGIC: particles
+            for (var p = 0; p < PARTICLES.length; p++) {
+                draw(PARTICLES[p], shake_x, shake_y);
+            }
+
+            // MAGIC: fading ball trail
+            var ball = OBJECTS[1];
+            for (var t = 0; t < TRAIL.length; t++) {
+                var k = (t + 1) / (TRAIL.length + 1);
+                draw([ball[0], ball[1], [0.6, 0.9, 1, 0.35 * k], TRAIL[t], 1, gl.POINTS, 0, BALL_SIZE * (0.4 + 0.6 * k)],
+                    shake_x, shake_y);
+            }
+
+            // MAGIC: glow halo, then the ball itself
+            draw([ball[0], ball[1], [0.6, 0.9, 1, 0.25], ball[3], 1, gl.POINTS, 0, BALL_SIZE * 2.5], shake_x, shake_y);
+            draw(ball, shake_x, shake_y);
+        }
+
+        function resetBall() {
+            // MAGIC: instead of respawning in the center, the ball waits on the paddle
+            SERVING = true;
+            TRAIL = [];
+            BALLSPEED = 1.1;
+            OBJECTS[1][3][0] = OBJECTS[0][3][0];
+            OBJECTS[1][3][1] = -0.85 + BALL_RY;
+            document.getElementById("hint").style.display = "block";
+        }
+
+        function launchBall() {
+            SERVING = false;
+            // straight up, tilted a little left or right
+            BALLDIRECTION = Math.PI / 2 + (Math.random() - 0.5) * 0.8;
+            document.getElementById("hint").style.display = "none";
+        }
+
+        function pop(id, cls) {
+            var el = document.getElementById(id);
+            el.classList.remove(cls);
+            void el.offsetWidth; // restart the css animation
+            el.classList.add(cls);
+        }
+
+        function score(score_value) {
+            var old_score = document.getElementById("score").innerText;
+            document.getElementById("score").innerText = parseInt(old_score) + score_value;
+            pop("score", "bump");
+            if (OBJECTS.length == 2) { //IF ALL BRICKS DESTROYED CREATE MORE
+                createBricks();
+            }
+        }
+
+        function loseLife() {
+            var old_life = document.getElementById("lives").innerText;
+            document.getElementById("lives").innerText = parseInt(old_life) - 1;
+            pop("lives", "hurt");
+            SHAKE = 0.06;
+            if (old_life == 1) {
+                STOPPED = true;
+                document.getElementById("hint").style.display = "none";
+                document.getElementById("overlay").style.display = "block";
+                document.getElementById("game_over").style.display = "block";
+            }
+        }
+
+        // MAGIC: debris flying out of a broken brick
+        function explode(x, y, color) {
+            for (var n = 0; n < 16; n++) {
+                var angle = Math.random() * Math.PI * 2;
+                var speed = 0.3 + Math.random() * 0.6;
+                var life = 0.4 + Math.random() * 0.4;
+                PARTICLES.push([
+                    POINT_GEOMETRY[0], POINT_GEOMETRY[1],
+                    [color[0], color[1], color[2], 1],
+                    [x + (Math.random() - 0.5) * 0.15, y + (Math.random() - 0.5) * 0.08, 0],
+                    1, gl.POINTS, 0, 3 + Math.random() * 4,
+                    [Math.cos(angle) * speed, Math.sin(angle) * speed], // velocity
+                    life, life // remaining life, max life
+                ]);
+            }
+        }
+
+        function updateParticles(dt) {
+            for (var p = PARTICLES.length - 1; p >= 0; p--) {
+                var part = PARTICLES[p];
+                part[8][1] -= 2.5 * dt; // gravity
+                part[3][0] += part[8][0] * dt;
+                part[3][1] += part[8][1] * dt;
+                part[9] -= dt;
+                part[2][3] = Math.max(0, part[9] / part[10]); // fade out
+                if (part[9] <= 0) {
+                    PARTICLES.splice(p, 1);
+                }
+            }
+        }
+
+        // MAGIC: smooth movement while an arrow key is held
+        function updatePaddle(dt) {
+            var PADDLE_SPEED = 2.0; // units per second
+            var LIMIT = 0.9; // 1 - half the paddle width
+
+            if (KEYS["ArrowLeft"]) {
+                OBJECTS[0][3][0] = Math.max(OBJECTS[0][3][0] - PADDLE_SPEED * dt, -LIMIT);
+            }
+            if (KEYS["ArrowRight"]) {
+                OBJECTS[0][3][0] = Math.min(OBJECTS[0][3][0] + PADDLE_SPEED * dt, LIMIT);
+            }
+        }
+
+        function updateBall(dt) {
+            if (SERVING) {
+                // ball rides on the paddle
+                OBJECTS[1][3][0] = OBJECTS[0][3][0];
+                OBJECTS[1][3][1] = -0.85 + BALL_RY;
+                return;
+            }
+
+            BALL_X = OBJECTS[1][3][0];
+            BALL_Y = OBJECTS[1][3][1];
+
+            BOTTOM_PADDLE_X = OBJECTS[0][3][0];
+            BOTTOM_PADDLE_WIDTH = 0.2;
+            BOTTOM_PADDLE_TOP = -0.85;
+
+            var DX = Math.cos(BALLDIRECTION);
+            var DY = Math.sin(BALLDIRECTION);
+
+            // MAGIC: walls use the ball's radius and only bounce when moving toward them,
+            // so the ball can never get stuck inside a wall
+            if (BALL_X >= 1 - BALL_RX && DX > 0) {
+                // RIGHT WALL
+                BALLDIRECTION = Math.PI - BALLDIRECTION;
+            } else if (BALL_X <= -1 + BALL_RX && DX < 0) {
+                // LEFT WALL
+                BALLDIRECTION = Math.PI - BALLDIRECTION;
+            } else if (BALL_Y >= 1 - BALL_RY && DY > 0) {
+                // TOP WALL
+                BALLDIRECTION = - BALLDIRECTION;
+            }
+
+            // TOP BRICKS
+            // MAGIC: loop backwards so splice doesn't skip a brick, and stop after one hit
+            for (let i = OBJECTS.length - 1; i >= 2; i--) {
+                BRICK_OFFSET_X = OBJECTS[i][3][0];
+                BRICK_OFFSET_Y = OBJECTS[i][3][1];
+                var overlap_x = 0.095 + BALL_RX - Math.abs(BALL_X - BRICK_OFFSET_X);
+                var overlap_y = 0.05 + BALL_RY - Math.abs(BALL_Y - BRICK_OFFSET_Y);
+                if (overlap_x > 0 && overlap_y > 0) {
+                    // MAGIC: bounce sideways when hitting the side of a brick
+                    if (overlap_x < overlap_y) {
+                        BALLDIRECTION = Math.PI - BALLDIRECTION;
+                    } else {
+                        BALLDIRECTION = - BALLDIRECTION;
+                    }
+                    explode(BRICK_OFFSET_X, BRICK_OFFSET_Y, OBJECTS[i][2]);
+                    SHAKE = Math.max(SHAKE, 0.02);
+                    score_num = OBJECTS[i][6];
+                    OBJECTS.splice(i, 1);
+                    score(score_num);
+                    break;
+                }
+            }
+
+            // BOTTOM
+            if (Math.sin(BALLDIRECTION) < 0 &&
+                BALL_Y - BALL_RY <= BOTTOM_PADDLE_TOP &&
+                BALL_Y - BALL_RY >= BOTTOM_PADDLE_TOP - 0.06 &&
+                Math.abs(BALL_X - BOTTOM_PADDLE_X) <= BOTTOM_PADDLE_WIDTH / 2 + BALL_RX) {
+
+                // MAGIC: where the ball lands on the paddle steers it,
+                // center = straight up, edges = up to 60 degrees sideways
+                var hit = (BALL_X - BOTTOM_PADDLE_X) / (BOTTOM_PADDLE_WIDTH / 2);
+                hit = Math.max(-1, Math.min(1, hit));
+                BALLDIRECTION = Math.PI / 2 - hit * Math.PI / 3;
+
+                //UPDATE STEP ON BOUNCE TO INCREASE SPEED
+                BALLSPEED = Math.min(BALLSPEED * 1.04, 2.0);
+
+            } else if (BALL_Y < -1.1) {
+                // LOSE LIFE (ball fell off the bottom)
+                loseLife();
+                resetBall();
+                return;
+            }
+
+            // MAGIC: remember recent positions for the trail
+            TRAIL.push([BALL_X, BALL_Y, 0]);
+            if (TRAIL.length > 8) {
+                TRAIL.shift();
+            }
+
+            // UPDATE BALL POSITION
+            OBJECTS[1][3][0] += Math.cos(BALLDIRECTION) * BALLSPEED * dt;
+            OBJECTS[1][3][1] += Math.sin(BALLDIRECTION) * BALLSPEED * dt;
+        }
+
+        window.onkeydown = function (e) {
+            if (STOPPED) {
+                // restart the game
+                window.location.reload();
+            }
+
+            if (e.key == "ArrowLeft" || e.key == "ArrowRight" || e.key == " ") {
+                e.preventDefault();
+            }
+
+            KEYS[e.key] = true;
+
+            if (e.key == " " && SERVING) {
+                launchBall();
+            }
+        };
+
+        window.onkeyup = function (e) {
+            KEYS[e.key] = false;
+        };
+    </script>
+</head>
+
+<body>
+    <div id="gameboy">
+        <span id="score_name" class="top_bar">SCORE:</span>
+        <span id="score" class="top_bar">0</span>
+
+        <span id="lives_name" class="top_bar">LIVES:</span>
+        <span id="lives" class="top_bar">3</span>
+        <div id="hint">PRESS SPACE</div>
+        <div id="overlay">
+            <img id="game_over" class="result" src="https://cs460.org/assignments/breakout/game_over.jpg" />
+        </div>
+        <canvas id="c"></canvas>
+
+    </div>
+</body>
+
+</html>

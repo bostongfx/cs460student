@@ -1,2 +1,569 @@
-Ready for assignment 2.
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Cube Story – XTK</title>
+    <style>
+      html, body {
+        background-color: #000;
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden !important;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      }
+      #flash {
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(circle, #ffd6ea 0%, rgba(255, 120, 190, 0.6) 35%, rgba(0, 0, 0, 0) 70%);
+        opacity: 0;
+        pointer-events: none;
+      }
+      #label {
+        position: absolute;
+        left: 24px;
+        bottom: 20px;
+        color: #f5d0e6;
+        font-size: 14px;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        pointer-events: none;
+        transition: opacity 0.35s, transform 0.35s;
+      }
+      #label.out {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      #hint {
+        position: absolute;
+        right: 24px;
+        bottom: 20px;
+        color: #777;
+        font-size: 12px;
+        pointer-events: none;
+      }
+    </style>
+    <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+    <script type="text/javascript">
+      window.onload = function() {
+        // create a new 3D renderer
+        var r = new X.renderer3D();
+        r.init();
+        r.bgColor = [0.02, 0.02, 0.05];
 
+        function resetCamera() {
+          r.camera.position = [0, 0, 400];
+          r.camera.focus = [0, 0, 0];
+          r.camera.up = [0, 1, 0];
+        }
+        resetCamera();
+        r.onShowtime = resetCamera;
+
+        // ---------- helpers ----------
+
+        // create a default 20x20x20 cube and add it to the renderer
+        function makeCube(color, opacity) {
+          var c = new X.cube();
+          c.center = [0, 0, 0];
+          c.color = color;
+          c.visible = false;
+          if (opacity !== undefined) c.opacity = opacity;
+          r.add(c);
+          return c;
+        }
+
+        // write translation, rotation (Rz * Ry * Rx) and per-axis scale straight into the cube's matrix
+        function place(c, x, y, z, rx, ry, rz, s1, s2, s3) {
+          if (s2 === undefined) { s2 = s1; s3 = s1; }
+          var cx = Math.cos(rx), sx = Math.sin(rx);
+          var cy = Math.cos(ry), sy = Math.sin(ry);
+          var cz = Math.cos(rz), sz = Math.sin(rz);
+          var m = c.transform.matrix;
+          m[0] = cy * cz * s1;
+          m[1] = cy * sz * s1;
+          m[2] = -sy * s1;
+          m[3] = 0;
+          m[4] = (sx * sy * cz - cx * sz) * s2;
+          m[5] = (sx * sy * sz + cx * cz) * s2;
+          m[6] = sx * cy * s2;
+          m[7] = 0;
+          m[8] = (cx * sy * cz + sx * sz) * s3;
+          m[9] = (cx * sy * sz - sx * cz) * s3;
+          m[10] = cx * cy * s3;
+          m[11] = 0;
+          m[12] = x;
+          m[13] = y;
+          m[14] = z;
+          m[15] = 1;
+        }
+
+        function show(list, on) {
+          for (var i = 0; i < list.length; i++) list[i].visible = on;
+        }
+
+        function hsv(h, s, v) {
+          h = ((h % 1) + 1) % 1;
+          var i = Math.floor(h * 6), f = h * 6 - i;
+          var p = v * (1 - s), q = v * (1 - f * s), t = v * (1 - (1 - f) * s);
+          switch (i % 6) {
+            case 0: return [v, t, p];
+            case 1: return [q, v, p];
+            case 2: return [p, v, t];
+            case 3: return [p, q, v];
+            case 4: return [t, p, v];
+            default: return [v, p, q];
+          }
+        }
+
+        function mix(a, b, t) {
+          return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+        }
+
+        function clamp01(v) { return Math.max(0, Math.min(1, v)); }
+        function easeIn(t) { return t * t; }
+        function easeOut(t) { return 1 - (1 - t) * (1 - t); }
+        function easeOutBack(t) {
+          var c1 = 1.70158, c3 = c1 + 1;
+          return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+        }
+        function easeOutBounce(t) {
+          var n = 7.5625, d = 2.75;
+          if (t < 1 / d) return n * t * t;
+          if (t < 2 / d) return n * (t -= 1.5 / d) * t + 0.75;
+          if (t < 2.5 / d) return n * (t -= 2.25 / d) * t + 0.9375;
+          return n * (t -= 2.625 / d) * t + 0.984375;
+        }
+
+        var RED = [1, 0.1, 0.15];
+        var WHITE = [1, 1, 1];
+        var PINK = [1, 0.45, 0.72];
+
+        // scene timing (seconds)
+        var T_COLLIDE = 4;   // scene 1 -> 2
+        var T_DNA = 9;       // scene 2 -> 3
+        var T_FINALE = 19;   // scene 3 -> 4 (loops forever)
+
+        // ---------- background starfield (all scenes) ----------
+        var stars = [];
+        for (var i = 0; i < 70; i++) {
+          stars.push({
+            cube: makeCube([0.6, 0.6, 0.8]),
+            x: Math.random() * 1600 - 800,
+            y: Math.random() * 900 - 450,
+            z: -250 - Math.random() * 450,
+            size: 0.08 + Math.random() * 0.14,
+            phase: Math.random() * Math.PI * 2,
+            twinkle: 1 + Math.random() * 3
+          });
+        }
+        show(stars.map(function(st) { return st.cube; }), true);
+        var starDrift = 0;
+
+        // ---------- scene 1: red + white cubes with motion trails ----------
+        var redCube = makeCube(RED);
+        var whiteCube = makeCube(WHITE);
+        var TRAIL = 7;
+        var redTrail = [], whiteTrail = [];
+        for (var i = 1; i <= TRAIL; i++) {
+          var fade = 0.45 * (1 - i / (TRAIL + 1));
+          redTrail.push(makeCube(RED, fade));
+          whiteTrail.push(makeCube(WHITE, fade));
+        }
+        var scene1Cubes = [redCube, whiteCube].concat(redTrail, whiteTrail);
+
+        // how far each cube is from the center at time t
+        function approach(t) {
+          return 10 + 160 * (1 - easeIn(clamp01(t / T_COLLIDE)));
+        }
+
+        // ---------- scene 2: pink cube, debris, shockwave ----------
+        var pinkCube = makeCube(PINK);
+        var debris = [];
+        var debrisPalette = [RED, WHITE, PINK, [1, 0.7, 0.85]];
+        for (var i = 0; i < 48; i++) {
+          // random direction on a sphere
+          var u = Math.random() * 2 - 1, a = Math.random() * Math.PI * 2;
+          var k = Math.sqrt(1 - u * u);
+          debris.push({
+            cube: makeCube(debrisPalette[i % debrisPalette.length]),
+            dir: [k * Math.cos(a), k * Math.sin(a) * 0.8, u],
+            speed: 90 + Math.random() * 110,
+            size: 0.12 + Math.random() * 0.22,
+            spin: [Math.random() * 8 - 4, Math.random() * 8 - 4, Math.random() * 8 - 4],
+            delay: Math.random() * 0.5
+          });
+        }
+        var debrisCubes = debris.map(function(d) { return d.cube; });
+
+        // two expanding rings of cubes at the moment of impact
+        var SHOCK_COUNT = 28;
+        var shock = [];
+        for (var i = 0; i < SHOCK_COUNT * 2; i++) {
+          shock.push(makeCube(i < SHOCK_COUNT ? PINK : WHITE, 0.9));
+        }
+
+        // ---------- scene 3: DNA double helix ----------
+        var DNA_STEPS = 40, DNA_SPACING = 14, DNA_RADIUS = 40, DNA_TILT = 0.32;
+        var DNA_MID = (DNA_STEPS - 1) / 2;
+        var strandA = [], strandB = [], rungs = [];
+        for (var i = 0; i < DNA_STEPS; i++) {
+          strandA.push(makeCube(RED));
+          strandB.push(makeCube(WHITE));
+          if (i % 2 === 0) {
+            for (var j = 1; j <= 3; j++) {
+              rungs.push({ cube: makeCube(PINK), step: i, t: j / 4 });
+            }
+          }
+        }
+        var dnaCubes = strandA.concat(strandB, rungs.map(function(o) { return o.cube; }));
+
+        // glowing sparks that peel off the helix and hang in the air behind it
+        var sparks = [];
+        for (var i = 0; i < 70; i++) {
+          sparks.push({ cube: makeCube(PINK), life: 0, max: 1, pos: [0, 0, 0], vel: [0, 0, 0], spin: Math.random() * 6 });
+        }
+        var sparkBudget = 0;
+        function emitSpark(pos, color) {
+          for (var i = 0; i < sparks.length; i++) {
+            var sp = sparks[i];
+            if (sp.life <= 0) {
+              sp.max = sp.life = 0.9 + Math.random() * 0.8;
+              sp.pos = pos.slice();
+              sp.vel = [Math.random() * 30 - 15, Math.random() * 30 - 10, Math.random() * 30 - 15];
+              sp.cube.color = color;
+              return;
+            }
+          }
+        }
+
+        // ---------- scene 4: ring of cubes ----------
+        var RING_COUNT = 14, RING_RADIUS = 70, RING_X = -90;
+        var ring = [];
+        for (var i = 0; i < RING_COUNT; i++) ring.push(makeCube(PINK));
+
+        // ---------- scene 4: disco ball ----------
+        var BALL = [190, 45, 0], BALL_RADIUS = 48;
+        var facets = [];
+        for (var lat = -78; lat <= 78; lat += 13) {
+          var phi = lat * Math.PI / 180;
+          var n = Math.max(6, Math.round(2 * Math.PI * BALL_RADIUS * Math.cos(phi) / 9));
+          for (var i = 0; i < n; i++) {
+            facets.push({
+              cube: makeCube([0.8, 0.8, 0.85]),
+              phi: phi,
+              theta: i / n * Math.PI * 2,
+              sparkle: 0
+            });
+          }
+        }
+        var discoString = makeCube([0.6, 0.6, 0.6]);
+        var beams = [];
+        for (var i = 0; i < 10; i++) beams.push(makeCube([1, 1, 1], 0.25));
+        var facetCubes = facets.map(function(f) { return f.cube; });
+        var finaleCubes = ring.concat(facetCubes, beams, [discoString]);
+
+        // ---------- HUD ----------
+        var flashEl = document.getElementById('flash');
+        var labelEl = document.getElementById('label');
+        var currentLabel = '';
+        var labelTimer = null;
+        function setLabel(text) {
+          if (text === currentLabel) return;
+          currentLabel = text;
+          labelEl.classList.add('out');
+          clearTimeout(labelTimer);
+          labelTimer = setTimeout(function() {
+            labelEl.textContent = text;
+            labelEl.classList.remove('out');
+          }, 350);
+        }
+
+        // screen flashes: [time, duration, strength]
+        var flashes = [[T_COLLIDE, 0.8, 1], [T_DNA, 0.6, 0.7]];
+        // camera shakes: [time, duration, amplitude]
+        var shakes = [[T_COLLIDE, 0.6, 9], [T_DNA, 0.4, 5]];
+        var shaking = false;
+
+        // ---------- animation ----------
+        var start = performance.now();
+        var lastT = 0;
+
+        r.onRender = function() {
+          var now = performance.now();
+          var t = (now - start) / 1000;
+          var dt = Math.min(0.05, Math.max(0, t - lastT));
+          lastT = t;
+
+          var scene1 = t < T_COLLIDE;
+          var scene2 = t >= T_COLLIDE && t < T_DNA;
+          var scene3 = t >= T_DNA && t < T_FINALE;
+          var scene4 = t >= T_FINALE;
+
+          show(scene1Cubes, scene1);
+          pinkCube.visible = scene2;
+          show(debrisCubes, scene2);
+          show(dnaCubes, scene3);
+          show(finaleCubes, scene4);
+
+          // flashes and camera shake
+          var flash = 0;
+          for (var i = 0; i < flashes.length; i++) {
+            var since = t - flashes[i][0];
+            if (since >= 0 && since < flashes[i][1]) flash = Math.max(flash, flashes[i][2] * (1 - since / flashes[i][1]));
+          }
+          flashEl.style.opacity = String(flash);
+
+          var shakeAmp = 0;
+          for (var i = 0; i < shakes.length; i++) {
+            var since = t - shakes[i][0];
+            if (since >= 0 && since < shakes[i][1]) shakeAmp = shakes[i][2] * (1 - since / shakes[i][1]);
+          }
+          if (shakeAmp > 0) {
+            r.camera.position = [shakeAmp * Math.sin(t * 90), shakeAmp * Math.cos(t * 73), 400];
+            shaking = true;
+          } else if (shaking) {
+            resetCamera();
+            shaking = false;
+          }
+
+          // starfield: slow drift, streaks faster while the DNA flies by, disco colored at the end
+          starDrift += dt * (scene3 ? 70 : 10);
+          for (var i = 0; i < stars.length; i++) {
+            var st = stars[i];
+            var sx = ((st.x + starDrift + 800) % 1600 + 1600) % 1600 - 800;
+            var glow = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(t * st.twinkle + st.phase));
+            place(st.cube, sx, st.y, st.z, t * 0.5, t * 0.7, 0,
+              st.size * (scene3 ? 2.2 : 1), st.size, st.size);
+            st.cube.color = scene4
+              ? hsv((t - T_FINALE) * 0.12 + st.phase / 6, 0.7, glow)
+              : [0.6 * glow, 0.6 * glow, 0.85 * glow];
+          }
+
+          // sparks live in world space, so they keep drifting even after the helix is gone
+          for (var i = 0; i < sparks.length; i++) {
+            var sp = sparks[i];
+            if (sp.life > 0) {
+              sp.life -= dt;
+              sp.pos[0] += sp.vel[0] * dt;
+              sp.pos[1] += sp.vel[1] * dt;
+              sp.pos[2] += sp.vel[2] * dt;
+              var life = clamp01(sp.life / sp.max);
+              place(sp.cube, sp.pos[0], sp.pos[1], sp.pos[2], t * sp.spin, t * sp.spin, 0, 0.18 * life);
+            }
+            sp.cube.visible = sp.life > 0;
+          }
+
+          if (scene1) {
+            // two cubes speed up toward each other, spinning as they go, with ghost trails
+            setLabel('1 · red meets white');
+            var dist = approach(t);
+            place(redCube, -dist, 0, 0, t * 1.3, t * 2.1, 0, 1);
+            place(whiteCube, dist, 0, 0, -t * 1.1, -t * 1.9, 0, 1);
+            for (var i = 0; i < TRAIL; i++) {
+              var tt = Math.max(0, t - (i + 1) * 0.045);
+              var dd = approach(tt);
+              var ts = 1 - (i + 1) * 0.08;
+              place(redTrail[i], -dd, 0, 0, tt * 1.3, tt * 2.1, 0, ts);
+              place(whiteTrail[i], dd, 0, 0, -tt * 1.1, -tt * 1.9, 0, ts);
+            }
+          }
+
+          if (scene2) {
+            setLabel('2 · collision');
+            var s = t - T_COLLIDE;
+            var len = T_DNA - T_COLLIDE;
+
+            // pink cube: wobbles from the impact, then charges up (spins faster, flickers) and pops
+            var wobble = 0.45 * Math.exp(-s * 2.5) * Math.sin(s * 18);
+            var charge = easeIn(clamp01((s - 2.6) / (len - 2.6)));
+            var pop = 1 - easeIn(clamp01((s - (len - 0.25)) / 0.25));
+            var beat = charge * 0.25 * Math.max(0, Math.sin(s * (6 + charge * 30)));
+            var size = (1.6 + wobble + beat + charge * 0.3) * pop;
+            var spin = s * 0.8 + charge * charge * 14;
+            place(pinkCube, 0, 0, 0, spin * 0.7, spin, spin * 0.3, size, (1.6 + beat + charge * 0.3) * pop - wobble * 0.5, size);
+            pinkCube.color = mix(PINK, WHITE, charge * (0.5 + 0.5 * Math.sin(s * (8 + charge * 40))));
+
+            // debris flies out, slows down (drag), then gets sucked back into the pink cube
+            var travel = (1 - Math.exp(-s * 1.4)) / 1.4;
+            for (var i = 0; i < debris.length; i++) {
+              var d = debris[i];
+              var suck = easeIn(clamp01((s - 2.4 - d.delay) / 1.4));
+              var dd = (28 + d.speed * travel) * (1 - suck);
+              place(d.cube,
+                d.dir[0] * dd, (d.dir[1] * dd - 3 * s * s) * (1 - suck), d.dir[2] * dd,
+                d.spin[0] * s, d.spin[1] * s, d.spin[2] * s,
+                d.size * (1 - suck));
+            }
+
+            // shockwave rings: one facing us, one tilted
+            var sk = clamp01(s / 1.1);
+            var shockOn = sk < 1;
+            var shockR = 25 + 300 * easeOut(sk);
+            for (var i = 0; i < shock.length; i++) {
+              var c = shock[i];
+              c.visible = shockOn;
+              if (!shockOn) continue;
+              var tilted = i >= SHOCK_COUNT;
+              var ang = (i % SHOCK_COUNT) / SHOCK_COUNT * Math.PI * 2;
+              var x = shockR * Math.cos(ang), y = shockR * Math.sin(ang), z = 0;
+              if (tilted) { z = y * 0.9; y = y * 0.35; }
+              place(c, x, y, z, ang, ang, ang, 0.3 * (1 - sk));
+              c.opacity = 0.9 * (1 - sk);
+            }
+          } else {
+            show(shock, false);
+          }
+
+          if (scene3) {
+            // the pink cube bursts into a helix that zips itself together, then races off to the left
+            setLabel('3 · dna');
+            var s = t - T_DNA;
+            var centerX = -950 * Math.pow(clamp01((s - 2.4) / (T_FINALE - T_DNA - 2.4)), 1.7);
+            var twist = s * 1.6;
+            var cosT = Math.cos(DNA_TILT), sinT = Math.sin(DNA_TILT);
+
+            // position on the helix, tilted toward the viewer with a gentle serpentine wave
+            var helixPos = function(i, strandPhase) {
+              var ang = i * 0.45 + twist + strandPhase;
+              var lx = (i - DNA_MID) * DNA_SPACING;
+              var ly = DNA_RADIUS * Math.cos(ang) + 12 * Math.sin(i * 0.22 - s * 2.2);
+              var lz = DNA_RADIUS * Math.sin(ang);
+              return [centerX + lx * cosT + lz * sinT, ly, -lx * sinT + lz * cosT];
+            };
+            // assembly: cubes fly out of the center, the middle ones first
+            var assemble = function(i) {
+              return clamp01((s - Math.abs(i - DNA_MID) / DNA_MID * 0.9) / 1.1);
+            };
+            var flyIn = function(target, k, side) {
+              var e = easeOutBack(k);
+              var swirl = Math.sin(k * Math.PI) * 45 * side;
+              return [target[0] * e, target[1] * e + swirl, target[2] * e - swirl * 0.5];
+            };
+            // a bright pulse that travels down the helix
+            var glowAt = function(i) {
+              return Math.pow(Math.max(0, Math.sin(i * 0.3 - s * 5)), 10);
+            };
+
+            sparkBudget += dt * (s > 1.6 ? 45 : 0);
+            var shimmer = hsv(0.87 + 0.08 * Math.sin(s * 1.3), 0.45, 1);
+
+            for (var i = 0; i < DNA_STEPS; i++) {
+              var k = assemble(i);
+              var g = glowAt(i);
+              var pa = flyIn(helixPos(i, 0), k, 1);
+              var pb = flyIn(helixPos(i, Math.PI), k, -1);
+              var size = (0.42 + 0.2 * g) * Math.min(1, k * 3);
+              place(strandA[i], pa[0], pa[1], pa[2], i * 0.45 + twist, s * 2, 0, size);
+              place(strandB[i], pb[0], pb[1], pb[2], i * 0.45 + twist, -s * 2, 0, size);
+              var colA = mix(mix(PINK, RED, k), shimmer, g);
+              var colB = mix(mix(PINK, WHITE, k), shimmer, g);
+              strandA[i].color = colA;
+              strandB[i].color = colB;
+
+              if (sparkBudget >= 1 && Math.random() < 0.08) {
+                sparkBudget -= 1;
+                emitSpark(Math.random() < 0.5 ? pa : pb, g > 0.3 ? shimmer : (Math.random() < 0.5 ? colA : colB));
+              }
+            }
+            for (var i = 0; i < rungs.length; i++) {
+              var rg = rungs[i];
+              // rungs snap in a beat after their strands, so the helix "zips" together
+              var k = clamp01((assemble(rg.step) - 0.55) / 0.45);
+              var g = glowAt(rg.step);
+              var pr = mix(helixPos(rg.step, 0), helixPos(rg.step, Math.PI), rg.t);
+              place(rg.cube, pr[0], pr[1], pr[2], rg.step * 0.45 + twist, s * 3, 0, (0.26 + 0.14 * g) * easeOutBack(k));
+              rg.cube.color = mix(PINK, WHITE, g);
+            }
+          }
+
+          if (scene4) {
+            setLabel('4 · party');
+            var s = t - T_FINALE;
+            var hue = s * 0.12;
+
+            // ring cubes swoop in from the left, then pulse: squeeze into the middle and burst back out, forever
+            var pulse = 0.5 - 0.5 * Math.cos(s * 1.6);
+            var ringRadius = RING_RADIUS * (0.08 + 0.92 * easeOut(pulse));
+            var ringSpin = s * 0.8;
+            for (var i = 0; i < RING_COUNT; i++) {
+              var ang = i / RING_COUNT * Math.PI * 2 + ringSpin;
+              var c = ring[i];
+              var k = clamp01((s - i * 0.07) / 1.0);
+              var target = [RING_X + ringRadius * Math.cos(ang), ringRadius * Math.sin(ang), 0];
+              var p = mix([-520, (i - RING_COUNT / 2) * 25, 0], target, easeOutBack(k));
+              place(c, p[0], p[1], p[2],
+                s * 1.5, s * 1.1, ang,
+                (0.3 + 0.25 * pulse) * Math.min(1, k * 2));
+              // the ring picks up the disco colors
+              c.color = mix(PINK, hsv(hue + i / RING_COUNT, 0.7, 1), 0.5 + 0.5 * Math.sin(s * 3 + i));
+            }
+
+            // disco ball drops in on its string, bounces, then hangs and spins
+            var drop = 1 - easeOutBounce(clamp01(s / 1.6));
+            var lights = easeOut(clamp01((s - 1.3) / 1.0));
+            var ballSpin = s * 0.9;
+            var bx = BALL[0], by = BALL[1] + 380 * drop + 4 * Math.sin(s * 1.5), bz = BALL[2];
+            place(discoString, bx, by + BALL_RADIUS + 160, bz, 0, 0, 0, 0.06, 16, 0.06);
+            for (var i = 0; i < facets.length; i++) {
+              var f = facets[i];
+              var th = f.theta + ballSpin;
+              var cp = Math.cos(f.phi);
+              place(f.cube,
+                bx + BALL_RADIUS * cp * Math.sin(th), by + BALL_RADIUS * Math.sin(f.phi), bz + BALL_RADIUS * cp * Math.cos(th),
+                -f.phi, th, 0,
+                0.42, 0.42, 0.12);
+
+              // colored light bands sweep across the mirror tiles once the lights come on
+              var band = Math.max(0, Math.sin(f.theta * 3 + f.phi * 4 - s * 4)) * lights;
+              var col = mix([0.72, 0.72, 0.78], hsv(hue + f.theta / (Math.PI * 2), 0.9, 1), band);
+              // random white sparkles
+              if (f.sparkle <= 0 && Math.random() < 0.004) f.sparkle = 1;
+              if (f.sparkle > 0) {
+                col = mix(col, [1, 1, 1], f.sparkle);
+                f.sparkle -= 0.08;
+              }
+              f.cube.color = col;
+            }
+
+            // light beams sweeping out from the ball
+            for (var i = 0; i < beams.length; i++) {
+              var ba = i / beams.length * Math.PI * 2 + s * 0.7;
+              var bt = 0.5 * Math.sin(s * 1.3 + i * 1.7);
+              var beamLen = 170;
+              var dir = [Math.cos(bt) * Math.cos(ba), Math.cos(bt) * Math.sin(ba), -Math.sin(bt)];
+              var reach = beamLen / 2 + BALL_RADIUS;
+              place(beams[i],
+                bx + dir[0] * reach, by + dir[1] * reach, bz + dir[2] * reach,
+                0, bt, ba,
+                (beamLen / 20) * lights, 0.1, 0.1);
+              beams[i].visible = lights > 0;
+              beams[i].color = hsv(hue + i / beams.length + s * 0.2, 0.85, 1);
+              beams[i].opacity = 0.35 * lights * (0.6 + 0.4 * Math.sin(s * 5 + i));
+            }
+          }
+        };
+
+        // press space to replay from scene 1
+        window.addEventListener('keydown', function(e) {
+          if (e.code === 'Space') {
+            e.preventDefault();
+            start = performance.now();
+            lastT = 0;
+            sparkBudget = 0;
+            for (var i = 0; i < facets.length; i++) facets[i].sparkle = 0;
+            for (var i = 0; i < sparks.length; i++) sparks[i].life = 0;
+            resetCamera();
+          }
+        });
+
+        // render everything
+        r.render();
+      };
+    </script>
+  </head>
+  <body>
+    <div id="flash"></div>
+    <div id="label"></div>
+    <div id="hint">space: replay · drag: orbit</div>
+  </body>
+</html>

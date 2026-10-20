@@ -1,0 +1,1126 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chroma Cubes – XTK Kinetic 3D Visualization</title>
+    <style>
+      :root {
+        --primary-glow: #00f0ff;
+        --accent-glow: #ff007f;
+        --panel-bg: rgba(13, 17, 28, 0.78);
+        --panel-border: rgba(255, 255, 255, 0.12);
+        --text-main: #f1f5f9;
+        --text-muted: #94a3b8;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html, body {
+        background: radial-gradient(circle at 50% 50%, #0d1322 0%, #05070d 100%);
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        width: 100%;
+        overflow: hidden !important;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        color: var(--text-main);
+        user-select: none;
+      }
+
+      /* XTK Canvas Styling */
+      canvas {
+        display: block;
+        width: 100vw !important;
+        height: 100vh !important;
+        cursor: grab;
+      }
+
+      canvas:active {
+        cursor: grabbing;
+      }
+
+      /* Fullscreen UI Overlay */
+      #ui-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none; /* Allows mouse orbit through HUD */
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 24px;
+        transition: opacity 0.3s ease;
+      }
+
+      #ui-overlay.hidden {
+        opacity: 0;
+        pointer-events: none !important;
+      }
+
+      /* Top Header */
+      .header-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+      }
+
+      .title-box {
+        background: var(--panel-bg);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+        border: 1px solid var(--panel-border);
+        border-radius: 14px;
+        padding: 14px 22px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        pointer-events: auto;
+      }
+
+      .title-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 22px;
+        font-weight: 800;
+        letter-spacing: 1.5px;
+        background: linear-gradient(135deg, #00f0ff 0%, #ff007f 60%, #ffe600 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        text-transform: uppercase;
+      }
+
+      .badge {
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 1px;
+        padding: 3px 8px;
+        border-radius: 20px;
+        background: rgba(0, 240, 255, 0.15);
+        color: #00f0ff;
+        border: 1px solid rgba(0, 240, 255, 0.35);
+        text-transform: uppercase;
+      }
+
+      .subtitle {
+        margin: 4px 0 0 0;
+        font-size: 12px;
+        color: var(--text-muted);
+        letter-spacing: 0.5px;
+      }
+
+      /* Top Right Stats */
+      .stats-box {
+        background: var(--panel-bg);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+        border: 1px solid var(--panel-border);
+        border-radius: 14px;
+        padding: 10px 18px;
+        display: flex;
+        gap: 16px;
+        align-items: center;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        pointer-events: auto;
+      }
+
+      .stat-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .stat-val {
+        font-size: 16px;
+        font-weight: 700;
+        color: #38bdf8;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .stat-label {
+        font-size: 10px;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        letter-spacing: 0.5px;
+      }
+
+      /* Floating Control Center (Right Side) */
+      .control-panel {
+        position: absolute;
+        right: 24px;
+        top: 96px;
+        width: 290px;
+        max-height: calc(100vh - 140px);
+        overflow-y: auto;
+        background: var(--panel-bg);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid var(--panel-border);
+        border-radius: 16px;
+        padding: 18px;
+        box-shadow: 0 15px 40px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+        pointer-events: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+      }
+
+      .section-title {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1.2px;
+        color: #94a3b8;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      /* Button Grids */
+      .btn-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+      }
+
+      .btn-grid.full {
+        grid-template-columns: 1fr;
+      }
+
+      .btn {
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: #e2e8f0;
+        padding: 8px 10px;
+        border-radius: 8px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        outline: none;
+      }
+
+      .btn:hover {
+        background: rgba(255, 255, 255, 0.12);
+        border-color: rgba(255, 255, 255, 0.25);
+        color: #ffffff;
+        transform: translateY(-1px);
+      }
+
+      .btn:active {
+        transform: translateY(1px);
+      }
+
+      .btn.active {
+        background: linear-gradient(135deg, rgba(0, 240, 255, 0.28) 0%, rgba(255, 0, 127, 0.28) 100%);
+        border-color: #00f0ff;
+        color: #ffffff;
+        box-shadow: 0 0 14px rgba(0, 240, 255, 0.35);
+      }
+
+      /* Color Theme Swatches */
+      .theme-btn {
+        height: 32px;
+        padding: 4px 10px;
+        justify-content: flex-start;
+      }
+
+      .theme-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        display: inline-block;
+        box-shadow: 0 0 6px currentColor;
+      }
+
+      /* Sliders */
+      .slider-group {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .slider-row {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .slider-header {
+        display: flex;
+        justify-content: space-between;
+        font-size: 11px;
+        font-weight: 600;
+        color: #cbd5e1;
+      }
+
+      .slider-val {
+        color: #38bdf8;
+        font-variant-numeric: tabular-nums;
+      }
+
+      input[type="range"] {
+        -webkit-appearance: none;
+        width: 100%;
+        height: 5px;
+        border-radius: 4px;
+        background: rgba(255, 255, 255, 0.15);
+        outline: none;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+
+      input[type="range"]:hover {
+        background: rgba(255, 255, 255, 0.25);
+      }
+
+      input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: #00f0ff;
+        box-shadow: 0 0 8px #00f0ff;
+        cursor: pointer;
+        transition: transform 0.15s ease;
+      }
+
+      input[type="range"]::-webkit-slider-thumb:hover {
+        transform: scale(1.25);
+      }
+
+      /* Bottom Hints Banner */
+      .footer-banner {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: var(--panel-bg);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+        border: 1px solid var(--panel-border);
+        border-radius: 14px;
+        padding: 10px 20px;
+        font-size: 12px;
+        color: var(--text-muted);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        pointer-events: auto;
+      }
+
+      .hints-list {
+        display: flex;
+        gap: 20px;
+        align-items: center;
+      }
+
+      .hint-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      kbd {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 4px;
+        padding: 2px 6px;
+        font-size: 10px;
+        font-family: inherit;
+        color: #f8fafc;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.4);
+      }
+
+      /* Click shockwave notification */
+      #shockwave-tag {
+        position: absolute;
+        pointer-events: none;
+        font-size: 11px;
+        font-weight: 700;
+        color: #00f0ff;
+        text-shadow: 0 0 10px #00f0ff;
+        transform: translate(-50%, -50%);
+        opacity: 0;
+        transition: opacity 0.4s ease-out, transform 0.4s ease-out;
+      }
+
+      /* Toggle HUD Button */
+      #toggle-hud-btn {
+        position: fixed;
+        bottom: 24px;
+        left: 24px;
+        z-index: 999;
+        pointer-events: auto;
+        opacity: 0.6;
+        transition: opacity 0.2s;
+      }
+      #toggle-hud-btn:hover {
+        opacity: 1;
+      }
+    </style>
+
+    <!-- XTK Edge Library -->
+    <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+
+    <script type="text/javascript">
+      window.onload = function() {
+        // --- 1. System Parameters & Configuration ---
+        var TOTAL_CUBES = 125; // 5x5x5 lattice / 11x11 wave / double helix
+        var cubes = [];
+        var cubeStates = [];
+
+        // Global animation state
+        var state = {
+          mode: 'lattice',         // 'lattice', 'wave', 'helix', 'rings', 'supernova'
+          theme: 'cyber',          // 'cyber', 'rainbow', 'aurora', 'solar', 'pastel'
+          speed: 1.0,
+          amplitude: 1.0,
+          cubeSize: 1.0,
+          cubeSpin: 1.0,
+          autoOrbit: true,
+          autoMorph: false,
+          paused: false,
+          time: 0,
+          lastFrameTime: performance.now(),
+          morphTimer: 0,
+          shockwave: { active: false, center: [0, 0, 0], startTime: 0 }
+        };
+
+        // --- 2. Initialize XTK 3D Renderer ---
+        var r = new X.renderer3D();
+        r.init();
+
+        // Dark celestial background
+        r.bgColor = [0.03, 0.04, 0.08];
+
+        // Set initial camera view
+        r.camera.position = [0, 0, 360];
+        r.camera.focus = [0, 0, 0];
+        r.camera.up = [0, 1, 0];
+
+        // --- 3. Color Palettes & Converters ---
+        function hsvToRgb(h, s, v) {
+          h = ((h % 1) + 1) % 1;
+          var i = Math.floor(h * 6);
+          var f = h * 6 - i;
+          var p = v * (1 - s);
+          var q = v * (1 - f * s);
+          var t = v * (1 - (1 - f) * s);
+          switch (i % 6) {
+            case 0: return [v, t, p];
+            case 1: return [q, v, p];
+            case 2: return [p, v, t];
+            case 3: return [p, q, v];
+            case 4: return [t, p, v];
+            case 5: return [v, p, q];
+          }
+          return [v, v, v];
+        }
+
+        function lerpColor(c1, c2, t) {
+          return [
+            c1[0] + (c2[0] - c1[0]) * t,
+            c1[1] + (c2[1] - c1[1]) * t,
+            c1[2] + (c2[2] - c1[2]) * t
+          ];
+        }
+
+        function calculateCubeColor(index, dist, phase, t) {
+          var normDist = Math.min(dist / 140, 1.0);
+          var cycle = (phase + t * 0.15) % 1.0;
+
+          if (state.theme === 'rainbow') {
+            return hsvToRgb(cycle + normDist * 0.5, 0.9, 1.0);
+          } else if (state.theme === 'cyber') {
+            // Neon Cyan [0, 0.95, 1], Hot Pink [1, 0.05, 0.6], Violet [0.65, 0.1, 1]
+            var blend = Math.sin(t * 1.5 + normDist * 4) * 0.5 + 0.5;
+            if (blend < 0.5) {
+              return lerpColor([0.0, 0.95, 1.0], [1.0, 0.05, 0.65], blend * 2);
+            } else {
+              return lerpColor([1.0, 0.05, 0.65], [0.6, 0.1, 1.0], (blend - 0.5) * 2);
+            }
+          } else if (state.theme === 'aurora') {
+            // Deep Teal [0.0, 0.8, 0.6], Emerald [0.1, 1.0, 0.4], Violet [0.55, 0.15, 0.9]
+            var blend2 = Math.sin(t * 1.2 + phase * 3) * 0.5 + 0.5;
+            return lerpColor([0.0, 0.85, 0.65], [0.55, 0.15, 0.95], blend2);
+          } else if (state.theme === 'solar') {
+            // Gold [1, 0.85, 0.1], Orange [1, 0.4, 0.0], Crimson [0.95, 0.08, 0.15]
+            var blend3 = Math.sin(t * 2.0 - normDist * 3) * 0.5 + 0.5;
+            return lerpColor([1.0, 0.85, 0.1], [0.95, 0.08, 0.15], blend3);
+          } else if (state.theme === 'pastel') {
+            // Soft Mint, Coral, Lilac, Baby Blue
+            return hsvToRgb(cycle * 0.8 + 0.4, 0.55, 0.98);
+          }
+          return [1, 1, 1];
+        }
+
+        // --- 4. Instantiate Cubes & Setup State Buffers ---
+        for (var i = 0; i < TOTAL_CUBES; i++) {
+          var c = new X.cube();
+          // Default cube is 20x20x20 centered at [0, 0, 0]
+          c.center = [0, 0, 0];
+          c.color = [0.2, 0.8, 1.0];
+          c.opacity = 0.92;
+
+          r.add(c);
+          cubes.push(c);
+
+          cubeStates.push({
+            currentPos: [0, 0, 0],
+            targetPos: [0, 0, 0],
+            currentRot: [0, 0, 0],
+            targetRot: [0, 0, 0],
+            currentScale: 1.0,
+            targetScale: 1.0,
+            currentColor: [0.2, 0.8, 1.0],
+            targetColor: [0.2, 0.8, 1.0],
+            popScale: 0.0,
+            spinSpeed: [0.5 + Math.random(), 0.5 + Math.random(), 0.5 + Math.random()]
+          });
+        }
+
+        // --- 5. Formation Mathematical Models ---
+        function computeTargetState(index, mode, t) {
+          var x = 0, y = 0, z = 0;
+          var rx = 0, ry = 0, rz = 0;
+          var scale = 1.0;
+          var amp = state.amplitude;
+
+          if (mode === 'lattice') {
+            // 5x5x5 3D Hypercube Lattice
+            var ix = index % 5;
+            var iy = Math.floor((index / 5) % 5);
+            var iz = Math.floor(index / 25);
+            var spacing = 32 * amp;
+            var x0 = (ix - 2) * spacing;
+            var y0 = (iy - 2) * spacing;
+            var z0 = (iz - 2) * spacing;
+            var d = Math.sqrt(x0 * x0 + y0 * y0 + z0 * z0);
+
+            // Breathing harmonic ripple
+            var breathe = 1.0 + 0.28 * Math.sin(t * 2.5 - d * 0.04);
+            x = x0 * breathe;
+            y = y0 * breathe;
+            z = z0 * breathe;
+
+            // Twisting layers
+            var twist = Math.sin(t * 1.5 + iz * 0.4) * 0.25;
+            var tx = x * Math.cos(twist) - z * Math.sin(twist);
+            var tz = x * Math.sin(twist) + z * Math.cos(twist);
+            x = tx;
+            z = tz;
+
+            rx = t * 1.5 + ix * 0.6;
+            ry = t * 1.8 + iy * 0.6;
+            rz = t * 1.2 + iz * 0.6;
+            scale = 0.72 + 0.28 * Math.sin(t * 3.0 + d * 0.05);
+
+          } else if (mode === 'wave') {
+            // 11x11 Kinetic Wave Grid on X-Z plane (121 cubes + 4 orbiters)
+            if (index < 121) {
+              var col = index % 11;
+              var row = Math.floor(index / 11);
+              var waveSpacing = 24 * amp;
+              x = (col - 5) * waveSpacing;
+              z = (row - 5) * waveSpacing;
+              var distCenter = Math.sqrt(x * x + z * z);
+
+              // Circular ripple & cross wave interference
+              y = (38 * Math.sin(distCenter * 0.055 - t * 3.6) + 16 * Math.cos(x * 0.04 + t * 2.2)) * amp;
+
+              // Tilt with surface slope
+              rx = Math.cos(distCenter * 0.055 - t * 3.6) * 0.5;
+              rz = -Math.sin(distCenter * 0.055 - t * 3.6) * 0.5;
+              ry = t * 1.5 + index * 0.08;
+              scale = 0.65 + 0.35 * Math.sin(distCenter * 0.06 - t * 3.6);
+            } else {
+              // 4 outer beacon cubes circling the wave
+              var orbAngle = t * 2.0 + (index - 121) * (Math.PI / 2);
+              x = Math.cos(orbAngle) * 140 * amp;
+              z = Math.sin(orbAngle) * 140 * amp;
+              y = Math.sin(t * 4.0 + index) * 35;
+              rx = t * 3; ry = t * 3; rz = t * 3;
+              scale = 1.1;
+            }
+
+          } else if (mode === 'helix') {
+            // Cyber Double Helix with connecting base pairs
+            if (index < 100) {
+              var strand = index % 2; // 0 or 1
+              var step = Math.floor(index / 2); // 0 to 49
+              var helixAngle = step * 0.26 + t * 1.6 + (strand === 1 ? Math.PI : 0);
+              var helixRadius = (62 + 14 * Math.sin(t * 2.2 + step * 0.12)) * amp;
+              x = Math.cos(helixAngle) * helixRadius;
+              z = Math.sin(helixAngle) * helixRadius;
+              y = (step - 25) * 5.4 * amp;
+              rx = helixAngle;
+              ry = t * 2.0;
+              rz = helixAngle * 0.5;
+              scale = 0.8;
+            } else {
+              // 25 connecting bridge / rung cubes
+              var bridgeStep = (index - 100) * 2;
+              var bridgeWave = Math.sin(t * 3.2 + bridgeStep) * 0.5 + 0.5;
+              var bridgeAngle = bridgeStep * 0.26 + t * 1.6;
+              var bridgeRadius = ((62 + 14 * Math.sin(t * 2.2 + bridgeStep * 0.12)) * (bridgeWave * 2 - 1)) * amp;
+              x = Math.cos(bridgeAngle) * bridgeRadius;
+              z = Math.sin(bridgeAngle) * bridgeRadius;
+              y = (bridgeStep - 25) * 5.4 * amp;
+              rx = t * 3.5; ry = t * 2.0; rz = 0;
+              scale = 0.58;
+            }
+
+          } else if (mode === 'rings') {
+            // 4 Concentric Orbital Planetary Rings inclined in 3D
+            var tiers = [
+              { count: 15, radius: 36 * amp, speed: 2.4, tilt: 0.25 },
+              { count: 25, radius: 68 * amp, speed: -1.8, tilt: 0.55 },
+              { count: 35, radius: 100 * amp, speed: 1.4, tilt: -0.45 },
+              { count: 50, radius: 135 * amp, speed: -0.95, tilt: 0.75 }
+            ];
+            var countAcc = 0;
+            var chosen = tiers[0];
+            var localIdx = 0;
+            for (var k = 0; k < tiers.length; k++) {
+              if (index < countAcc + tiers[k].count) {
+                chosen = tiers[k];
+                localIdx = index - countAcc;
+                break;
+              }
+              countAcc += tiers[k].count;
+            }
+            var ringAngle = (localIdx / chosen.count) * Math.PI * 2 + t * chosen.speed;
+            var ringR = chosen.radius + 8 * Math.sin(t * 3.0 + localIdx * 0.5);
+            var rawX = Math.cos(ringAngle) * ringR;
+            var rawZ = Math.sin(ringAngle) * ringR;
+            var cosTilt = Math.cos(chosen.tilt);
+            var sinTilt = Math.sin(chosen.tilt);
+            x = rawX;
+            y = rawZ * sinTilt;
+            z = rawZ * cosTilt;
+            rx = ringAngle + t;
+            ry = t * 2.2;
+            rz = chosen.tilt;
+            scale = 0.72 + 0.25 * Math.cos(ringAngle * 3.0);
+
+          } else if (mode === 'supernova') {
+            // Pulsating Quantum Supernova on Fibonacci Spherical Shell
+            var goldenRatio = (1 + Math.sqrt(5)) / 2;
+            var phi = Math.acos(1 - 2 * (index + 0.5) / TOTAL_CUBES);
+            var theta = 2 * Math.PI * index / goldenRatio + t * 0.9;
+            var pulseR = (85 + 38 * Math.pow(Math.sin(t * 2.4 + phi * 3.5), 3)) * amp;
+            x = pulseR * Math.sin(phi) * Math.cos(theta);
+            y = pulseR * Math.cos(phi);
+            z = pulseR * Math.sin(phi) * Math.sin(theta);
+            rx = phi + t * 2.0;
+            ry = theta + t * 1.5;
+            rz = t * 1.0;
+            scale = 0.65 + 0.35 * Math.sin(t * 3.5 + index);
+          }
+
+          // Shockwave ripple excitation
+          if (state.shockwave.active) {
+            var elapsed = t - state.shockwave.startTime;
+            var waveRadius = elapsed * 180;
+            var dx = x - state.shockwave.center[0];
+            var dy = y - state.shockwave.center[1];
+            var dz = z - state.shockwave.center[2];
+            var distToCenter = Math.sqrt(dx * dx + dy * dy + dz * dz);
+            var diff = Math.abs(distToCenter - waveRadius);
+            if (diff < 35 && elapsed < 2.0) {
+              var strength = (1.0 - diff / 35) * (1.0 - elapsed / 2.0);
+              y += Math.sin(diff * 0.3) * 25 * strength;
+              scale += strength * 0.8;
+              rx += strength * 4.0;
+            }
+          }
+
+          return { x: x, y: y, z: z, rx: rx, ry: ry, rz: rz, scale: scale };
+        }
+
+        // --- 6. Set 4x4 Transformation Matrix Directly on Cube ---
+        function applyMatrix(cube, x, y, z, rx, ry, rz, scale) {
+          var cx = Math.cos(rx), sx = Math.sin(rx);
+          var cy = Math.cos(ry), sy = Math.sin(ry);
+          var cz = Math.cos(rz), sz = Math.sin(rz);
+
+          var m = cube.transform.matrix;
+          m[0] = (cy * cz) * scale;
+          m[1] = (cy * sz) * scale;
+          m[2] = (-sy) * scale;
+          m[3] = 0;
+
+          m[4] = (sx * sy * cz - cx * sz) * scale;
+          m[5] = (sx * sy * sz + cx * cz) * scale;
+          m[6] = (sx * cy) * scale;
+          m[7] = 0;
+
+          m[8] = (cx * sy * cz + sx * sz) * scale;
+          m[9] = (cx * sy * sz - sx * cz) * scale;
+          m[10] = (cx * cy) * scale;
+          m[11] = 0;
+
+          m[12] = x;
+          m[13] = y;
+          m[14] = z;
+          m[15] = 1;
+        }
+
+        // --- 7. FPS & Diagnostics Tracking ---
+        var frameCount = 0;
+        var fpsTimer = performance.now();
+        var fpsEl = document.getElementById('val-fps');
+
+        // --- 8. User Interaction Detection ---
+        var userInteracting = false;
+        var userInteractingTimeout = null;
+
+        window.addEventListener('mousedown', function() {
+          userInteracting = true;
+          clearTimeout(userInteractingTimeout);
+        });
+
+        window.addEventListener('mouseup', function() {
+          userInteractingTimeout = setTimeout(function() {
+            userInteracting = false;
+          }, 1200);
+        });
+
+        // --- 9. Interactive Cube Click Shockwave & Selection ---
+        var canvas = document.querySelector('canvas') || document.body;
+        window.addEventListener('click', function(e) {
+          if (e.target.closest('#control-panel') || e.target.closest('#title-box') || e.target.closest('.stats-box') || e.target.closest('#toggle-hud-btn')) {
+            return;
+          }
+
+          // Pick object under mouse pointer
+          var objId = r.pick(e.clientX, e.clientY);
+          var pickedPos = [0, 0, 0];
+
+          if (objId !== -1) {
+            var pickedObj = r.get(objId);
+            if (pickedObj) {
+              // Find matching cube
+              for (var i = 0; i < cubes.length; i++) {
+                if (cubes[i].id === pickedObj.id || cubes[i] === pickedObj) {
+                  cubeStates[i].popScale = 1.2; // Elastic burst
+                  pickedPos = [cubeStates[i].currentPos[0], cubeStates[i].currentPos[1], cubeStates[i].currentPos[2]];
+                  break;
+                }
+              }
+            }
+          }
+
+          // Trigger shockwave
+          state.shockwave.active = true;
+          state.shockwave.center = pickedPos;
+          state.shockwave.startTime = state.time;
+
+          // Visual tag
+          showShockwaveTag(e.clientX, e.clientY, objId !== -1 ? 'CUBE PULSE!' : 'RIPPLE WAVE!');
+        });
+
+        var tagEl = document.getElementById('shockwave-tag');
+        function showShockwaveTag(x, y, text) {
+          tagEl.textContent = text;
+          tagEl.style.left = x + 'px';
+          tagEl.style.top = y + 'px';
+          tagEl.style.opacity = '1';
+          tagEl.style.transform = 'translate(-50%, -100%) scale(1.1)';
+          setTimeout(function() {
+            tagEl.style.opacity = '0';
+            tagEl.style.transform = 'translate(-50%, -120%) scale(0.9)';
+          }, 450);
+        }
+
+        // --- 10. Main Render Loop Callback (r.onRender) ---
+        r.onRender = function() {
+          var now = performance.now();
+          var delta = Math.min((now - state.lastFrameTime) / 1000, 0.1);
+          state.lastFrameTime = now;
+
+          // FPS calculation
+          frameCount++;
+          if (now - fpsTimer >= 500) {
+            var currentFps = Math.round((frameCount * 1000) / (now - fpsTimer));
+            if (fpsEl) fpsEl.textContent = currentFps;
+            frameCount = 0;
+            fpsTimer = now;
+          }
+
+          if (!state.paused) {
+            state.time += delta * state.speed;
+
+            // Auto-morph countdown
+            if (state.autoMorph) {
+              state.morphTimer += delta;
+              if (state.morphTimer >= 7.5) {
+                state.morphTimer = 0;
+                cycleFormation();
+              }
+            }
+          }
+
+          // Auto-orbit camera when user is not manually dragging
+          if (state.autoOrbit && !userInteracting && !state.paused) {
+            r.camera.rotate([0.45 * state.speed, 0.18 * state.speed]);
+          }
+
+          // Smoothing lerp factor for fluid morph transitions
+          var lerpFactor = Math.min(delta * 4.5, 0.25);
+
+          // Update each cube in the scene
+          for (var i = 0; i < TOTAL_CUBES; i++) {
+            var c = cubes[i];
+            var s = cubeStates[i];
+
+            // 1. Calculate target coordinates & transformations
+            var target = computeTargetState(i, state.mode, state.time);
+
+            // Pop recovery
+            if (s.popScale > 0) {
+              s.popScale = Math.max(0, s.popScale - delta * 3.0);
+            }
+
+            // 2. Smoothly interpolate position
+            s.currentPos[0] += (target.x - s.currentPos[0]) * lerpFactor;
+            s.currentPos[1] += (target.y - s.currentPos[1]) * lerpFactor;
+            s.currentPos[2] += (target.z - s.currentPos[2]) * lerpFactor;
+
+            // 3. Smoothly interpolate rotations + add individual cube spin
+            var spinMultiplier = state.cubeSpin;
+            var rx = target.rx + state.time * s.spinSpeed[0] * spinMultiplier;
+            var ry = target.ry + state.time * s.spinSpeed[1] * spinMultiplier;
+            var rz = target.rz + state.time * s.spinSpeed[2] * spinMultiplier;
+
+            // 4. Smoothly interpolate scale
+            var combinedScale = (target.scale + s.popScale) * state.cubeSize;
+            s.currentScale += (combinedScale - s.currentScale) * lerpFactor;
+
+            // 5. Apply complete matrix transformation
+            applyMatrix(c, s.currentPos[0], s.currentPos[1], s.currentPos[2], rx, ry, rz, s.currentScale);
+
+            // 6. Dynamic color computation & smooth color lerping
+            var dist = Math.sqrt(
+              s.currentPos[0] * s.currentPos[0] +
+              s.currentPos[1] * s.currentPos[1] +
+              s.currentPos[2] * s.currentPos[2]
+            );
+            var targetCol = calculateCubeColor(i, dist, i / TOTAL_CUBES, state.time);
+            s.currentColor[0] += (targetCol[0] - s.currentColor[0]) * (lerpFactor * 1.5);
+            s.currentColor[1] += (targetCol[1] - s.currentColor[1]) * (lerpFactor * 1.5);
+            s.currentColor[2] += (targetCol[2] - s.currentColor[2]) * (lerpFactor * 1.5);
+
+            c.color = [s.currentColor[0], s.currentColor[1], s.currentColor[2]];
+          }
+        };
+
+        // --- 11. Start XTK Rendering ---
+        r.render();
+
+        // --- 12. UI Controls & Event Bindings ---
+        var modes = ['lattice', 'wave', 'helix', 'rings', 'supernova'];
+        var themes = ['cyber', 'rainbow', 'aurora', 'solar', 'pastel'];
+
+        function setFormation(newMode) {
+          state.mode = newMode;
+          document.querySelectorAll('.mode-btn').forEach(function(btn) {
+            btn.classList.toggle('active', btn.dataset.mode === newMode);
+          });
+          document.getElementById('stat-mode').textContent = newMode.toUpperCase();
+        }
+
+        function cycleFormation() {
+          var nextIdx = (modes.indexOf(state.mode) + 1) % modes.length;
+          setFormation(modes[nextIdx]);
+        }
+
+        function setTheme(newTheme) {
+          state.theme = newTheme;
+          document.querySelectorAll('.theme-btn').forEach(function(btn) {
+            btn.classList.toggle('active', btn.dataset.theme === newTheme);
+          });
+          document.getElementById('stat-theme').textContent = newTheme.toUpperCase();
+        }
+
+        function cycleTheme() {
+          var nextIdx = (themes.indexOf(state.theme) + 1) % themes.length;
+          setTheme(themes[nextIdx]);
+        }
+
+        // Formation buttons
+        document.querySelectorAll('.mode-btn').forEach(function(btn) {
+          btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            setFormation(this.dataset.mode);
+          });
+        });
+
+        // Theme buttons
+        document.querySelectorAll('.theme-btn').forEach(function(btn) {
+          btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            setTheme(this.dataset.theme);
+          });
+        });
+
+        // Sliders
+        function bindSlider(id, prop, valId, suffix) {
+          var slider = document.getElementById(id);
+          var valEl = document.getElementById(valId);
+          if (slider) {
+            slider.addEventListener('input', function(e) {
+              e.stopPropagation();
+              var num = parseFloat(this.value);
+              state[prop] = num;
+              if (valEl) valEl.textContent = num.toFixed(1) + (suffix || 'x');
+            });
+          }
+        }
+        bindSlider('slider-speed', 'speed', 'val-speed');
+        bindSlider('slider-amplitude', 'amplitude', 'val-amplitude');
+        bindSlider('slider-size', 'cubeSize', 'val-size');
+        bindSlider('slider-spin', 'cubeSpin', 'val-spin');
+
+        // Orbit toggle
+        var orbitBtn = document.getElementById('btn-orbit');
+        orbitBtn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          state.autoOrbit = !state.autoOrbit;
+          this.classList.toggle('active', state.autoOrbit);
+        });
+
+        // Auto Morph toggle
+        var morphBtn = document.getElementById('btn-morph');
+        morphBtn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          state.autoMorph = !state.autoMorph;
+          state.morphTimer = 0;
+          this.classList.toggle('active', state.autoMorph);
+        });
+
+        // Pause button
+        var pauseBtn = document.getElementById('btn-pause');
+        pauseBtn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          state.paused = !state.paused;
+          this.classList.toggle('active', state.paused);
+          this.textContent = state.paused ? '▶ Play' : '⏸ Pause';
+        });
+
+        // Camera Reset
+        document.getElementById('btn-reset-cam').addEventListener('click', function(e) {
+          e.stopPropagation();
+          r.camera.position = [0, 0, 360];
+          r.camera.focus = [0, 0, 0];
+          r.camera.up = [0, 1, 0];
+        });
+
+        // HUD Toggle
+        var hudVisible = true;
+        var overlayEl = document.getElementById('ui-overlay');
+        var toggleHudBtn = document.getElementById('toggle-hud-btn');
+        toggleHudBtn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          hudVisible = !hudVisible;
+          overlayEl.classList.toggle('hidden', !hudVisible);
+          toggleHudBtn.textContent = hudVisible ? '👁 Hide UI' : '👁 Show UI';
+        });
+
+        // --- 13. Keyboard Shortcuts ---
+        window.addEventListener('keydown', function(e) {
+          if (e.target.tagName === 'INPUT') return;
+
+          switch (e.key) {
+            case '1': setFormation('lattice'); break;
+            case '2': setFormation('wave'); break;
+            case '3': setFormation('helix'); break;
+            case '4': setFormation('rings'); break;
+            case '5': setFormation('supernova'); break;
+            case 'c':
+            case 'C':
+              cycleTheme();
+              break;
+            case ' ':
+              e.preventDefault();
+              pauseBtn.click();
+              break;
+            case 'a':
+            case 'A':
+              orbitBtn.click();
+              break;
+            case 'm':
+            case 'M':
+              morphBtn.click();
+              break;
+            case 'r':
+            case 'R':
+              document.getElementById('btn-reset-cam').click();
+              break;
+            case 'h':
+            case 'H':
+              toggleHudBtn.click();
+              break;
+          }
+        });
+      };
+    </script>
+  </head>
+  <body>
+    <!-- Floating Click Notification Tag -->
+    <div id="shockwave-tag">RIPPLE!</div>
+
+    <!-- Toggle UI Button -->
+    <button id="toggle-hud-btn" class="btn">👁 Hide UI</button>
+
+    <!-- UI Overlay -->
+    <div id="ui-overlay">
+      <!-- Top Bar -->
+      <div class="header-container">
+        <div class="title-box" id="title-box">
+          <div class="title-row">
+            <h1>Chroma Cubes</h1>
+            <span class="badge">XTK 3D Engine</span>
+          </div>
+          <div class="subtitle">Kinetic Multi-Formation Cube Visualization</div>
+        </div>
+
+        <div class="stats-box">
+          <div class="stat-item">
+            <span class="stat-val" id="val-fps">60</span>
+            <span class="stat-label">FPS</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-val" id="stat-cubes">125</span>
+            <span class="stat-label">Cubes</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-val" id="stat-mode">LATTICE</span>
+            <span class="stat-label">Formation</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-val" id="stat-theme">CYBER</span>
+            <span class="stat-label">Palette</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Control Panel -->
+      <div class="control-panel" id="control-panel">
+        <!-- Formations -->
+        <div>
+          <div class="section-title">
+            <span>Formations</span>
+            <span style="font-size: 9px; opacity: 0.6;">[Keys 1–5]</span>
+          </div>
+          <div class="btn-grid full">
+            <button class="btn mode-btn active" data-mode="lattice">🧊 Hypercube Lattice</button>
+            <button class="btn mode-btn" data-mode="wave">🌊 Kinetic Wave</button>
+            <button class="btn mode-btn" data-mode="helix">🧬 Cyber Double Helix</button>
+            <button class="btn mode-btn" data-mode="rings">🪐 Vortex Rings</button>
+            <button class="btn mode-btn" data-mode="supernova">💥 Quantum Supernova</button>
+          </div>
+        </div>
+
+        <!-- Color Themes -->
+        <div>
+          <div class="section-title">
+            <span>Color Palettes</span>
+            <span style="font-size: 9px; opacity: 0.6;">[Key C]</span>
+          </div>
+          <div class="btn-grid">
+            <button class="btn theme-btn active" data-theme="cyber">
+              <span class="theme-dot" style="background: #00f0ff; color: #ff007f;"></span> Cyber
+            </button>
+            <button class="btn theme-btn" data-theme="rainbow">
+              <span class="theme-dot" style="background: #ff007f; color: #ffe600;"></span> Rainbow
+            </button>
+            <button class="btn theme-btn" data-theme="aurora">
+              <span class="theme-dot" style="background: #00e5a3; color: #7928ca;"></span> Aurora
+            </button>
+            <button class="btn theme-btn" data-theme="solar">
+              <span class="theme-dot" style="background: #ffaa00; color: #ff0055;"></span> Solar
+            </button>
+            <button class="btn theme-btn" data-theme="pastel" style="grid-column: span 2;">
+              <span class="theme-dot" style="background: #a5b4fc; color: #f472b6;"></span> Pastel Synth
+            </button>
+          </div>
+        </div>
+
+        <!-- Animation Sliders -->
+        <div>
+          <div class="section-title">Dynamics & Scaling</div>
+          <div class="slider-group">
+            <div class="slider-row">
+              <div class="slider-header">
+                <span>Speed</span>
+                <span class="slider-val" id="val-speed">1.0x</span>
+              </div>
+              <input type="range" id="slider-speed" min="0.1" max="3.0" step="0.1" value="1.0" />
+            </div>
+
+            <div class="slider-row">
+              <div class="slider-header">
+                <span>Amplitude</span>
+                <span class="slider-val" id="val-amplitude">1.0x</span>
+              </div>
+              <input type="range" id="slider-amplitude" min="0.4" max="2.0" step="0.1" value="1.0" />
+            </div>
+
+            <div class="slider-row">
+              <div class="slider-header">
+                <span>Cube Scale</span>
+                <span class="slider-val" id="val-size">1.0x</span>
+              </div>
+              <input type="range" id="slider-size" min="0.4" max="1.8" step="0.1" value="1.0" />
+            </div>
+
+            <div class="slider-row">
+              <div class="slider-header">
+                <span>Cube Spin</span>
+                <span class="slider-val" id="val-spin">1.0x</span>
+              </div>
+              <input type="range" id="slider-spin" min="0.0" max="3.0" step="0.1" value="1.0" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Camera & Motion Toggles -->
+        <div>
+          <div class="section-title">Camera & Playback</div>
+          <div class="btn-grid">
+            <button class="btn active" id="btn-orbit">🔄 Orbit [A]</button>
+            <button class="btn" id="btn-morph">🔀 Morph [M]</button>
+            <button class="btn" id="btn-pause">⏸ Pause</button>
+            <button class="btn" id="btn-reset-cam">🎯 Reset [R]</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom Status & Hints -->
+      <div class="footer-banner">
+        <div class="hints-list">
+          <div class="hint-item"><kbd>Left Drag</kbd> Rotate View</div>
+          <div class="hint-item"><kbd>Scroll</kbd> Zoom</div>
+          <div class="hint-item"><kbd>Right Drag</kbd> Pan</div>
+          <div class="hint-item"><kbd>Click Cube</kbd> Shockwave Pulse</div>
+          <div class="hint-item"><kbd>Space</kbd> Pause</div>
+          <div class="hint-item"><kbd>H</kbd> Toggle UI</div>
+        </div>
+        <div style="font-weight: 600; color: #64748b;">CS460 Graphics</div>
+      </div>
+    </div>
+  </body>
+</html>
