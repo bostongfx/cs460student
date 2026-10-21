@@ -1,0 +1,723 @@
+<html>
+
+<head>
+    <style>
+        html,
+        body {
+            background-color: #000;
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden !important;
+        }
+
+        #gameboy {
+            background: url("https://cs460.org/assignments/breakout/gameboy_bg.jpg");
+            width: 1200px;
+            height: 675px;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        #c {
+            width: 600px;
+            height: 360px;
+            position: absolute;
+            top: 53%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .top_bar {
+            color: rgb(0, 255, 0);
+            font-size: 30px;
+            font-weight: bolder;
+        }
+
+        #score {
+            position: absolute;
+            top: 148px;
+            left: 520px;
+        }
+
+        #score_name {
+            position: absolute;
+            top: 148px;
+            left: 400px;
+        }
+
+        #lives {
+            position: absolute;
+            top: 148px;
+            left: 820px;
+        }
+
+        #lives_name {
+            position: absolute;
+            top: 148px;
+            left: 700px;
+        }
+
+        .result {
+            width: 300px;
+            height: 300px;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: none;
+        }
+
+        #overlay {
+            background-color: rgba(0, 0, 0, 0.7);
+            position: absolute;
+            top: 0px;
+            left: 0px;
+            width: 100%;
+            height: 100%;
+            z-index: 1000;
+            display: none;
+        }
+
+        #level {
+            position: absolute;
+            top: 148px;
+            left: 655px;
+        }
+
+        #level_name {
+            position: absolute;
+            top: 148px;
+            left: 585px;
+        }
+
+        #start_msg {
+            position: absolute;
+            top: 430px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgb(0, 255, 0);
+            font-size: 26px;
+            font-weight: bolder;
+            white-space: nowrap;
+            pointer-events: none;
+        }
+
+        #combo_msg {
+            position: absolute;
+            top: 475px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgb(0, 255, 0);
+            font-size: 24px;
+            font-weight: bolder;
+            white-space: nowrap;
+            pointer-events: none;
+            display: none;
+        }
+    </style>
+
+    <script id="vertexshader" type="glsl">
+      attribute vec3 position;
+
+      uniform mat4 transform;
+
+      void main(void) {
+
+        vec4 final_position = transform * vec4( position, 1.);
+
+        gl_Position = final_position;
+
+        // Part 2 - set point size
+        gl_PointSize = 8.0;
+
+      }
+    </script>
+
+    <script id="fragmentshader" type="glsl">
+      precision mediump float;
+
+      uniform vec4 color;
+
+      void main(void) {
+
+        gl_FragColor = color; //vec4(1., 1., 1., 1.);
+
+      }
+    </script>
+
+    <script>
+        window.onload = function () {
+            //************************************************************//
+            //
+            // INITIALIZE WEBGL
+            //
+            c = document.getElementById("c"); // setup canvas
+            gl = c.getContext("webgl"); // setup GL context
+            gl.viewport(0, 0, c.width, c.height);
+
+            //************************************************************//
+            //
+            // SHADERS
+            //
+            v_shader = gl.createShader(gl.VERTEX_SHADER);
+            f_shader = gl.createShader(gl.FRAGMENT_SHADER);
+
+            // compile vertex shader
+            gl.shaderSource(
+                v_shader,
+                document.getElementById("vertexshader").innerText
+            );
+            gl.compileShader(v_shader);
+            if (!gl.getShaderParameter(v_shader, gl.COMPILE_STATUS)) {
+                console.log(gl.getShaderInfoLog(v_shader));
+            } else {
+                console.log("Vertex Shader compiled!");
+            }
+
+            // compile fragment shader
+            gl.shaderSource(
+                f_shader,
+                document.getElementById("fragmentshader").innerText
+            );
+            gl.compileShader(f_shader);
+            if (!gl.getShaderParameter(f_shader, gl.COMPILE_STATUS)) {
+                console.log(gl.getShaderInfoLog(f_shader));
+            } else {
+                console.log("Fragment Shader compiled!");
+            }
+
+            // attach and link the shaders
+            shaderprogram = gl.createProgram();
+            gl.attachShader(shaderprogram, v_shader);
+            gl.attachShader(shaderprogram, f_shader);
+
+            gl.linkProgram(shaderprogram);
+
+            gl.useProgram(shaderprogram);
+
+            STOPPED = false;
+            GAMESTARTED = false; // PRESS ENTER TO START
+            BALLSPEED = 0.010; // BALL SPEED
+            PADDLESCALE = 1.4; // PADDLE SIZE
+            LEVEL = 1; // LEVEL
+            COMBO = 0; // COMBO
+            PAUSED = false; // PAUSE
+
+            OBJECTS = [];
+            OBJECTS.push(createPaddle([1, 1, 1, 1], [0, -0.9, 0])); // BOTTOM PADDLE
+            OBJECTS.push(createBall([1, 1, 1, 1], [0, 0, 0])); // BALL
+            createBricks(); // ADD BRICKS
+
+            resetBall();
+
+            animate();
+        };
+
+        function createPaddle(color, offset) {
+
+
+
+            //************************************************************//
+            //
+            // CREATE GEOMETRY
+            //
+
+            //
+            // TODO Part 1
+            //
+            vertices = new Float32Array([
+                -0.1, 0.05, 0.0,
+                -0.1, -0.05, 0.0,
+                0.1, 0.05, 0.0,
+                0.1, -0.05, 0.0
+            ]);
+
+            indices = new Uint8Array([0, 1, 2,     // Triangle 1 
+                2, 1, 3]); // Triangle 2
+
+
+            v_buffer = gl.createBuffer(); // create
+            gl.bindBuffer(gl.ARRAY_BUFFER, v_buffer); // bind
+            gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW); // put data in
+            gl.bindBuffer(gl.ARRAY_BUFFER, null); // unbind
+
+
+            i_buffer = gl.createBuffer(); // create
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, i_buffer); // bind
+            gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW); // put data in
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null); // unbind
+
+            // Part 2
+            return [v_buffer, i_buffer, color, offset, 6, gl.TRIANGLES];
+
+        }
+
+
+
+        function createBall(color, offset) {
+            //
+            // Part 2
+            //
+
+            vertices = new Float32Array([0.0, 0.0, 0.0]); // one vertex at origin
+
+            indices = new Uint8Array([0]); // one index
+
+            v_buffer = gl.createBuffer(); // create
+            gl.bindBuffer(gl.ARRAY_BUFFER, v_buffer); // bind
+            gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW); // put data in
+            gl.bindBuffer(gl.ARRAY_BUFFER, null); // unbind
+
+            i_buffer = gl.createBuffer(); // create
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, i_buffer); // bind
+            gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW); // put data in
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null); // unbind
+
+            return [v_buffer, i_buffer, color, offset, 1, gl.POINTS];
+        }
+
+        function createBrick(color, offset, score, is_power) {
+            //************************************************************//
+            //
+            // CREATE GEOMETRY
+            //
+
+            vertices = new Float32Array([
+                -0.095,
+                0.05,
+                0.0, // V0      // 0
+                -0.095,
+                -0.05,
+                0.0, // V1, V4  // 1
+                0.095,
+                0.05,
+                0.0, // V2, V3  // 2
+                0.095,
+                -0.05,
+                0.0, // V5      // 3
+            ]);
+
+            indices = new Uint8Array([
+                0,
+                1,
+                2, // Triangle 1
+                2,
+                1,
+                3,
+            ]); // Triangle 2
+
+            v_buffer = gl.createBuffer(); // create
+            gl.bindBuffer(gl.ARRAY_BUFFER, v_buffer); // bind
+            gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW); // put data in
+            gl.bindBuffer(gl.ARRAY_BUFFER, null); // unbind
+
+            i_buffer = gl.createBuffer(); // create
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, i_buffer); // bind
+            gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW); // put data in
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null); // unbind
+
+            // Part 2
+            return [v_buffer, i_buffer, color, offset, 6, gl.TRIANGLES, score, is_power];
+        }
+
+        function createBricks() {
+            offset_x = -0.8
+            offset_y = 0.9
+            // MORE BRICKS
+            color = [
+                [1.0, 0.0, 0.0, 1.0], // red
+                [1.0, 0.5, 0.0, 1.0], // orange
+                [1.0, 1.0, 0.0, 1.0], // yellow
+                [0.0, 1.0, 0.0, 1.0], // green
+                [0.0, 0.5, 1.0, 1.0], // blue
+                [0.6, 0.2, 1.0, 1.0], // purple
+            ]
+            // POWER BRICK
+            var special_row = Math.floor(Math.random() * 6);
+            var special_col = Math.floor(Math.random() * 9);
+
+            for (let i = 0; i < 6; i++) {
+                for (let j = 0; j < 9; j++) {
+                    var brick_color = color[i];
+                    var brick_score = 6 - i;
+                    var is_power = (i == special_row && j == special_col);
+                    if (is_power) {
+                        brick_color = [1.0, 0.1, 0.8, 1.0]; // POWER BRICK
+                        brick_score = 15;
+                    }
+                    OBJECTS.push(createBrick(brick_color, [offset_x, offset_y, 0], brick_score, is_power))
+                    offset_x += 0.2
+                }
+                offset_x = -0.8
+                offset_y -= 0.14
+            }
+        }
+
+        function animate() {
+            if (STOPPED) {
+                return;
+            }
+
+            requestAnimationFrame(animate);
+
+            // CLEAR NOW BEFORE ANY DRAWING
+            gl.clearColor(0, 0, 0, 0);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+
+            // Part 4 - update ball
+            if (GAMESTARTED && !PAUSED) {
+                updateBall();
+            }
+
+            for (var o = 0; o < OBJECTS.length; o++) {
+                var current = OBJECTS[o];
+
+                var v_buffer = current[0];
+                var i_buffer = current[1];
+                var COLOR = current[2];
+                var OFFSET = current[3];
+                var VERTEXCOUNT = current[4];
+                var PRIMITIVE = current[5]; // Part 2
+
+                //************************************************************//
+                //
+                // CONNECT SHADER WITH GEOMETRY
+                //
+                gl.bindBuffer(gl.ARRAY_BUFFER, v_buffer);
+
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, i_buffer);
+
+                // find the attribute in the shader source
+                var a_position = gl.getAttribLocation(shaderprogram, "position");
+
+                gl.vertexAttribPointer(a_position, 3, gl.FLOAT, false, 0, 0);
+
+                gl.enableVertexAttribArray(a_position);
+
+                var u_color = gl.getUniformLocation(shaderprogram, "color");
+
+                gl.uniform4fv(u_color, new Float32Array(COLOR));
+
+                // var u_offset = gl.getUniformLocation( shaderprogram, 'offset' );
+
+                var u_transform = gl.getUniformLocation(shaderprogram, "transform");
+
+                // PADDLE SIZE - scale X for paddle only
+                var xscale = (o == 0) ? PADDLESCALE : 1;
+                current_transform = new Float32Array([
+                    xscale, 0, 0, 0,
+                    0, 1, 0, 0,
+                    0, 0, 1, 0,
+                    OFFSET[0], OFFSET[1], 0, 1,
+                ]);
+
+                gl.uniformMatrix4fv(u_transform, false, current_transform);
+
+                //************************************************************//
+                //
+                // DRAW!
+                //
+                // gl.drawArrays( gl.LINES, 0, 6 );
+
+                // Part 2 - use primitive from object
+                gl.drawElements(PRIMITIVE, VERTEXCOUNT, gl.UNSIGNED_BYTE, 0);
+            }
+        }
+
+        // COMBO
+        function updateComboDisplay() {
+            var el = document.getElementById("combo_msg");
+            if (COMBO >= 2) {
+                el.innerText = "COMBO x" + COMBO;
+                el.style.display = "block";
+            } else {
+                el.style.display = "none";
+            }
+        }
+
+        // SOUND
+        function playSound(id) {
+            var sound = document.getElementById(id);
+            sound.currentTime = 0;
+            sound.play();
+        }
+
+        //Moves the ball back near the center of the screen and gives it a new random direction. 
+        //It changes the ball’s X and Y offsets to small random values and then sets BALLDIRECTION to a random negative angle so the ball starts moving downward again.
+        function resetBall() {
+            OBJECTS[1][3][0] = Math.random() / 10; // SET TO CENTER
+            OBJECTS[1][3][1] = Math.random() / 10;
+
+            BALLDIRECTION = Math.PI / 8 + Math.random();
+            BALLDIRECTION *= -1;
+        }
+
+        // Reads the current score, adds the value of the brick that was hit, and updates the score on the screen. 
+        // If only the paddle and ball are left in OBJECTS, that means all the bricks were destroyed, so it calls createBricks() to create a new set.
+        function score(score_value) {
+            var old_score = document.getElementById("score").innerText;
+            document.getElementById("score").innerText = parseInt(old_score) + score_value;
+            if (OBJECTS.length == 2) { //IF ALL BLRICKS DESTROYED CREATE MORE
+                // SOUND
+                playSound("level_sound");
+
+                // LEVEL
+                LEVEL += 1;
+                document.getElementById("level").innerText = LEVEL;
+
+                BALLSPEED = 0.010 + (LEVEL - 1) * 0.003;
+                if (BALLSPEED > 0.040) {
+                    BALLSPEED = 0.040;
+                }
+
+                COMBO = 0;
+                updateComboDisplay();
+
+                createBricks();
+                resetBall();
+
+                GAMESTARTED = false;
+
+                var startMsg = document.getElementById("start_msg");
+                startMsg.innerText = "LEVEL " + LEVEL + " - PRESS ENTER";
+                startMsg.style.display = "block";
+            }
+        }
+
+        // Decreases the number of lives by 1. 
+        // If the player was on their last life, it sets STOPPED to true and displays the game-over overlay and image.
+        function loseLife() {
+            var old_life = document.getElementById("lives").innerText;
+            document.getElementById("lives").innerText = parseInt(old_life) - 1;
+
+            // PADDLE SIZE - grow paddle on life lost
+            PADDLESCALE += 0.15;
+            if (PADDLESCALE > 1.4) PADDLESCALE = 1.4;
+
+            // COMBO
+            COMBO = 0;
+            updateComboDisplay();
+
+            if (old_life == 1) {
+                STOPPED = true;
+                document.getElementById("overlay").style.display = "block";
+                document.getElementById("game_over").style.display = "block";
+                document.getElementById("start_msg").style.display = "none";
+
+                // SOUND
+                playSound("gameover_sound");
+            } else {
+                // SOUND
+                playSound("life_sound");
+            }
+        }
+
+        function updateBall() {
+            BALL_X = OBJECTS[1][3][0];
+            BALL_Y = OBJECTS[1][3][1];
+
+            BOTTOM_PADDLE_X = OBJECTS[0][3][0];
+            BOTTOM_PADDLE_Y = OBJECTS[0][3][1];
+            BOTTOM_PADDLE_WIDTH = 0.2 * PADDLESCALE; // PADDLE SIZE
+
+            if (BALL_X >= 0.95) {
+                // RIGHT WALL
+                BALLDIRECTION = Math.PI - BALLDIRECTION;
+
+                // SOUND
+                playSound("wall_sound");
+
+            } else if (BALL_X <= -0.95) {
+                // LEFT WALL
+                BALLDIRECTION = Math.PI - BALLDIRECTION;
+
+                // SOUND
+                playSound("wall_sound");
+
+            } else if (BALL_Y >= 0.96) {
+                // TOP WALL
+                BALLDIRECTION = -BALLDIRECTION;
+
+                // SOUND
+                playSound("wall_sound");
+
+            } else if (BALL_Y >= 0.2) {
+                // TOP BRICKS
+                for (let i = 2; i < OBJECTS.length; i++) {
+                    BRICK_OFFSET_X = OBJECTS[i][3][0];
+                    BRICK_OFFSET_Y = OBJECTS[i][3][1];
+
+                    if (BALL_X > BRICK_OFFSET_X - 0.095 &&
+                        BALL_X < BRICK_OFFSET_X + 0.095 &&
+                        BALL_Y > BRICK_OFFSET_Y - 0.05 &&
+                        BALL_Y < BRICK_OFFSET_Y + 0.05) {
+
+                        BALLDIRECTION = -BALLDIRECTION;
+
+                        score_num = OBJECTS[i][6];
+                        var is_power = OBJECTS[i][7];
+
+                        OBJECTS.splice(i, 1);
+
+                        // SOUND
+                        playSound("brick_sound");
+
+                        // POWER BRICK
+                        if (is_power) {
+                            PADDLESCALE += 0.2;
+                            if (PADDLESCALE > 1.4) PADDLESCALE = 1.4;
+                        }
+
+                        // COMBO
+                        COMBO += 1;
+                        if (COMBO > 5) COMBO = 5;
+
+                        updateComboDisplay();
+
+                        score(score_num * COMBO);
+
+                        if (!GAMESTARTED) return;
+                    }
+                }
+
+            } else if (BALL_Y <= -0.85) {
+                // BOTTOM 
+
+                BOTTOM_PADDLE_LEFT = BOTTOM_PADDLE_X - BOTTOM_PADDLE_WIDTH / 2;
+                BOTTOM_PADDLE_RIGHT = BOTTOM_PADDLE_X + BOTTOM_PADDLE_WIDTH / 2;
+
+                // LET'S CHECK IF A PADDLE IS THERE
+                if (BALL_X >= BOTTOM_PADDLE_LEFT && BALL_X <= BOTTOM_PADDLE_RIGHT) {
+                    // YES, REFLECT
+                    BALLDIRECTION = -BALLDIRECTION;
+
+                    // SOUND
+                    playSound("paddle_sound");
+
+                    // COMBO
+                    COMBO = 0;
+                    updateComboDisplay();
+
+                    //UPDATE STEP ON BOUNCE TO INCREASE SPEED
+                    var speedIncrease = 0.00025 + (LEVEL - 1) * 0.00015;
+                    BALLSPEED += speedIncrease;
+                    if (BALLSPEED > 0.040) {
+                        BALLSPEED = 0.040;
+                    }
+
+                    // PADDLE SIZE - shrink paddle on hit
+                    if (LEVEL == 1) {
+                        PADDLESCALE -= 0.01;
+                    } else if (LEVEL == 2) {
+                        PADDLESCALE -= 0.02;
+                    } else {
+                        PADDLESCALE -= 0.03;
+                    }
+
+                    if (PADDLESCALE < 0.7) {
+                        PADDLESCALE = 0.7;
+                    }
+
+                } else {
+                    // LOSE LIFE
+                    loseLife();
+                    resetBall();
+                    return;
+                }
+            }
+
+            // UPDATE BALL POSITION
+            OBJECTS[1][3][0] += Math.cos(BALLDIRECTION) * BALLSPEED;
+            OBJECTS[1][3][1] += Math.sin(BALLDIRECTION) * BALLSPEED;
+        }
+
+        window.onkeydown = function (e) {
+            if (STOPPED) {
+                // restart the game
+                window.location.reload();
+            }
+
+            // PAUSE
+            if ((e.key == "p" || e.key == "P") && GAMESTARTED && !STOPPED) {
+                PAUSED = !PAUSED;
+
+                var startMsg = document.getElementById("start_msg");
+
+                if (PAUSED) {
+                    startMsg.innerText = "PAUSED - PRESS P TO RESUME";
+                    startMsg.style.display = "block";
+                } else {
+                    startMsg.style.display = "none";
+                }
+
+                return;
+            }
+
+            if (PAUSED) {
+                return;
+            }
+
+            // PRESS ENTER TO START
+            if (e.key == "Enter" && !GAMESTARTED) {
+                GAMESTARTED = true;
+                document.getElementById("start_msg").style.display = "none";
+            }
+
+            // Part 3 - move paddle
+            if (e.key == "ArrowLeft") {
+                OBJECTS[0][3][0] -= 0.1;
+            } else if (e.key == "ArrowRight") {
+                OBJECTS[0][3][0] += 0.1;
+            }
+
+            // keep paddle in view
+            var paddleHalfWidth = 0.1 * PADDLESCALE;
+            var paddleLimit = 1.0 - paddleHalfWidth;
+
+            if (OBJECTS[0][3][0] < -paddleLimit) {
+                OBJECTS[0][3][0] = -paddleLimit;
+            }
+
+            if (OBJECTS[0][3][0] > paddleLimit) {
+                OBJECTS[0][3][0] = paddleLimit;
+            }
+        };
+    </script>
+</head>
+
+<body>
+    <div id="gameboy">
+
+        <span id="score_name" class="top_bar">SCORE:</span>
+        <span id="score" class="top_bar">0</span>
+
+        <span id="level_name" class="top_bar">LVL:</span>
+        <span id="level" class="top_bar">1</span>
+
+        <span id="lives_name" class="top_bar">LIVES:</span>
+        <span id="lives" class="top_bar">3</span>
+
+        <div id="overlay">
+            <img id="game_over" class="result" src="https://cs460.org/assignments/breakout/game_over.jpg" />
+        </div>
+
+        <canvas id="c"></canvas>
+
+        <span id="start_msg">PRESS ENTER TO START</span>
+        <span id="combo_msg">COMBO x2</span>
+
+    </div>
+
+    <audio id="paddle_sound" src="sounds/paddle-hit.mp3"></audio>
+    <audio id="wall_sound" src="sounds/wall-hit.mp3"></audio>
+    <audio id="brick_sound" src="sounds/brick-break.mp3"></audio>
+    <audio id="life_sound" src="sounds/life-lost.mp3"></audio>
+    <audio id="level_sound" src="sounds/level-complete.mp3"></audio>
+    <audio id="gameover_sound" src="sounds/game-over.mp3"></audio>
+
+</body>
+
+</html>
