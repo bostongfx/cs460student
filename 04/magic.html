@@ -1,0 +1,1407 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta content="text/html;charset=utf-8" http-equiv="Content-Type">
+    <meta content="utf-8" http-equiv="encoding">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flashy Fish - WebGL Aquarium Odyssey</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #071b35;
+            font-family: 'Outfit', sans-serif;
+            color: #ffffff;
+        }
+
+        /* Aquarium background blur backdrop */
+        body::before {
+            content: "";
+            position: fixed;
+            inset: -30px;
+            background-image: url('https://cs460.org/assignments/04/bg.jpg');
+            background-size: cover;
+            background-position: center;
+            filter: blur(25px) brightness(0.7);
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* Full-screen crisp aquarium background */
+        body::after {
+            content: "";
+            position: fixed;
+            inset: 0;
+            background-image: url('https://cs460.org/assignments/04/bg.jpg');
+            background-size: 100% 100%;
+            background-position: center;
+            background-repeat: no-repeat;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        #c {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            display: block;
+        }
+
+        /* Glassmorphism UI HUD */
+        .hud-container {
+            position: fixed;
+            top: 16px;
+            left: 16px;
+            right: 16px;
+            z-index: 10;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            pointer-events: none;
+            gap: 12px;
+        }
+
+        .hud-card {
+            pointer-events: auto;
+            background: rgba(6, 25, 48, 0.65);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid rgba(80, 200, 255, 0.28);
+            border-radius: 16px;
+            padding: 10px 18px;
+            box-shadow: 0 8px 32px rgba(0, 10, 30, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+            display: flex;
+            align-items: center;
+            transition: transform 0.2s ease, border-color 0.2s ease;
+        }
+
+        .hud-card:hover {
+            border-color: rgba(100, 230, 255, 0.45);
+        }
+
+        /* Brand Title Badge */
+        .brand-badge {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .brand-icon {
+            font-size: 26px;
+            filter: drop-shadow(0 2px 6px rgba(255, 100, 50, 0.6));
+            animation: floatIcon 3s ease-in-out infinite;
+        }
+
+        @keyframes floatIcon {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-3px) rotate(-6deg); }
+        }
+
+        .brand-text h1 {
+            margin: 0;
+            font-family: 'Fredoka', cursive;
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            background: linear-gradient(135deg, #ffffff 30%, #5ce1e6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 2px 10px rgba(92, 225, 230, 0.3);
+        }
+
+        .brand-text span {
+            font-size: 11px;
+            color: #8ed6ff;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+            font-weight: 500;
+        }
+
+        /* Center Progress / Remaining Fish Card */
+        .progress-card {
+            flex-direction: column;
+            gap: 6px;
+            min-width: 200px;
+            max-width: 320px;
+            flex: 1;
+            margin: 0 8px;
+        }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.6px;
+        }
+
+        .progress-label {
+            color: #9cd8ff;
+            text-transform: uppercase;
+        }
+
+        .progress-count {
+            color: #ffd866;
+            font-weight: 700;
+            text-shadow: 0 0 10px rgba(255, 216, 102, 0.5);
+        }
+
+        .progress-track {
+            width: 100%;
+            height: 8px;
+            background: rgba(10, 40, 75, 0.8);
+            border-radius: 999px;
+            overflow: hidden;
+            border: 1px solid rgba(100, 200, 255, 0.2);
+            position: relative;
+        }
+
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #00d2ff 0%, #00f2fe 50%, #4facfe 100%);
+            border-radius: 999px;
+            box-shadow: 0 0 12px rgba(0, 242, 254, 0.8);
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Score Display (Maintains #score id for compatibility) */
+        .score-card {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .score-label-sub {
+            font-size: 11px;
+            color: #8ed6ff;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            font-weight: 600;
+        }
+
+        #score {
+            /* Preserved ID for compatibility */
+            font-family: 'Fredoka', cursive;
+            font-size: 26px;
+            font-weight: 700;
+            color: #ffd166;
+            text-shadow: 0 0 14px rgba(255, 209, 102, 0.6);
+            letter-spacing: 1px;
+            line-height: 1;
+        }
+
+        /* Floating Score Popups */
+        .score-popup {
+            position: fixed;
+            pointer-events: none;
+            z-index: 15;
+            font-family: 'Fredoka', cursive;
+            font-size: 20px;
+            font-weight: 700;
+            color: #70ffaa;
+            text-shadow: 0 0 10px rgba(112, 255, 170, 0.8), 1px 1px 2px #000;
+            animation: scoreFloat 0.8s ease-out forwards;
+        }
+
+        @keyframes scoreFloat {
+            0% { opacity: 1; transform: translate(-50%, -50%) scale(0.8); }
+            50% { transform: translate(-50%, -85%) scale(1.2); }
+            100% { opacity: 0; transform: translate(-50%, -120%) scale(1); }
+        }
+
+        /* Bottom Controls Helper Bar */
+        .controls-bar {
+            position: fixed;
+            bottom: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 8px 20px;
+            background: rgba(6, 25, 48, 0.65);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(80, 200, 255, 0.22);
+            border-radius: 999px;
+            box-shadow: 0 6px 24px rgba(0, 10, 30, 0.4);
+            font-size: 12px;
+            color: #cce7ff;
+            white-space: nowrap;
+        }
+
+        .kbd-group {
+            display: inline-flex;
+            gap: 4px;
+            align-items: center;
+        }
+
+        kbd {
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            min-width: 22px;
+            height: 22px;
+            padding: 0 4px;
+            background: rgba(20, 60, 100, 0.8);
+            border: 1px solid rgba(120, 220, 255, 0.4);
+            border-radius: 5px;
+            color: #ffffff;
+            font-family: monospace;
+            font-size: 11px;
+            font-weight: bold;
+            box-shadow: 0 2px 0 rgba(0, 20, 50, 0.8);
+        }
+
+        .controls-divider {
+            color: rgba(100, 200, 255, 0.4);
+        }
+
+        /* Victory Overlay (Maintains #winMessage id for compatibility) */
+        #winModal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 50;
+            background: rgba(3, 14, 30, 0.82);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            justify-content: center;
+            align-items: center;
+            animation: fadeIn 0.4s ease-out forwards;
+        }
+
+        #winModal.active {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .win-card {
+            background: linear-gradient(160deg, rgba(14, 45, 85, 0.95) 0%, rgba(5, 22, 45, 0.98) 100%);
+            border: 2px solid rgba(100, 220, 255, 0.45);
+            border-radius: 28px;
+            padding: 36px 44px;
+            max-width: 460px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 0 40px rgba(0, 200, 255, 0.25);
+            animation: popUp 0.5s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .win-card::before {
+            content: "";
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(92, 225, 230, 0.15) 0%, transparent 60%);
+            pointer-events: none;
+            animation: rotateGlow 12s linear infinite;
+        }
+
+        @keyframes rotateGlow {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @keyframes popUp {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .win-trophy {
+            font-size: 64px;
+            margin-bottom: 12px;
+            filter: drop-shadow(0 6px 16px rgba(255, 215, 0, 0.6));
+            animation: bounceTrophy 1.8s ease-in-out infinite;
+        }
+
+        @keyframes bounceTrophy {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+        }
+
+        /* #winMessage preserved for compatibility */
+        #winMessage {
+            font-family: 'Fredoka', cursive;
+            font-size: 34px;
+            font-weight: 700;
+            margin: 0 0 6px 0;
+            background: linear-gradient(135deg, #ffd166 0%, #ff9e00 60%, #ff5400 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 4px 20px rgba(255, 160, 0, 0.4);
+        }
+
+        .win-subtitle {
+            font-size: 14px;
+            color: #b2e0ff;
+            margin-bottom: 24px;
+            line-height: 1.5;
+        }
+
+        .final-score-box {
+            background: rgba(10, 36, 68, 0.7);
+            border: 1px solid rgba(80, 200, 255, 0.3);
+            border-radius: 18px;
+            padding: 16px 20px;
+            margin-bottom: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .final-score-label {
+            font-size: 11px;
+            letter-spacing: 1px;
+            color: #8ed6ff;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        .final-score-value {
+            font-family: 'Fredoka', cursive;
+            font-size: 44px;
+            font-weight: 700;
+            color: #ffd166;
+            text-shadow: 0 0 16px rgba(255, 209, 102, 0.6);
+            line-height: 1.1;
+        }
+
+        .win-stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 26px;
+        }
+
+        .stat-pill {
+            background: rgba(15, 50, 90, 0.5);
+            border: 1px solid rgba(100, 200, 255, 0.2);
+            border-radius: 12px;
+            padding: 8px 12px;
+            font-size: 12px;
+            color: #d8f0ff;
+            font-weight: 500;
+        }
+
+        /* Play Again Button */
+        .restart-button {
+            cursor: pointer;
+            pointer-events: auto;
+            position: relative;
+            z-index: 2;
+            width: 100%;
+            background: linear-gradient(135deg, #00d2ff 0%, #0077ff 100%);
+            border: none;
+            border-radius: 14px;
+            padding: 14px 24px;
+            font-family: 'Fredoka', cursive;
+            font-size: 18px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            color: #ffffff;
+            box-shadow: 0 6px 20px rgba(0, 150, 255, 0.45);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .restart-button:hover {
+            transform: translateY(-2px);
+            background: linear-gradient(135deg, #2ae0ff 0%, #1a88ff 100%);
+            box-shadow: 0 10px 28px rgba(0, 170, 255, 0.6);
+        }
+
+        .restart-button:active {
+            transform: translateY(1px);
+        }
+
+        /* Responsive Layout */
+        @media (max-width: 768px) {
+            .hud-container {
+                top: 10px;
+                left: 10px;
+                right: 10px;
+                gap: 8px;
+            }
+
+            .hud-card {
+                padding: 8px 12px;
+            }
+
+            .brand-text h1 {
+                font-size: 16px;
+            }
+
+            .brand-text span {
+                display: none;
+            }
+
+            .progress-card {
+                min-width: 120px;
+            }
+
+            #score {
+                font-size: 20px;
+            }
+
+            .controls-bar {
+                bottom: 10px;
+                padding: 6px 14px;
+                font-size: 11px;
+                max-width: 92%;
+            }
+
+            .win-card {
+                padding: 28px 24px;
+            }
+
+            #winMessage {
+                font-size: 28px;
+            }
+
+            .final-score-value {
+                font-size: 36px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .progress-header .progress-label {
+                display: none;
+            }
+
+            .controls-divider, .controls-hint {
+                display: none;
+            }
+        }
+    </style>
+  </head>
+  <script type="text/javascript" src="https://cs460.org/js/glmatrix.js"></script>
+  
+  <!-- ENHANCED WEBGL VERTEX SHADER -->
+  <script id="vertexshader" type="glsl">
+        attribute vec3 a_position;
+
+        uniform mat4 u_transform;
+        uniform float u_pointsize;
+
+        varying vec3 v_pos;
+
+        void main(void) {
+            v_pos = a_position;
+            vec4 final_position = u_transform * vec4(a_position, 1.0);
+
+            gl_Position = final_position;
+            gl_PointSize = u_pointsize;
+        }
+  </script>
+  
+  <!-- ENHANCED WEBGL FRAGMENT SHADER (Full WebGL 1.0 Compatibility) -->
+  <script id="fragmentshader" type="glsl">
+    precision mediump float;
+
+    uniform vec4 u_color;
+    uniform int u_mode;        // 0: fish body, 1: fish eye, 2: bubble, 3: particle burst, 4: light rays
+    uniform float u_time;
+    uniform float u_is_player; // 1.0 for large red fish, 0.0 for small fish
+
+    varying vec3 v_pos;
+
+    void main(void) {
+        if (u_mode == 0) {
+            // FISH BODY RENDERING
+            if (u_is_player > 0.5) {
+                // Red Player Fish: Rich multi-tonal ruby crimson with warm gold dorsal crest and specular flank
+                float noseGrad = smoothstep(-0.4, 0.5, v_pos.x);
+                float dorsalSheen = smoothstep(-0.05, 0.25, v_pos.y) * 0.3;
+                float flankGloss = pow(max(0.0, 1.0 - abs(v_pos.y) * 3.5), 2.2) * 0.32;
+                float tailDarken = smoothstep(-0.1, -0.4, v_pos.x) * 0.25;
+
+                vec3 rubyRed = vec3(0.96, 0.08, 0.08);
+                vec3 warmGold = vec3(1.0, 0.62, 0.15);
+                vec3 crimsonTail = vec3(0.60, 0.02, 0.05);
+
+                vec3 bodyColor = mix(crimsonTail, rubyRed, noseGrad);
+                bodyColor += warmGold * dorsalSheen;
+                bodyColor += vec3(flankGloss);
+                bodyColor -= vec3(tailDarken);
+
+                gl_FragColor = vec4(bodyColor, u_color.a);
+            } else {
+                // Small Fish: Bioluminescent aquatic sapphire & cyan with shimmering tail fin accents
+                float shimmer = sin(u_time * 5.0 + v_pos.x * 12.0) * 0.12;
+                float frontGlow = smoothstep(-0.2, 0.5, v_pos.x) * 0.25;
+                vec3 col = u_color.rgb + vec3(frontGlow * 0.3, frontGlow * 0.8, frontGlow) + vec3(shimmer * 0.4, shimmer * 0.8, shimmer);
+                gl_FragColor = vec4(col, u_color.a);
+            }
+        } else if (u_mode == 1) {
+            // FISH EYE RENDERING (Turns square WebGL points into glossy round cartoon eyes)
+            vec2 p = gl_PointCoord - vec2(0.5);
+            float dist = length(p);
+            if (dist > 0.5) {
+                discard;
+            }
+            float edge = smoothstep(0.5, 0.44, dist);
+            vec3 col = vec3(0.96, 0.98, 1.0); // White sclera
+            if (dist < 0.30) {
+                col = vec3(0.04, 0.04, 0.07); // Dark pupil
+                // Specular twinkle catchlight reflection
+                float sparkle = smoothstep(0.12, 0.0, length(gl_PointCoord - vec2(0.36, 0.36)));
+                col += vec3(sparkle * 0.95);
+            } else {
+                // Subtle aquatic iris ring
+                col = mix(col, vec3(0.65, 0.82, 0.95), smoothstep(0.30, 0.46, dist));
+            }
+            gl_FragColor = vec4(col, edge * u_color.a);
+        } else if (u_mode == 2) {
+            // UNDERWATER BUBBLE RENDERING (Glass-like spheres with rim light & specular crescent)
+            vec2 p = gl_PointCoord - vec2(0.5);
+            float dist = length(p);
+            if (dist > 0.5) {
+                discard;
+            }
+            float rim = smoothstep(0.32, 0.49, dist);
+            float highlight1 = smoothstep(0.14, 0.0, length(gl_PointCoord - vec2(0.34, 0.34)));
+            float highlight2 = smoothstep(0.09, 0.0, length(gl_PointCoord - vec2(0.66, 0.66))) * 0.4;
+
+            vec4 bubbleCol = vec4(0.5, 0.85, 1.0, 0.3) * rim;
+            vec4 specular = vec4(1.0, 1.0, 1.0, 0.85) * (highlight1 + highlight2);
+            gl_FragColor = bubbleCol + specular;
+        } else if (u_mode == 3) {
+            // PARTICLE BURST RENDERING (Glow spark upon eating fish)
+            vec2 p = gl_PointCoord - vec2(0.5);
+            float dist = length(p);
+            if (dist > 0.5) {
+                discard;
+            }
+            float glow = smoothstep(0.5, 0.0, dist);
+            gl_FragColor = vec4(u_color.rgb, glow * u_color.a);
+        } else if (u_mode == 4) {
+            // UNDERWATER LIGHT RAYS / SUNBEAMS
+            float rayFalloff = smoothstep(-1.1, 1.1, v_pos.y);
+            gl_FragColor = vec4(u_color.rgb, u_color.a * rayFalloff);
+        } else {
+            gl_FragColor = u_color;
+        }
+    }
+  </script>
+  
+  <script>
+
+    var c, gl;
+    var score = 0;
+    var totalSmallFish = 100;
+    var v_shader, f_shader, shaderprogram;
+    var all_fish = [];
+    var gameStartTime = Date.now();
+    var gameWon = false;
+
+    // Uniform locations cached to avoid per-frame lookups
+    var u_transformLoc, u_pointsizeLoc, u_colorLoc, u_modeLoc, u_timeLoc, u_is_playerLoc;
+    var a_positionLoc;
+
+    // Pre-allocated Float32Arrays to avoid GC pauses during animation
+    var transformMat = new Float32Array(16);
+    var identityMat = new Float32Array([
+        1, 0, 0, 0,
+        0, 1, 0, 0,
+        0, 0, 1, 0,
+        0, 0, 0, 1
+    ]);
+    var colorVec = new Float32Array(4);
+
+    // ==========================================
+    // UNDERWATER BUBBLE SYSTEM (WebGL Points)
+    // ==========================================
+    var MAX_BUBBLES = 65;
+    var bubblePositions = new Float32Array(MAX_BUBBLES * 3);
+    var bubbleSpeeds = new Float32Array(MAX_BUBBLES);
+    var bubbleWobbles = new Float32Array(MAX_BUBBLES);
+    var bubbleWobbleSpeeds = new Float32Array(MAX_BUBBLES);
+    var bubble_v_buffer;
+
+    function initBubbles() {
+        for (var b = 0; b < MAX_BUBBLES; b++) {
+            resetBubble(b, true);
+        }
+        bubble_v_buffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, bubble_v_buffer);
+        gl.bufferData(gl.ARRAY_BUFFER, bubblePositions, gl.DYNAMIC_DRAW);
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+    }
+
+    function resetBubble(b, initialScatter) {
+        var idx = b * 3;
+        bubblePositions[idx] = (Math.random() - 0.5) * 2.3;
+        bubblePositions[idx + 1] = initialScatter ? (Math.random() - 0.5) * 2.2 : -1.15;
+        bubblePositions[idx + 2] = 0;
+        bubbleSpeeds[b] = 0.0025 + Math.random() * 0.0045;
+        bubbleWobbles[b] = Math.random() * Math.PI * 2;
+        bubbleWobbleSpeeds[b] = 0.02 + Math.random() * 0.03;
+    }
+
+    // ==========================================
+    // PARTICLE BURST SYSTEM ON EATING (WebGL Points)
+    // ==========================================
+    var MAX_BURST_PARTICLES = 160;
+    var burstParticles = [];
+    var burstPositions = new Float32Array(MAX_BURST_PARTICLES * 3);
+    var burst_v_buffer;
+
+    function initBurstParticles() {
+        burst_v_buffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, burst_v_buffer);
+        gl.bufferData(gl.ARRAY_BUFFER, burstPositions, gl.DYNAMIC_DRAW);
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+    }
+
+    function spawnParticleBurst(x, y, fishColor) {
+        var count = 22;
+        for (var p = 0; p < count; p++) {
+            if (burstParticles.length >= MAX_BURST_PARTICLES) {
+                burstParticles.shift();
+            }
+            var angle = Math.random() * Math.PI * 2;
+            var speed = 0.008 + Math.random() * 0.022;
+            burstParticles.push({
+                x: x,
+                y: y,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                life: 35 + Math.floor(Math.random() * 20),
+                maxLife: 55,
+                r: Math.min(1.0, fishColor[0] * 1.3 + 0.2),
+                g: Math.min(1.0, fishColor[1] * 1.3 + 0.3),
+                b: Math.min(1.0, fishColor[2] * 1.3 + 0.4),
+                size: 8.0 + Math.random() * 12.0
+            });
+        }
+        createScorePopup(x, y);
+    }
+
+    function createScorePopup(clipX, clipY) {
+        var popup = document.createElement('div');
+        popup.className = 'score-popup';
+        popup.textContent = '+10';
+        var screenX = (clipX + 1) * 0.5 * window.innerWidth;
+        var screenY = (-clipY + 1) * 0.5 * window.innerHeight;
+        popup.style.left = screenX + 'px';
+        popup.style.top = screenY + 'px';
+        document.body.appendChild(popup);
+        setTimeout(function() {
+            if (popup.parentNode) {
+                popup.parentNode.removeChild(popup);
+            }
+        }, 800);
+    }
+
+    // ==========================================
+    // UNDERWATER LIGHT RAYS SYSTEM (WebGL Quads)
+    // ==========================================
+    var lightRaysData = [
+        { xTop: -0.85, wTop: 0.16, xBot: -1.05, wBot: 0.42, speed: 0.7, phase: 0.2 },
+        { xTop: -0.35, wTop: 0.18, xBot: -0.50, wBot: 0.46, speed: 1.1, phase: 1.8 },
+        { xTop: 0.10,  wTop: 0.20, xBot: -0.05, wBot: 0.52, speed: 0.9, phase: 3.4 },
+        { xTop: 0.55,  wTop: 0.18, xBot: 0.50,  wBot: 0.44, speed: 1.2, phase: 5.1 },
+        { xTop: 0.90,  wTop: 0.15, xBot: 1.05,  wBot: 0.40, speed: 0.8, phase: 2.5 }
+    ];
+    var light_v_buffer;
+    var lightRayVertices = new Float32Array(lightRaysData.length * 6 * 3);
+
+    function initLightRays() {
+        for (var i = 0; i < lightRaysData.length; i++) {
+            var ray = lightRaysData[i];
+            var base = i * 18;
+
+            var x1 = ray.xTop - ray.wTop * 0.5;
+            var x2 = ray.xTop + ray.wTop * 0.5;
+            var x3 = ray.xBot - ray.wBot * 0.5;
+            var x4 = ray.xBot + ray.wBot * 0.5;
+
+            var yTop = 1.1;
+            var yBot = -1.1;
+
+            // Triangle 1
+            lightRayVertices[base + 0] = x1; lightRayVertices[base + 1] = yTop; lightRayVertices[base + 2] = 0;
+            lightRayVertices[base + 3] = x3; lightRayVertices[base + 4] = yBot; lightRayVertices[base + 5] = 0;
+            lightRayVertices[base + 6] = x2; lightRayVertices[base + 7] = yTop; lightRayVertices[base + 8] = 0;
+
+            // Triangle 2
+            lightRayVertices[base + 9]  = x2; lightRayVertices[base + 10] = yTop; lightRayVertices[base + 11] = 0;
+            lightRayVertices[base + 12] = x3; lightRayVertices[base + 13] = yBot; lightRayVertices[base + 14] = 0;
+            lightRayVertices[base + 15] = x4; lightRayVertices[base + 16] = yBot; lightRayVertices[base + 17] = 0;
+        }
+
+        light_v_buffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, light_v_buffer);
+        gl.bufferData(gl.ARRAY_BUFFER, lightRayVertices, gl.STATIC_DRAW);
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+    }
+
+    // ==========================================
+    // INITIALIZATION & SETUP
+    // ==========================================
+    window.onload = function() {
+
+      c = document.getElementById( 'c' );
+      handleResize();
+
+      gl = c.getContext( 'webgl' );
+      gl.viewport(0, 0, c.width, c.height );
+
+      // Vertex shader
+      v_shader = gl.createShader( gl.VERTEX_SHADER );
+      gl.shaderSource( v_shader, document.getElementById( 'vertexshader' ).innerText );
+      gl.compileShader( v_shader );
+      if (!gl.getShaderParameter( v_shader, gl.COMPILE_STATUS)) {
+        console.error("Vertex Shader Error:", gl.getShaderInfoLog( v_shader ));
+      }
+
+      // Fragment shader
+      f_shader = gl.createShader( gl.FRAGMENT_SHADER );
+      gl.shaderSource( f_shader, document.getElementById( 'fragmentshader' ).innerText );
+      gl.compileShader( f_shader );
+      if (!gl.getShaderParameter( f_shader, gl.COMPILE_STATUS)) {
+        console.error("Fragment Shader Error:", gl.getShaderInfoLog( f_shader ));
+      }
+
+      // Link program
+      shaderprogram = gl.createProgram();
+      gl.attachShader( shaderprogram, v_shader );
+      gl.attachShader( shaderprogram, f_shader );
+      gl.linkProgram( shaderprogram );
+      if (!gl.getProgramParameter(shaderprogram, gl.LINK_STATUS)) {
+        console.error("Program Link Error:", gl.getProgramInfoLog(shaderprogram));
+      }
+      gl.useProgram( shaderprogram );
+
+      // Cache uniform and attribute locations
+      u_transformLoc = gl.getUniformLocation(shaderprogram, 'u_transform');
+      u_pointsizeLoc = gl.getUniformLocation(shaderprogram, 'u_pointsize');
+      u_colorLoc = gl.getUniformLocation(shaderprogram, 'u_color');
+      u_modeLoc = gl.getUniformLocation(shaderprogram, 'u_mode');
+      u_timeLoc = gl.getUniformLocation(shaderprogram, 'u_time');
+      u_is_playerLoc = gl.getUniformLocation(shaderprogram, 'u_is_player');
+      a_positionLoc = gl.getAttribLocation(shaderprogram, 'a_position');
+
+      // Initialize WebGL particle & lighting systems
+      initBubbles();
+      initBurstParticles();
+      initLightRays();
+
+      // Populate game fish
+      setupFish();
+
+      // Setup window resize listener
+      window.addEventListener('resize', handleResize);
+
+      // Setup restart button listener
+      var restartBtn = document.getElementById('restartBtn');
+      if (restartBtn) {
+          restartBtn.addEventListener('click', restartGame);
+      }
+
+      animate();
+    };
+
+    function handleResize() {
+        if (!c) return;
+        c.width = window.innerWidth;
+        c.height = window.innerHeight;
+        if (gl) {
+            gl.viewport(0, 0, c.width, c.height);
+        }
+    }
+
+    function setupFish() {
+        all_fish = [];
+
+        // One large red fish (player)
+        all_fish.push(createFish(
+            new Float32Array([0, 0, 0]),
+            new Float32Array([1, 0, 0, 1]),
+            1,
+            -1
+        ));
+
+        // Create 100 small colorful fish
+        for (var i = 0; i < totalSmallFish; i++) {
+            var random_color = new Float32Array([
+                0.1 + Math.random() * 0.4,
+                0.4 + Math.random() * 0.5,
+                0.8 + Math.random() * 0.2,
+                0.95
+            ]);
+
+            var random_offset = new Float32Array([
+                (Math.random() - 0.5) * 2.2,
+                (Math.random() - 0.5) * 1.6,
+                0
+            ]);
+
+            var random_scale = 0.12 + Math.random() * 0.18;
+
+            all_fish.push(createFish(
+                random_offset,
+                random_color,
+                random_scale,
+                1
+            ));
+        }
+
+        updateHUD();
+    }
+
+    function createFish(offset, color, scale = 1, direction = 1) {
+
+        // Preserved original fish geometry
+        var vertices = new Float32Array([
+            0.5,  0.0,  0.0,  // Nose
+            0.2,  0.25, 0.0,  // Upper body
+            -0.2,  0.15, 0.0,  // Upper tail base
+            -0.4,  0.3,  0.0,  // Upper tail tip
+            -0.4, -0.3,  0.0,  // Lower tail tip
+            -0.2, -0.15, 0.0,  // Lower tail base
+            0.2, -0.25, 0.0   // Lower body
+        ]);
+
+        var indices = new Uint8Array([
+            0, 1, 6,
+            1, 2, 6,
+            2, 5, 6,
+            2, 3, 5,
+            3, 4, 5
+        ]);
+
+        // Vertex buffer
+        var v_buffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, v_buffer);
+        gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+        // Index buffer
+        var i_buffer = gl.createBuffer();
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, i_buffer);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+
+        // Eye geometry
+        var eye_vertex = new Float32Array([0.2, 0.2, 0.0]);
+
+        // Eye vertex buffer
+        var eye_v_buffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, eye_v_buffer);
+        gl.bufferData(gl.ARRAY_BUFFER, eye_vertex, gl.STATIC_DRAW);
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+        // Preserved 7-element array format
+        return [v_buffer, i_buffer, eye_v_buffer, color, offset, scale, direction];
+    }
+
+    var keys = {
+        ArrowUp: false,
+        ArrowDown: false,
+        ArrowLeft: false,
+        ArrowRight: false
+    };
+
+    window.addEventListener('keydown', function(e) {
+        if (e.key in keys) {
+            keys[e.key] = true;
+            e.preventDefault();
+        }
+    });
+
+    window.addEventListener('keyup', function(e) {
+        if (e.key in keys) {
+            keys[e.key] = false;
+            e.preventDefault();
+        }
+    });
+
+    window.addEventListener('blur', function() {
+        for (var key in keys) {
+            keys[key] = false;
+        }
+    });
+
+    function updateHUD() {
+        var scoreElem = document.getElementById('score');
+        if (scoreElem) {
+            scoreElem.textContent = score;
+        }
+
+        var remaining = Math.max(0, all_fish.length - 1);
+        var fishCountElem = document.getElementById('fishCount');
+        if (fishCountElem) {
+            fishCountElem.textContent = remaining + ' / ' + totalSmallFish;
+        }
+
+        var progressFillElem = document.getElementById('progressFill');
+        if (progressFillElem) {
+            var percent = ((totalSmallFish - remaining) / totalSmallFish) * 100;
+            progressFillElem.style.width = percent + '%';
+        }
+    }
+
+    function checkVictory() {
+        if (all_fish.length === 1 && !gameWon) {
+            gameWon = true;
+
+            // Update modal score
+            var finalScoreElem = document.getElementById('finalScoreVal');
+            if (finalScoreElem) {
+                finalScoreElem.textContent = score;
+            }
+
+            var elapsedSec = Math.floor((Date.now() - gameStartTime) / 1000);
+            var mins = Math.floor(elapsedSec / 60);
+            var secs = elapsedSec % 60;
+            var timeElem = document.getElementById('timeElapsed');
+            if (timeElem) {
+                timeElem.textContent = '⏱️ Time: ' + (mins < 10 ? '0' : '') + mins + ':' + (secs < 10 ? '0' : '') + secs;
+            }
+
+            // Show victory modal overlay
+            var winModal = document.getElementById('winModal');
+            if (winModal) {
+                winModal.classList.add('active');
+            }
+
+            // Also ensure legacy #winMessage is displayed for compatibility
+            var winMsg = document.getElementById('winMessage');
+            if (winMsg) {
+                winMsg.style.display = 'block';
+            }
+        }
+    }
+
+    function restartGame() {
+        score = 0;
+        gameWon = false;
+        burstParticles = [];
+        gameStartTime = Date.now();
+
+        var winModal = document.getElementById('winModal');
+        if (winModal) {
+            winModal.classList.remove('active');
+        }
+
+        setupFish();
+    }
+
+    // ==========================================
+    // MAIN RENDERING LOOP
+    // ==========================================
+    function animate() {
+
+      requestAnimationFrame(animate);
+      var timeNow = performance.now();
+      var timeSec = timeNow * 0.001;
+
+      // ------------------------------------------
+      // 1. COLLISION DETECTION & SCORING
+      // ------------------------------------------
+      if (all_fish.length > 0) {
+          var redFish = all_fish[0];
+
+          for (var i = all_fish.length - 1; i >= 1; i--) {
+              var smallFish = all_fish[i];
+
+              var dx = redFish[4][0] - smallFish[4][0];
+              var dy = redFish[4][1] - smallFish[4][1];
+
+              var distance = Math.sqrt(dx * dx + dy * dy);
+
+              if (distance < 0.25 + smallFish[5] * 0.2) {
+                  // Spawn visual WebGL particle burst
+                  spawnParticleBurst(smallFish[4][0], smallFish[4][1], smallFish[3]);
+
+                  all_fish.splice(i, 1);
+                  score += 10;
+                  updateHUD();
+              }
+          }
+
+          // Check winning condition
+          checkVictory();
+      }
+
+      // ------------------------------------------
+      // 2. CLEAR & BLENDING SETUP
+      // ------------------------------------------
+      gl.clearColor( 0., 0., 0., 0.);
+      gl.clear( gl.COLOR_BUFFER_BIT );
+
+      gl.enable(gl.BLEND);
+      gl.blendEquation(gl.FUNC_ADD);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      gl.disable(gl.DEPTH_TEST);
+
+      // Pass global uniforms
+      gl.uniform1f(u_timeLoc, timeSec);
+
+      // ------------------------------------------
+      // 3. RENDER ATMOSPHERIC LIGHT RAYS (WebGL Quads)
+      // ------------------------------------------
+      if (light_v_buffer) {
+          gl.blendFunc(gl.SRC_ALPHA, gl.ONE); // Additive blending for light shafts
+          gl.uniform1i(u_modeLoc, 4); // Light ray mode
+          gl.uniformMatrix4fv(u_transformLoc, false, identityMat);
+
+          gl.bindBuffer(gl.ARRAY_BUFFER, light_v_buffer);
+          gl.vertexAttribPointer(a_positionLoc, 3, gl.FLOAT, false, 0, 0);
+          gl.enableVertexAttribArray(a_positionLoc);
+
+          for (var lr = 0; lr < lightRaysData.length; lr++) {
+              var ray = lightRaysData[lr];
+              var alpha = 0.035 + 0.02 * Math.sin(timeSec * ray.speed + ray.phase);
+              colorVec[0] = 0.35;
+              colorVec[1] = 0.85;
+              colorVec[2] = 1.0;
+              colorVec[3] = alpha;
+              gl.uniform4fv(u_colorLoc, colorVec);
+              gl.drawArrays(gl.TRIANGLES, lr * 6, 6);
+          }
+
+          gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); // Restore standard alpha blend
+      }
+
+      // ------------------------------------------
+      // 4. UPDATE & RENDER BUBBLES (WebGL Points)
+      // ------------------------------------------
+      if (bubble_v_buffer) {
+          for (var b = 0; b < MAX_BUBBLES; b++) {
+              var bIdx = b * 3;
+              bubblePositions[bIdx + 1] += bubbleSpeeds[b];
+              bubblePositions[bIdx] += Math.sin(timeSec * 2.0 + bubbleWobbles[b]) * 0.0012;
+
+              if (bubblePositions[bIdx + 1] > 1.15) {
+                  resetBubble(b, false);
+              }
+          }
+
+          gl.bindBuffer(gl.ARRAY_BUFFER, bubble_v_buffer);
+          gl.bufferSubData(gl.ARRAY_BUFFER, 0, bubblePositions);
+          gl.vertexAttribPointer(a_positionLoc, 3, gl.FLOAT, false, 0, 0);
+          gl.enableVertexAttribArray(a_positionLoc);
+
+          gl.uniform1i(u_modeLoc, 2); // Bubble mode
+          gl.uniformMatrix4fv(u_transformLoc, false, identityMat);
+
+          // Small bubbles
+          gl.uniform1f(u_pointsizeLoc, 10.0);
+          gl.drawArrays(gl.POINTS, 0, 25);
+
+          // Medium bubbles
+          gl.uniform1f(u_pointsizeLoc, 18.0);
+          gl.drawArrays(gl.POINTS, 25, 25);
+
+          // Large bubbles
+          gl.uniform1f(u_pointsizeLoc, 28.0);
+          gl.drawArrays(gl.POINTS, 50, MAX_BUBBLES - 50);
+      }
+
+      // ------------------------------------------
+      // 5. UPDATE & RENDER PARTICLE BURSTS (WebGL Points)
+      // ------------------------------------------
+      if (burstParticles.length > 0) {
+          gl.blendFunc(gl.SRC_ALPHA, gl.ONE); // Additive sparkle for bursts
+          gl.uniform1i(u_modeLoc, 3); // Burst particle mode
+          gl.uniformMatrix4fv(u_transformLoc, false, identityMat);
+
+          var aliveCount = 0;
+          for (var pIdx = burstParticles.length - 1; pIdx >= 0; pIdx--) {
+              var part = burstParticles[pIdx];
+              part.x += part.vx;
+              part.y += part.vy;
+              part.vx *= 0.94;
+              part.vy *= 0.94;
+              part.vy += 0.0004; // Gentle upward drift
+              part.life--;
+
+              if (part.life <= 0) {
+                  burstParticles.splice(pIdx, 1);
+              } else {
+                  var vPosIdx = aliveCount * 3;
+                  burstPositions[vPosIdx] = part.x;
+                  burstPositions[vPosIdx + 1] = part.y;
+                  burstPositions[vPosIdx + 2] = 0;
+                  aliveCount++;
+              }
+          }
+
+          if (aliveCount > 0) {
+              gl.bindBuffer(gl.ARRAY_BUFFER, burst_v_buffer);
+              gl.bufferSubData(gl.ARRAY_BUFFER, 0, burstPositions);
+              gl.vertexAttribPointer(a_positionLoc, 3, gl.FLOAT, false, 0, 0);
+              gl.enableVertexAttribArray(a_positionLoc);
+
+              for (var i = 0; i < aliveCount; i++) {
+                  var pt = burstParticles[i];
+                  if (!pt) continue;
+                  var fade = pt.life / pt.maxLife;
+                  colorVec[0] = pt.r;
+                  colorVec[1] = pt.g;
+                  colorVec[2] = pt.b;
+                  colorVec[3] = fade;
+                  gl.uniform4fv(u_colorLoc, colorVec);
+                  gl.uniform1f(u_pointsizeLoc, pt.size * (0.6 + 0.4 * fade));
+                  gl.drawArrays(gl.POINTS, i, 1);
+              }
+          }
+          gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      }
+
+      // ------------------------------------------
+      // 6. RENDER ALL FISH
+      // ------------------------------------------
+      for (var r = 0; r < all_fish.length; r++) {
+
+        var current_buffers = all_fish[r];
+        var current_v_buffer = current_buffers[0];
+        var current_i_buffer = current_buffers[1];
+        var current_eye_v_buffer = current_buffers[2];
+        var current_color = current_buffers[3];
+        var current_offset = current_buffers[4];
+        var current_scale = current_buffers[5];
+        var current_direction = current_buffers[6];
+
+        var theta = 0;
+
+        if (r === 0) {
+            // Large red player fish: keyboard controls
+            var speed = 0.012;
+            var isMoving = false;
+
+            if (keys.ArrowLeft) {
+                current_offset[0] -= speed;
+                current_buffers[6] = -1;
+                isMoving = true;
+            }
+            if (keys.ArrowRight) {
+                current_offset[0] += speed;
+                current_buffers[6] = 1;
+                isMoving = true;
+            }
+            if (keys.ArrowUp) {
+                current_offset[1] += speed;
+                isMoving = true;
+            }
+            if (keys.ArrowDown) {
+                current_offset[1] -= speed;
+                isMoving = true;
+            }
+
+            // Smooth swimming tail-sway wave
+            if (isMoving) {
+                theta = Math.sin(timeSec * 9.0) * 0.11;
+            } else {
+                theta = Math.sin(timeSec * 3.0) * 0.035; // Gentle idle breathing
+            }
+
+            // Keep inside aquarium boundaries
+            current_offset[0] = Math.max(-0.85, Math.min(0.85, current_offset[0]));
+            current_offset[1] = Math.max(-0.75, Math.min(0.75, current_offset[1]));
+
+        } else {
+            // Small fish: natural horizontal glide with smooth wave undulation
+            current_offset[0] += current_direction * 0.0032;
+
+            // Gentle sinusoidal vertical wave per fish
+            var fishPhase = timeSec * 3.0 + r * 1.35;
+            current_offset[1] += Math.sin(fishPhase) * 0.0016;
+            current_offset[1] = Math.max(-0.85, Math.min(0.85, current_offset[1]));
+
+            // Smooth tail swimming oscillation
+            theta = Math.sin(fishPhase * 1.5) * 0.085;
+
+            // Wrap around horizontally
+            if (current_offset[0] > 1.25) {
+                current_offset[0] = -1.25;
+            } else if (current_offset[0] < -1.25) {
+                current_offset[0] = 1.25;
+            }
+        }
+
+        current_direction = current_buffers[6];
+
+        // ------------------------------------------
+        // CONNECT SHADER WITH FISH GEOMETRY
+        // ------------------------------------------
+        gl.bindBuffer( gl.ARRAY_BUFFER, current_v_buffer );
+        gl.bindBuffer( gl.ELEMENT_ARRAY_BUFFER, current_i_buffer );
+
+        gl.vertexAttribPointer( a_positionLoc, 3, gl.FLOAT, false, 0, 0 );
+        gl.enableVertexAttribArray( a_positionLoc );
+
+        // Construct 4x4 transformation matrix into pre-allocated buffer
+        var cosT = Math.cos(theta);
+        var sinT = Math.sin(theta);
+
+        transformMat[0] = current_direction * current_scale * cosT;
+        transformMat[1] = current_direction * current_scale * sinT;
+        transformMat[2] = 0;
+        transformMat[3] = 0;
+
+        transformMat[4] = -current_scale * sinT;
+        transformMat[5] = current_scale * cosT;
+        transformMat[6] = 0;
+        transformMat[7] = 0;
+
+        transformMat[8] = 0;
+        transformMat[9] = 0;
+        transformMat[10] = current_scale;
+        transformMat[11] = 0;
+
+        transformMat[12] = current_offset[0];
+        transformMat[13] = current_offset[1];
+        transformMat[14] = current_offset[2];
+        transformMat[15] = 1;
+
+        gl.uniformMatrix4fv(u_transformLoc, false, transformMat);
+
+        // Fish Body Mode
+        gl.uniform1i(u_modeLoc, 0);
+
+        if (r === 0) {
+            // Player fish: Red ruby gradient shader
+            gl.uniform1f(u_is_playerLoc, 1.0);
+            colorVec[0] = 1.0; colorVec[1] = 0.08; colorVec[2] = 0.08; colorVec[3] = 1.0;
+            gl.uniform4fv(u_colorLoc, colorVec);
+        } else {
+            // Small fish: Iridescent aqua blue with pulsation
+            gl.uniform1f(u_is_playerLoc, 0.0);
+            var pulse = (Math.sin(timeSec * 2.5 + r * 0.4) + 1) * 0.5;
+
+            colorVec[0] = 0.08 + pulse * 0.15;
+            colorVec[1] = 0.45 + pulse * 0.35;
+            colorVec[2] = 0.75 + pulse * 0.25;
+            colorVec[3] = current_color[3];
+            gl.uniform4fv(u_colorLoc, colorVec);
+        }
+
+        // Draw fish body (Preserved 15-indices triangle draw)
+        gl.drawElements(gl.TRIANGLES, 15, gl.UNSIGNED_BYTE, 0);
+
+        // ------------------------------------------
+        // DRAW FISH EYE (Round, glossy cartoon eye with catchlight)
+        // ------------------------------------------
+        gl.uniform1i(u_modeLoc, 1); // Eye mode
+        gl.uniform1f(u_is_playerLoc, r === 0 ? 1.0 : 0.0);
+
+        colorVec[0] = 0.0; colorVec[1] = 0.0; colorVec[2] = 0.0; colorVec[3] = 0.95;
+        gl.uniform4fv(u_colorLoc, colorVec);
+
+        // Make eye proportional to fish scale
+        gl.uniform1f(u_pointsizeLoc, current_scale * 24.0);
+
+        // Bind eye vertex buffer
+        gl.bindBuffer(gl.ARRAY_BUFFER, current_eye_v_buffer);
+        gl.vertexAttribPointer(a_positionLoc, 3, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(a_positionLoc);
+
+        gl.drawArrays(gl.POINTS, 0, 1);
+
+      }
+
+    };
+
+  </script>
+  <body>
+    <!-- TOP GLASSMORPHIC HUD -->
+    <header class="hud-container">
+      <!-- Title & Branding -->
+      <div class="hud-card brand-badge">
+        <div class="brand-icon">🐠</div>
+        <div class="brand-text">
+          <h1>Flashy Fish</h1>
+          <span>Aquarium Odyssey</span>
+        </div>
+      </div>
+
+      <!-- Remaining Fish & Progress Bar -->
+      <div class="hud-card progress-card">
+        <div class="progress-header">
+          <span class="progress-label">Fish Remaining</span>
+          <span id="fishCount" class="progress-count">100 / 100</span>
+        </div>
+        <div class="progress-track">
+          <div id="progressFill" class="progress-fill"></div>
+        </div>
+      </div>
+
+      <!-- Score Display (Preserves #score ID) -->
+      <div class="hud-card score-card">
+        <span class="score-label-sub">Score</span>
+        <div id="score">0</div>
+      </div>
+    </header>
+
+    <!-- BOTTOM CONTROLS INSTRUCTIONS -->
+    <footer class="controls-bar">
+      <div class="kbd-group">
+        <kbd>▲</kbd><kbd>▼</kbd><kbd>◄</kbd><kbd>►</kbd>
+      </div>
+      <span>Arrow Keys to Swim</span>
+      <span class="controls-divider">•</span>
+      <span class="controls-hint">Hunt all 100 colorful fish!</span>
+    </footer>
+
+    <!-- VICTORY MODAL OVERLAY -->
+    <div id="winModal">
+      <div class="win-card">
+        <div class="win-trophy">🏆</div>
+        <!-- Preserved #winMessage ID for assignment compatibility -->
+        <div id="winMessage">YOU WIN!</div>
+        <p class="win-subtitle">You ruled the aquarium and cleared all 100 fish!</p>
+
+        <div class="final-score-box">
+          <span class="final-score-label">Final Score</span>
+          <span id="finalScoreVal" class="final-score-value">1,000</span>
+        </div>
+
+        <div class="win-stats-grid">
+          <div class="stat-pill">✨ Fish Caught: 100</div>
+          <div class="stat-pill" id="timeElapsed">⏱️ Time: 00:00</div>
+        </div>
+
+        <button id="restartBtn" class="restart-button" type="button">
+          <span>Play Again</span>
+          <span style="font-size: 20px;">🔄</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- MAIN WEBGL CANVAS -->
+    <canvas id="c"></canvas>
+  </body>
+</html>
