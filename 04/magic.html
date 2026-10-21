@@ -1,0 +1,1031 @@
+<html>
+  <head>
+    
+    <style>
+
+      /* ─────────────────────────────────────────
+         Base
+      ───────────────────────────────────────── */
+      html, body {
+        background-color: #080000;
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden !important;
+      }
+
+      /* ─────────────────────────────────────────
+         Hell arena — replaces Commander Keen bg
+      ───────────────────────────────────────── */
+      #computerwrist {
+        width: 1234px;
+        height: 814px;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        overflow: hidden;
+        /* Hellish sky gradient */
+        background:
+          linear-gradient(to bottom,
+            #040000 0%,
+            #120000 12%,
+            #280200 28%,
+            #550800 48%,
+            #881200 64%,
+            #bb2200 78%,
+            #cc3300 88%,
+            #993300 100%);
+      }
+
+      /* Lava-crack rock floor silhouette */
+      #computerwrist::before {
+        content: '';
+        position: absolute;
+        bottom: 0; left: 0;
+        width: 100%; height: 140px;
+        background:
+          radial-gradient(ellipse 260px 50px at 120px 120px,  #1a0400 50%, transparent 75%),
+          radial-gradient(ellipse 320px 55px at 480px 100px,  #0e0200 55%, transparent 78%),
+          radial-gradient(ellipse 280px 50px at 780px 110px,  #1a0400 50%, transparent 75%),
+          radial-gradient(ellipse 240px 48px at 1080px 95px,  #0e0200 55%, transparent 78%),
+          linear-gradient(to top, #060000 0%, #2a0600 55%, transparent 100%);
+        z-index: 1;
+        pointer-events: none;
+      }
+
+      /* Lava glow from below + side hellfire aura */
+      #computerwrist::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background:
+          radial-gradient(ellipse 85% 28% at 50% 100%, rgba(255,80,0,0.40) 0%, transparent 70%),
+          radial-gradient(ellipse 35% 55% at  0% 60%,  rgba(160,20,0,0.18) 0%, transparent 70%),
+          radial-gradient(ellipse 35% 55% at 100% 60%, rgba(160,20,0,0.18) 0%, transparent 70%),
+          radial-gradient(ellipse 60% 20% at 50%   0%, rgba( 80, 0,0,0.25) 0%, transparent 70%);
+        pointer-events: none;
+        z-index: 2;
+      }
+
+      /* ─────────────────────────────────────────
+         Fire bars (top & bottom edge)
+      ───────────────────────────────────────── */
+      @keyframes fireFlicker {
+        0%,100% { opacity:.60; transform: scaleY(1.00) skewX(-2deg); }
+        25%      { opacity:.95; transform: scaleY(1.10) skewX( 1deg); }
+        50%      { opacity:.70; transform: scaleY(0.93) skewX( 2deg); }
+        75%      { opacity:1.00; transform: scaleY(1.07) skewX(-1deg); }
+      }
+
+      .fire-bottom {
+        position: absolute;
+        bottom: 0; left: 0;
+        width: 100%; height: 55px;
+        background: linear-gradient(to top,
+          rgba(255,120,0,0.80),
+          rgba(255, 50,0,0.50) 55%,
+          transparent);
+        animation: fireFlicker .22s infinite alternate;
+        z-index: 8;
+        pointer-events: none;
+      }
+
+      .fire-top {
+        position: absolute;
+        top: 0; left: 0;
+        width: 100%; height: 40px;
+        background: linear-gradient(to bottom,
+          rgba(120,0,0,0.55),
+          transparent);
+        animation: fireFlicker .28s infinite alternate-reverse;
+        z-index: 8;
+        pointer-events: none;
+      }
+
+      /* ─────────────────────────────────────────
+         Game canvas — hell-tinted border
+      ───────────────────────────────────────── */
+      #c {
+        width: 620px;
+        height: 328px;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 10;
+        border: 2px solid rgba(255,70,0,0.50);
+        box-shadow:
+          0 0 28px rgba(255,50,0,0.35),
+          inset 0 0 22px rgba(255,40,0,0.12);
+      }
+
+      /* ─────────────────────────────────────────
+         Score  (DOOM green-on-dark style)
+      ───────────────────────────────────────── */
+      .score {
+        color: #ff4400;
+        font-size: 32px;
+        font-family: 'Courier New', monospace;
+        font-weight: bold;
+        text-shadow: 0 0 10px #ff6600, 0 0 22px #ff2200;
+        position: absolute;
+        z-index: 20;
+      }
+
+      #keen {
+        top: 28px;
+        left: 160px;
+      }
+
+      #comp {
+        top: 28px;
+        right: 160px;
+      }
+
+      /* ─────────────────────────────────────────
+         Player labels
+      ───────────────────────────────────────── */
+      .player-label {
+        position: absolute;
+        color: #ff8844;
+        font-family: 'Courier New', monospace;
+        font-size: 13px;
+        font-weight: bold;
+        letter-spacing: 3px;
+        text-shadow: 0 0 8px #ff4400;
+        z-index: 20;
+      }
+
+      #label-player {
+        top: 66px;
+        left: 128px;
+      }
+
+      #label-demon {
+        top: 66px;
+        right: 128px;
+      }
+
+      /* Dividing center-field line */
+      #centerline {
+        position: absolute;
+        top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        width: 620px; height: 1px;
+        background: rgba(255,50,0,0.18);
+        z-index: 9;
+        pointer-events: none;
+      }
+
+      /* ─────────────────────────────────────────
+         DOOM Guy sprite
+      ───────────────────────────────────────── */
+      #doomguy-img {
+        position: absolute;
+        bottom: 18px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 97px;
+        height: 126px;
+        image-rendering: pixelated;
+        image-rendering: crisp-edges;
+        filter: drop-shadow(0 0 10px rgba(255,60,0,0.70))
+                drop-shadow(0 0 24px rgba(200,20,0,0.40));
+        z-index: 15;
+        pointer-events: none;
+      }
+
+      /* ─────────────────────────────────────────
+         Game-over overlay
+      ───────────────────────────────────────── */
+      #overlay {
+        background-color: rgba(0,0,0,0.85);
+        position: absolute;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        z-index: 1000;
+        display: none;
+      }
+
+      .result {
+        width: 332px;
+        height: 124px;
+        position: absolute;
+        top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        display: none;
+      }
+
+      /* "PRESS ANY KEY" prompt on overlay */
+      #overlay-msg {
+        position: absolute;
+        bottom: 80px;
+        width: 100%;
+        text-align: center;
+        color: #ff4400;
+        font-family: 'Courier New', monospace;
+        font-size: 18px;
+        font-weight: bold;
+        letter-spacing: 4px;
+        text-shadow: 0 0 12px #ff2200;
+        animation: fireFlicker .6s infinite alternate;
+      }
+    </style>
+
+    <script id="vertexshader" type="glsl">
+      attribute vec3 position;
+
+      uniform mat4 transform;
+
+      void main(void) {
+
+        vec4 final_position = transform * vec4( position, 1.);
+
+        gl_Position = final_position;
+
+        // TODO Part 2
+        // Set ball size to 8 pixels
+        gl_PointSize = 8.0;
+      
+      }
+    </script>
+    
+    <script id="fragmentshader" type="glsl">
+      precision mediump float;
+
+      uniform vec4 color;
+
+      void main(void) {
+
+        gl_FragColor = color; //vec4(1., 1., 1., 1.);
+
+      }
+    </script>
+
+  <script>
+
+    // ===== AUDIO SYSTEM =====
+    var audioCtx = null;
+    var musicPlaying = false;
+    var musicEndTime = 0;
+    var musicScheduleTimeout = null;
+
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') { audioCtx.resume(); }
+        startBackgroundMusic();
+      } else if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    // Short rising blip — classic pong paddle hit
+    function playPaddleHit() {
+      if (!audioCtx) return;
+      var osc = audioCtx.createOscillator();
+      var gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(200, audioCtx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(480, audioCtx.currentTime + 0.05);
+      gain.gain.setValueAtTime(0.13, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.08);
+      osc.start(audioCtx.currentTime);
+      osc.stop(audioCtx.currentTime + 0.1);
+    }
+
+    // Descending arpeggio — plays when a point is scored
+    function playScoreSound() {
+      if (!audioCtx) return;
+      var freqs = [659.25, 523.25, 392.00, 261.63]; // E5, C5, G4, C4
+      freqs.forEach(function(freq, i) {
+        var osc  = audioCtx.createOscillator();
+        var gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.type = 'square';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.15, audioCtx.currentTime + i * 0.1);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + i * 0.1 + 0.09);
+        osc.start(audioCtx.currentTime + i * 0.1);
+        osc.stop(audioCtx.currentTime  + i * 0.1 + 0.1);
+      });
+    }
+
+    // Classic ascending fanfare — plays when the game ends
+    function playVictoryFanfare() {
+      if (!audioCtx) return;
+      stopBackgroundMusic();
+      var fanfare = [
+        [523.25, 0.12], [523.25, 0.12], [523.25, 0.12],
+        [415.30, 0.08], [523.25, 0.18],
+        [659.25, 0.12], [783.99, 0.35],
+        [659.25, 0.18], [783.99, 0.60]
+      ];
+      var t = audioCtx.currentTime + 0.05;
+      fanfare.forEach(function(step) {
+        var freq = step[0], dur = step[1];
+        var osc  = audioCtx.createOscillator();
+        var gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.type = 'square';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.3, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + dur - 0.01);
+        osc.start(t);
+        osc.stop(t + dur);
+        t += dur;
+      });
+    }
+
+    function startBackgroundMusic() {
+      if (musicPlaying) return;
+      musicPlaying = true;
+      scheduleMusicLoop();
+    }
+
+    function stopBackgroundMusic() {
+      musicPlaying = false;
+      if (musicScheduleTimeout) {
+        clearTimeout(musicScheduleTimeout);
+        musicScheduleTimeout = null;
+      }
+    }
+
+    // Onett's Theme (EarthBound) — 16-bar looping chiptune approximation
+    function scheduleMusicLoop() {
+      if (!musicPlaying || !audioCtx) return;
+
+      var BPM = 132;
+      var Q = 60 / BPM; // quarter note (seconds)
+      var E = Q / 2;    // eighth note
+      var H = Q * 2;    // half note
+      var W = Q * 4;    // whole note
+
+      // Note frequency table
+      var F = {
+        C3:130.81, Eb3:155.56, E3:164.81, F3:174.61, G3:196.00,
+        Ab3:207.65, A3:220.00, Bb3:233.08, B3:246.94,
+        C4:261.63, D4:293.66, Eb4:311.13, E4:329.63, F4:349.23,
+        G4:392.00, Ab4:415.30, A4:440.00, Bb4:466.16, B4:493.88,
+        C5:523.25, D5:587.33, Eb5:622.25, E5:659.25, F5:698.46,
+        G5:783.99, Ab5:830.61, A5:880.00, Bb5:932.33,
+        C6:1046.50, R:0
+      };
+
+      // Main melody — 16 bars, two sections
+      var melody = [
+        // -- Section A (bars 1-8) --
+        [F.G5,E],[F.E5,E],[F.C5,E],[F.D5,E],[F.E5,E],[F.D5,E],[F.C5,E],[F.R,E],
+        [F.G5,E],[F.E5,E],[F.C5,E],[F.D5,E],[F.E5,Q],[F.D5,Q],
+        [F.C5,E],[F.D5,E],[F.E5,E],[F.G5,E],[F.A5,Q],[F.G5,Q],
+        [F.E5,H],[F.C5,H],
+        [F.A5,E],[F.G5,E],[F.E5,E],[F.G5,E],[F.A5,E],[F.G5,E],[F.E5,E],[F.R,E],
+        [F.A5,E],[F.G5,E],[F.E5,E],[F.G5,E],[F.A5,Q],[F.G5,Q],
+        [F.G5,E],[F.A5,E],[F.Bb5,E],[F.A5,E],[F.G5,Q],[F.E5,Q],
+        [F.C5,W],
+        // -- Section B (bars 9-16) --
+        [F.Eb5,E],[F.D5,E],[F.C5,E],[F.D5,E],[F.Eb5,E],[F.D5,E],[F.C5,E],[F.R,E],
+        [F.F5,E],[F.Eb5,E],[F.D5,E],[F.Eb5,E],[F.F5,Q],[F.Eb5,Q],
+        [F.D5,E],[F.Eb5,E],[F.F5,E],[F.G5,E],[F.Ab5,Q],[F.G5,Q],
+        [F.F5,H],[F.D5,H],
+        [F.G5,E],[F.E5,E],[F.C5,E],[F.D5,E],[F.E5,E],[F.D5,E],[F.C5,E],[F.R,E],
+        [F.G5,E],[F.E5,E],[F.C5,E],[F.D5,E],[F.E5,Q],[F.G5,Q],
+        [F.A5,E],[F.G5,E],[F.E5,E],[F.D5,E],[F.C5,Q],[F.D5,Q],
+        [F.C5,W]
+      ];
+
+      // Walking bass line — one note per beat, 16 bars
+      var bassLine = [
+        // Section A
+        [F.C3,Q],[F.E3,Q],[F.G3,Q],[F.E3,Q],
+        [F.C3,Q],[F.E3,Q],[F.G3,Q],[F.E3,Q],
+        [F.F3,Q],[F.A3,Q],[F.C4,Q],[F.A3,Q],
+        [F.G3,Q],[F.B3,Q],[F.D4,Q],[F.B3,Q],
+        [F.A3,Q],[F.C4,Q],[F.E4,Q],[F.C4,Q],
+        [F.A3,Q],[F.C4,Q],[F.E4,Q],[F.C4,Q],
+        [F.Bb3,Q],[F.D4,Q],[F.F4,Q],[F.D4,Q],
+        [F.C3,Q],[F.E3,Q],[F.G3,Q],[F.C4,Q],
+        // Section B
+        [F.F3,Q],[F.Ab3,Q],[F.C4,Q],[F.Ab3,Q],
+        [F.F3,Q],[F.Ab3,Q],[F.C4,Q],[F.Ab3,Q],
+        [F.Bb3,Q],[F.D4,Q],[F.F4,Q],[F.D4,Q],
+        [F.C3,Q],[F.Eb3,Q],[F.G3,Q],[F.Eb3,Q],
+        [F.C3,Q],[F.E3,Q],[F.G3,Q],[F.E3,Q],
+        [F.C3,Q],[F.E3,Q],[F.G3,Q],[F.E3,Q],
+        [F.F3,Q],[F.A3,Q],[F.C4,Q],[F.A3,Q],
+        [F.C3,Q],[F.G3,Q],[F.E3,Q],[F.C3,Q]
+      ];
+
+      var startTime   = Math.max(audioCtx.currentTime + 0.05, musicEndTime);
+      var totalDur    = scheduleTrack(melody,   startTime, 'square', 0.18);
+                        scheduleTrack(bassLine, startTime, 'square', 0.12);
+      musicEndTime    = startTime + totalDur;
+
+      // Re-schedule just before the loop ends so there is no gap
+      var msUntilLoop = Math.max(100, (musicEndTime - audioCtx.currentTime - 0.2) * 1000);
+      musicScheduleTimeout = setTimeout(scheduleMusicLoop, msUntilLoop);
+    }
+
+    function scheduleTrack(notes, startTime, oscType, vol) {
+      var t = startTime;
+      notes.forEach(function(note) {
+        var freq = note[0], dur = note[1];
+        if (freq > 0 && musicPlaying) {
+          var osc  = audioCtx.createOscillator();
+          var gain = audioCtx.createGain();
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.type = oscType;
+          osc.frequency.value = freq;
+          gain.gain.setValueAtTime(vol,    t);
+          gain.gain.setValueAtTime(0.0001, t + dur * 0.85); // slight staccato
+          osc.start(t);
+          osc.stop(t + dur);
+        }
+        t += dur;
+      });
+      return t - startTime; // total duration of this track
+    }
+    // ===== END AUDIO SYSTEM =====
+
+
+    window.onload = function() {
+
+      //************************************************************//
+      //
+      // INITIALIZE WEBGL
+      //
+      c = document.getElementById( 'c' ); // setup canvas
+      gl = c.getContext( 'webgl' ); // setup GL context
+      gl.viewport(0, 0, c.width, c.height );
+
+
+
+
+      //************************************************************//
+      //
+      // SHADERS
+      //
+      v_shader = gl.createShader( gl.VERTEX_SHADER );
+      f_shader = gl.createShader( gl.FRAGMENT_SHADER );
+
+      // compile vertex shader
+      gl.shaderSource( v_shader, document.getElementById( 'vertexshader' ).innerText );
+      gl.compileShader( v_shader );
+      if (!gl.getShaderParameter( v_shader, gl.COMPILE_STATUS)) {
+
+        console.log(gl.getShaderInfoLog( v_shader ));
+      
+      } else {
+
+        console.log('Vertex Shader compiled!');
+
+      }
+
+      // compile fragment shader
+      gl.shaderSource( f_shader, document.getElementById( 'fragmentshader' ).innerText );
+      gl.compileShader( f_shader );
+      if (!gl.getShaderParameter( f_shader, gl.COMPILE_STATUS)) {
+
+        console.log(gl.getShaderInfoLog( f_shader ));
+      
+      } else {
+
+        console.log('Fragment Shader compiled!');
+
+      }
+
+        
+      // attach and link the shaders
+      shaderprogram = gl.createProgram();
+      gl.attachShader( shaderprogram, v_shader );
+      gl.attachShader( shaderprogram, f_shader );
+       
+      gl.linkProgram( shaderprogram );
+       
+      gl.useProgram( shaderprogram );
+
+      SCALE = 1;
+      STEP = .1;
+      MAX_SCORE = 5;
+      STOPPED = false;
+      BALLSPEED = 0.10;   // starts slow, increases with each paddle hit + passively
+
+      OBJECTS = [];
+      OBJECTS.push( createPaddle( [0.85, 0.82, 0.70, 1.], [0.,  0.9, 0.]) ); // TOP PADDLE  (bone)
+      OBJECTS.push( createPaddle( [0.10, 0.80, 0.10, 1.], [0., -0.9, 0.]) ); // BOTTOM PADDLE (DOOM green)
+      OBJECTS.push( createBall(   [1.00, 0.35, 0.00, 1.], [0.,  0.,  0.]) ); // BALL (fireball orange)
+
+
+      resetBall(1);
+
+      animate();
+
+    };
+
+    // TODO Part 1
+    function createPaddle(color, offset) {
+
+
+
+      //************************************************************//
+      //
+      // CREATE GEOMETRY
+      //
+
+      //
+      // TODO Part 1
+      //
+      vertices = new Float32Array( [
+        -0.13, 0.05, 0.0, // V0 // 0
+        -0.13, -0.05, 0.0, // V1, V4 // 1
+        0.13, 0.05, 0.0, // V2, V3 // 2
+        0.13, -0.05, 0.0 // V5 // 3
+        ] );
+
+      indices = new Uint8Array( [ 0, 1, 2,     // Triangle 1 
+                                  2, 1, 3 ] ); // Triangle 2
+
+
+      v_buffer = gl.createBuffer(); // create
+      gl.bindBuffer( gl.ARRAY_BUFFER, v_buffer ); // bind
+      gl.bufferData( gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW ); // put data in
+      gl.bindBuffer( gl.ARRAY_BUFFER, null ); // unbind
+
+
+      i_buffer = gl.createBuffer(); // create
+      gl.bindBuffer( gl.ELEMENT_ARRAY_BUFFER, i_buffer ); // bind
+      gl.bufferData( gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW ); // put data in
+      gl.bindBuffer( gl.ELEMENT_ARRAY_BUFFER, null ); // unbind
+
+      // TODO Part 2
+      // Render the primitives
+      return [v_buffer, i_buffer, color, offset, 6, gl.TRIANGLES];
+
+    }
+
+
+    function createBall(color, offset) {
+
+      //
+      // TODO Part 2
+      //
+
+      // Create geometry data
+      // Single coordinate at center
+      var vertices = new Float32Array([0.0, 0.0, 0.0]);
+
+      // Set index to 0
+      var indices = new Uint8Array([0]);
+
+      // Create storage slot onto GPU and upload point position to it
+      var v_buffer = gl.createBuffer(); // create
+      gl.bindBuffer(gl.ARRAY_BUFFER, v_buffer);// bind
+      gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW); // put data in
+      gl.bindBuffer(gl.ARRAY_BUFFER, null); // unbind
+
+      // Create storage slot onto GPU and upload index checklist to it
+      var i_buffer = gl.createBuffer(); // create
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, i_buffer); // bind
+      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW); // put data in
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null); // unbind
+
+      // Package Everything Together
+      return [v_buffer, i_buffer, color, offset, 1, gl.POINTS];
+
+
+    }
+
+
+
+    function animate() {
+
+      if (STOPPED) {
+        return;
+      }
+
+      requestAnimationFrame( animate );
+
+      // CLEAR NOW BEFORE ANY DRAWING
+      gl.clearColor( 0., 0., 0., 0.)
+      gl.clear( gl.COLOR_BUFFER_BIT );
+
+      // TODO Part 4 and 5
+      // Run ball
+      updateBall();
+      updateComputer();
+
+      // Passive speed ramp — ball accelerates slowly over time
+      BALLSPEED = Math.min(0.30, BALLSPEED + 0.000018);
+
+      for(var o=0; o<OBJECTS.length; o++) {
+
+        var current = OBJECTS[o];
+
+        var v_buffer = current[0];
+        var i_buffer = current[1];
+        var COLOR = current[2];
+        var OFFSET = current[3];
+        var VERTEXCOUNT = current[4];
+
+        // TODO Part 2
+        // Grab drawing from index 5
+        var PRIMITIVE = current[5];
+
+
+
+
+        //************************************************************//
+        //
+        // CONNECT SHADER WITH GEOMETRY
+        //
+        gl.bindBuffer( gl.ARRAY_BUFFER, v_buffer );
+
+        gl.bindBuffer( gl.ELEMENT_ARRAY_BUFFER, i_buffer );
+
+        // find the attribute in the shader source
+        var a_position = gl.getAttribLocation( shaderprogram, 'position' );
+
+        gl.vertexAttribPointer( a_position, 3, gl.FLOAT, false, 0, 0 );
+
+        gl.enableVertexAttribArray ( a_position );
+
+        var u_color = gl.getUniformLocation( shaderprogram, 'color' );
+
+        gl.uniform4fv( u_color, new Float32Array(COLOR));
+
+        // var u_offset = gl.getUniformLocation( shaderprogram, 'offset' );
+
+        var u_transform = gl.getUniformLocation( shaderprogram, 'transform' );
+
+        current_transform = new Float32Array([
+          SCALE, 0, 0, 0,
+          0, SCALE, 0, 0,
+          0, 0, SCALE, 0,
+          OFFSET[0], OFFSET[1], 0, 1
+          ]);
+
+        gl.uniformMatrix4fv( u_transform, false, current_transform );
+
+
+
+        //************************************************************//
+        //
+        // DRAW!
+        //
+        // gl.drawArrays( gl.LINES, 0, 6 );
+
+        // TODO Part 2
+        // Switch from triangle to primitive variable
+        gl.drawElements( PRIMITIVE, VERTEXCOUNT, gl.UNSIGNED_BYTE, 0);
+
+
+      }
+
+    }
+
+
+
+
+    function resetBall(direction) {
+
+      OBJECTS[2][3][0] = Math.random() / 10.; // SET TO CENTER
+      OBJECTS[2][3][1] = Math.random() / 10.;
+
+      BALLDIRECTION = (Math.PI / 8) + Math.random();
+      BALLDIRECTION *= direction;
+
+    };
+
+
+    function score(who) {
+
+      // console.log(who, 'scored!')
+
+      var old_score = document.getElementById(who).innerText;
+      document.getElementById(who).innerText = parseInt(old_score) + 1;
+
+      playScoreSound();
+
+      if (parseInt(old_score) == MAX_SCORE-1) {
+
+        STOPPED = true;
+        playVictoryFanfare();
+
+        document.getElementById('overlay').style.display = 'block';
+
+        if (who == 'keen') {
+          document.getElementById('won').style.display = 'block';
+        } else if (who == 'comp') {
+          document.getElementById('lost').style.display = 'block';
+        }
+
+      }
+
+      if (who == 'keen') {
+
+        // Player scores: Row 1, Column B (Col 2 grin) for 1 second
+        setDoomguyFace(DOOMGUY_SPRITES.score, STOPPED ? 0 : 1000);
+        resetBall(1);
+      
+      } else if (who == 'comp') {
+      
+        // CPU scores: Row 1, Column 4 (ouch screaming face) for 1 second
+        setDoomguyFace(DOOMGUY_SPRITES.cpu_score, STOPPED ? 0 : 1000);
+        resetBall(-1);
+      
+      }
+      
+    }
+
+
+    function updateComputer() {
+
+      BALL_X = OBJECTS[2][3][0];
+      BALL_Y = OBJECTS[2][3][1];
+
+      TOP_PADDLE_X = OBJECTS[0][3][0];
+      TOP_PADDLE_Y = OBJECTS[0][3][1];
+
+      if (BALL_X < TOP_PADDLE_X) {
+
+        OBJECTS[0][3][0] -= STEP/20;
+
+      } else if (BALL_X > TOP_PADDLE_X) {
+
+        OBJECTS[0][3][0] += STEP/20;
+
+      }
+
+    }
+
+
+    function updateBall() {
+
+      BALL_X = OBJECTS[2][3][0];
+      BALL_Y = OBJECTS[2][3][1];
+
+      TOP_PADDLE_X = OBJECTS[0][3][0];
+      TOP_PADDLE_Y = OBJECTS[0][3][1];
+      TOP_PADDLE_WIDTH = 0.26;   // matches widened geometry (±0.13)
+
+      BOTTOM_PADDLE_X = OBJECTS[1][3][0];
+      BOTTOM_PADDLE_Y = OBJECTS[1][3][1];
+      BOTTOM_PADDLE_WIDTH = 0.26;
+
+
+      if (BALL_X >= .98) {
+
+        // RIGHT WALL
+        BALLDIRECTION = (Math.PI - BALLDIRECTION);
+
+      } else if (BALL_X <= -.98) {
+
+        // LEFT WALL
+        BALLDIRECTION = (Math.PI - BALLDIRECTION);
+
+      } else if (BALL_Y >= .85) {
+
+        // TOP
+
+        TOP_PADDLE_LEFT  = TOP_PADDLE_X - (TOP_PADDLE_WIDTH / 2);
+        TOP_PADDLE_RIGHT = TOP_PADDLE_X + (TOP_PADDLE_WIDTH / 2);
+
+        // LET'S CHECK IF A PADDLE IS THERE
+        if (BALL_X >= TOP_PADDLE_LEFT && BALL_X <= TOP_PADDLE_RIGHT) {
+
+          // Detect corner zone (outer 22 % of each side)
+          var CORNER_ZONE_T = TOP_PADDLE_WIDTH * 0.22;
+          var IS_CORNER_T   = (BALL_X < TOP_PADDLE_LEFT  + CORNER_ZONE_T) ||
+                              (BALL_X > TOP_PADDLE_RIGHT - CORNER_ZONE_T);
+
+          if (IS_CORNER_T) {
+            // ── CORNER HIT on top paddle ──────────────────────────────
+            // Random neon colour for the paddle
+            OBJECTS[0][2] = [Math.random(), Math.random() * 0.4, Math.random() * 0.4, 1.0];
+
+            // Extreme launch angle — shoots sharply toward one side
+            var baseAngle = Math.PI / 5 + Math.random() * Math.PI / 8;
+            if (BALL_X < TOP_PADDLE_X) {
+              BALLDIRECTION = -(Math.PI - baseAngle); // sharp down-left
+            } else {
+              BALLDIRECTION = -baseAngle;              // sharp down-right
+            }
+            BALLSPEED = Math.min(0.30, BALLSPEED + 0.012); // speed burst
+          } else {
+            // Normal reflect
+            BALLDIRECTION = -BALLDIRECTION;
+          }
+
+          playPaddleHit();
+          BALLSPEED = Math.min(0.30, BALLSPEED + 0.003); // per-hit ramp
+
+        } else {
+
+          // SCORE!
+          score('keen');
+
+          return;
+
+        }
+
+
+      } else if (BALL_Y <= -.85) {
+
+        // BOTTOM
+
+        BOTTOM_PADDLE_LEFT  = BOTTOM_PADDLE_X - (BOTTOM_PADDLE_WIDTH / 2);
+        BOTTOM_PADDLE_RIGHT = BOTTOM_PADDLE_X + (BOTTOM_PADDLE_WIDTH / 2);
+
+        // LET'S CHECK IF A PADDLE IS THERE
+        if (BALL_X >= BOTTOM_PADDLE_LEFT && BALL_X <= BOTTOM_PADDLE_RIGHT) {
+
+          // Detect corner zone
+          var CORNER_ZONE_B = BOTTOM_PADDLE_WIDTH * 0.22;
+          var IS_CORNER_B   = (BALL_X < BOTTOM_PADDLE_LEFT  + CORNER_ZONE_B) ||
+                              (BALL_X > BOTTOM_PADDLE_RIGHT - CORNER_ZONE_B);
+
+          if (IS_CORNER_B) {
+            // ── CORNER HIT on bottom paddle ───────────────────────────
+            OBJECTS[1][2] = [Math.random() * 0.3, Math.random(), Math.random() * 0.5, 1.0];
+
+            var baseAngle2 = Math.PI / 5 + Math.random() * Math.PI / 8;
+            if (BALL_X < BOTTOM_PADDLE_X) {
+              BALLDIRECTION = Math.PI - baseAngle2; // sharp up-left
+            } else {
+              BALLDIRECTION = baseAngle2;            // sharp up-right
+            }
+            BALLSPEED = Math.min(0.30, BALLSPEED + 0.012);
+          } else {
+            BALLDIRECTION = -BALLDIRECTION;
+          }
+
+          playPaddleHit();
+          BALLSPEED = Math.min(0.30, BALLSPEED + 0.003);
+
+        } else {
+
+          // SCORE!
+          score('comp');
+
+          return;
+
+        }
+
+      }
+
+
+      // UPDATE BALL POSITION — driven by dynamic BALLSPEED
+      OBJECTS[2][3][0] += Math.cos(BALLDIRECTION) * STEP * BALLSPEED;
+      OBJECTS[2][3][1] += Math.sin(BALLDIRECTION) * STEP * BALLSPEED;
+
+    }
+
+
+    // ── DOOM Guy Spritesheet & Reactions ──────────────────────────────
+    var DOOMGUY_SPRITES = {
+      idle: 'doomguy_idle.png',             // Row 1, Column 6 (looking straight)
+      left: 'doomguy_left.png',             // Row 1, Column 7 (looking left)
+      right: 'doomguy_right.png',           // Row 1, Column 5 (looking right)
+      score: 'doomguy_score.png',           // Row 1, Column B / Col 2 (evil grin)
+      cpu_score: 'doomguy_cpu_score.png'    // Row 1, Column 4 (ouch screaming)
+    };
+
+    // Preload sprites so changes are instantaneous with zero flicker
+    for (var k in DOOMGUY_SPRITES) {
+      var pImg = new Image();
+      pImg.src = DOOMGUY_SPRITES[k];
+    }
+
+    var KEYS = { ArrowLeft: false, ArrowRight: false };
+    var doomguyReactionTimeout = null;
+
+    function setDoomguyFace(src, duration) {
+      var img = document.getElementById('doomguy-img');
+      if (!img) return;
+      if (duration && duration > 0) {
+        if (doomguyReactionTimeout) clearTimeout(doomguyReactionTimeout);
+        img.src = src;
+        doomguyReactionTimeout = setTimeout(function() {
+          doomguyReactionTimeout = null;
+          updateDoomguyFace();
+        }, duration);
+      } else if (duration === 0) {
+        if (doomguyReactionTimeout) clearTimeout(doomguyReactionTimeout);
+        doomguyReactionTimeout = true; // lock permanently on game over
+        img.src = src;
+      } else {
+        if (!doomguyReactionTimeout) {
+          img.src = src;
+        }
+      }
+    }
+
+    function updateDoomguyFace() {
+      if (doomguyReactionTimeout) return;
+      if (KEYS.ArrowLeft && !KEYS.ArrowRight) {
+        setDoomguyFace(DOOMGUY_SPRITES.left);
+      } else if (KEYS.ArrowRight && !KEYS.ArrowLeft) {
+        setDoomguyFace(DOOMGUY_SPRITES.right);
+      } else {
+        setDoomguyFace(DOOMGUY_SPRITES.idle);
+      }
+    }
+
+    window.onkeydown = function(e) {
+
+      initAudio();
+
+      if (STOPPED) {
+        // restart the game when SPACE is pressed
+        if (e.code === 'Space' || e.key === ' ' || e.key === 'Spacebar' || e.keyCode === 32) {
+          e.preventDefault();
+          window.location.reload();
+        }
+        return;
+      }
+
+      // TODO Part 3
+      // Listen for player input
+      // Track the current X position of the bottom paddle
+      var current_x = OBJECTS[1][3][0];
+
+      // Move paddle left
+      if (e.key === 'ArrowLeft'){
+        KEYS.ArrowLeft = true;
+        updateDoomguyFace();
+        // Prevent paddle from going past window
+        if(current_x > -0.8){
+          OBJECTS[1][3][0] -= STEP;
+        }
+      }
+      // Move paddle right
+      else if(e.key === 'ArrowRight'){
+        KEYS.ArrowRight = true;
+        updateDoomguyFace();
+        // Prevent paddle from going past window
+        if(current_x < 0.8){
+          OBJECTS[1][3][0] += STEP;
+        }
+      }
+
+    };
+
+    window.onkeyup = function(e) {
+      if (e.key === 'ArrowLeft') {
+        KEYS.ArrowLeft = false;
+      }
+      if (e.key === 'ArrowRight') {
+        KEYS.ArrowRight = false;
+      }
+      updateDoomguyFace();
+    };
+
+    window.onblur = function() {
+      KEYS.ArrowLeft = false;
+      KEYS.ArrowRight = false;
+      updateDoomguyFace();
+    };
+
+  </script>
+
+  </head>
+
+  <body>
+
+    <div id='computerwrist'>
+
+      <!-- Atmosphere -->
+      <div class='fire-top'></div>
+      <div class='fire-bottom'></div>
+      <div id='centerline'></div>
+
+      <!-- Scoreboard -->
+      <span id='keen' class='score'>0</span>
+      <span id='comp' class='score'>0</span>
+      <div id='label-player' class='player-label'>PLAYER</div>
+      <div id='label-demon'  class='player-label'>DEMON</div>
+
+      <!-- Game-over overlay -->
+      <div id='overlay'>
+        <img id='won'  class='result' src='https://cs460.org/assignments/keen/won.png'>
+        <img id='lost' class='result' src='https://cs460.org/assignments/keen/lost.png'>
+        <div id='overlay-msg'>PRESS SPACE TO RESTART</div>
+      </div>
+
+      <!-- WebGL game canvas -->
+      <canvas id='c'></canvas>
+
+      <!-- DOOM Guy sprite -->
+      <img id='doomguy-img' src='doomguy_idle.png' alt='DOOM Guy'>
+
+    </div>
+
+  </body>
+
+</html>
