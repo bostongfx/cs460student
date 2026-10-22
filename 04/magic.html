@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta content="text/html;charset=utf-8" http-equiv="Content-Type">
+    <title>Streamlined 2D WebGL Fish</title>
+    <style>
+      html, body { 
+        background: #000 url('https://cs460.org/assignments/04/bg.jpg') no-repeat center center fixed;
+        background-size: cover;
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden !important;  
+      }
+
+      #c {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="c"></canvas>
+
+    <script id="vertexshader" type="glsl">
+      attribute vec3 a_position;
+
+      uniform float u_pointsize;
+      uniform mat4 u_transform;
+
+      void main(void) {
+        gl_PointSize = u_pointsize;
+        gl_Position = u_transform * vec4(a_position, 1.0);
+      }
+    </script>
+    
+    <script id="fragmentshader" type="glsl">
+      precision mediump float;
+
+      uniform vec4 u_color;
+
+      void main(void) {
+        gl_FragColor = u_color;
+      }
+    </script>
+    
+    <script>
+      let c, gl;
+      let shaderprogram;
+      let locations = {};
+      let sharedGeometry = {};
+      let all_fish = [];
+
+      const mat4Buffer = new Float32Array(16);
+      const eyeColor = new Float32Array([0.05, 0.05, 0.05, 0.8]);
+      const dynamicColor = new Float32Array(4);
+      const pointSizeBuffer = new Float32Array(1);
+
+      window.onload = function() {
+        c = document.getElementById('c');
+        c.width = window.innerWidth;
+        c.height = window.innerHeight;
+
+        gl = c.getContext('webgl', { alpha: true, antialias: true });
+        gl.viewport(0, 0, c.width, c.height);
+
+        window.addEventListener('resize', () => {
+          c.width = window.innerWidth;
+          c.height = window.innerHeight;
+          gl.viewport(0, 0, c.width, c.height);
+        });
+
+        initShaders();
+        initSharedGeometry();
+
+        // Big predator fish swimming to the left (Part 11)
+        all_fish.push(createFish([0, 0, 0], [1.0, 0.0, 0.0, 0.75], 0.9, -1));
+
+        // 100 small schooling fish swimming to the right (Part 4)
+        for (let i = 0; i < 100; i++) {
+          const offset = [Math.random() - Math.random(), Math.random() - Math.random(), 0];
+          const color = [Math.random(), Math.random(), Math.random(), 1.0];
+          const scale = 0.12 + Math.random() * 0.18;
+          all_fish.push(createFish(offset, color, scale, 1));
+        }
+
+        animate();
+      };
+
+      function initShaders() {
+        const v_shader = gl.createShader(gl.VERTEX_SHADER);
+        gl.shaderSource(v_shader, document.getElementById('vertexshader').innerText);
+        gl.compileShader(v_shader);
+
+        const f_shader = gl.createShader(gl.FRAGMENT_SHADER);
+        gl.shaderSource(f_shader, document.getElementById('fragmentshader').innerText);
+        gl.compileShader(f_shader);
+
+        shaderprogram = gl.createProgram();
+        gl.attachShader(shaderprogram, v_shader);
+        gl.attachShader(shaderprogram, f_shader);
+        gl.linkProgram(shaderprogram);
+        gl.useProgram(shaderprogram);
+
+        locations.a_position = gl.getAttribLocation(shaderprogram, 'a_position');
+        locations.u_transform = gl.getUniformLocation(shaderprogram, 'u_transform');
+        locations.u_color = gl.getUniformLocation(shaderprogram, 'u_color');
+        locations.u_pointsize = gl.getUniformLocation(shaderprogram, 'u_pointsize');
+      }
+
+      function initSharedGeometry() {
+        // Detailed 2D fish body model
+        const vertices = new Float32Array([
+           0.55,  0.00, 0.0, // 0: Snout
+           0.35,  0.18, 0.0, // 1: Forehead
+           0.35, -0.15, 0.0, // 2: Chin
+           0.25,  0.00, 0.0, // 3: Mid-head
+           0.12,  0.22, 0.0, // 4: Dorsal fin front
+           0.02,  0.38, 0.0, // 5: Dorsal fin tip
+          -0.15,  0.18, 0.0, // 6: Dorsal fin rear
+           0.12, -0.20, 0.0, // 7: Pelvic fin front
+          -0.04, -0.34, 0.0, // 8: Pelvic fin tip
+          -0.15, -0.15, 0.0, // 9: Pelvic fin rear
+           0.00,  0.00, 0.0, // 10: Center body
+          -0.32,  0.00, 0.0, // 11: Tail base center
+          -0.32,  0.08, 0.0, // 12: Upper tail base
+          -0.32, -0.08, 0.0, // 13: Lower tail base
+          -0.58,  0.28, 0.0, // 14: Upper tail tip
+          -0.46,  0.00, 0.0, // 15: Tail fork notch
+          -0.58, -0.28, 0.0  // 16: Lower tail tip
+        ]);
+
+        const indices = new Uint8Array([
+          0, 1, 3,     0, 3, 2,       // Head
+          1, 4, 3,     4, 10, 3,      // Upper body
+          3, 10, 7,    3, 7, 2,       // Lower body
+          4, 5, 6,     4, 6, 10,      // Dorsal fin
+          7, 8, 9,     7, 9, 10,      // Pelvic fin
+          6, 12, 10,   10, 12, 11,    // Rear upper body
+          10, 11, 9,   9, 11, 13,     // Rear lower body
+          12, 14, 15,  12, 15, 11,    // Upper caudal tail
+          11, 15, 13,  13, 15, 16     // Lower caudal tail
+        ]);
+
+        sharedGeometry.vBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, sharedGeometry.vBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+
+        sharedGeometry.iBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, sharedGeometry.iBuffer);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
+
+        sharedGeometry.eyeNormal = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, sharedGeometry.eyeNormal);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0.32, 0.07, 0.0]), gl.STATIC_DRAW);
+
+        sharedGeometry.eyeFlipped = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, sharedGeometry.eyeFlipped);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0.32, -0.07, 0.0]), gl.STATIC_DRAW);
+      }
+
+      function createFish(offset, color, scale, direction) {
+        return {
+          offset: offset,
+          color: color,
+          scale: scale,
+          direction: direction
+        };
+      }
+
+      function animate() {
+        requestAnimationFrame(animate);
+
+        gl.clearColor(0.0, 0.0, 0.0, 0.0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+
+        // Alpha blending for transparency (Part 9)
+        gl.enable(gl.BLEND);
+        gl.blendEquation(gl.FUNC_ADD);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        gl.disable(gl.DEPTH_TEST);
+
+        // Big fish mouth collision position
+        const bigFish = all_fish[0];
+        const mouthX = bigFish.offset[0] - (0.55 * bigFish.scale);
+        const mouthY = bigFish.offset[1];
+        const eatRadius = 0.14 * bigFish.scale;
+
+        const time = performance.now() * 0.001;
+        const pulseAlpha = 0.6 + 0.4 * Math.sin(time * 2.0);
+
+        for (let r = 0; r < all_fish.length; r++) {
+          const fish = all_fish[r];
+
+          // ------------------------------------------------------------
+          // FIXED MOVEMENT & EDGE WRAP-AROUND
+          // ------------------------------------------------------------
+          if (r === 0) {
+            // Predator fish swims steadily leftward
+            fish.offset[0] -= 0.004;
+            fish.offset[1] += 0.02 * (Math.random() - 0.5);
+
+            // Wrap when off the left boundary
+            if (fish.offset[0] < -1.4) {
+              fish.offset[0] = 1.4;
+            }
+          } else {
+            // Small fish swim steadily rightward
+            fish.offset[0] += 0.01;
+            fish.offset[1] += 0.04 * (Math.random() - 0.5);
+
+            // Wrap smoothly when completely past the right edge
+            if (fish.offset[0] > 1.3) {
+              fish.offset[0] = -1.3;
+              fish.offset[1] = (Math.random() - 0.5) * 1.6;
+            }
+
+            // Mouth collision: respawn to the left edge so population stays populated
+            const dx = fish.offset[0] - mouthX;
+            const dy = fish.offset[1] - mouthY;
+            if (Math.sqrt(dx * dx + dy * dy) < eatRadius) {
+              fish.offset[0] = -1.4 - Math.random() * 0.3;
+              fish.offset[1] = (Math.random() - 0.5) * 1.6;
+              continue;
+            }
+          }
+
+          // ------------------------------------------------------------
+          // TRANSFORMATION MATRIX
+          // ------------------------------------------------------------
+          const theta = Math.random() * 10.0 * (Math.PI / 180.0);
+          const cosT = Math.cos(theta);
+          const sinT = Math.sin(theta);
+          const sX = fish.direction * fish.scale;
+          const sY = fish.scale;
+
+          mat4Buffer[0]  = sX * cosT;
+          mat4Buffer[1]  = sY * sinT;
+          mat4Buffer[2]  = 0.0;
+          mat4Buffer[3]  = 0.0;
+
+          mat4Buffer[4]  = -sX * sinT;
+          mat4Buffer[5]  = sY * cosT;
+          mat4Buffer[6]  = 0.0;
+          mat4Buffer[7]  = 0.0;
+
+          mat4Buffer[8]  = 0.0;
+          mat4Buffer[9]  = 0.0;
+          mat4Buffer[10] = 1.0;
+          mat4Buffer[11] = 0.0;
+
+          mat4Buffer[12] = fish.offset[0];
+          mat4Buffer[13] = fish.offset[1];
+          mat4Buffer[14] = fish.offset[2] || 0.0;
+          mat4Buffer[15] = 1.0;
+
+          gl.uniformMatrix4fv(locations.u_transform, false, mat4Buffer);
+
+          // Dynamic colors (Part 12)
+          if (r === 0) {
+            dynamicColor[0] = 1.0;
+            dynamicColor[1] = 0.0;
+            dynamicColor[2] = 0.0;
+            dynamicColor[3] = 0.75;
+          } else {
+            dynamicColor[0] = 0.3 + 0.2 * Math.sin(time + 0.0);
+            dynamicColor[1] = 0.6 + 0.2 * Math.sin(time + 2.0);
+            dynamicColor[2] = 0.9 + 0.1 * Math.sin(time + 4.0);
+            dynamicColor[3] = pulseAlpha;
+          }
+          gl.uniform4fv(locations.u_color, dynamicColor);
+
+          // 1. Draw Body
+          gl.bindBuffer(gl.ARRAY_BUFFER, sharedGeometry.vBuffer);
+          gl.vertexAttribPointer(locations.a_position, 3, gl.FLOAT, false, 0, 0);
+          gl.enableVertexAttribArray(locations.a_position);
+
+          gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, sharedGeometry.iBuffer);
+          gl.drawElements(gl.TRIANGLES, 54, gl.UNSIGNED_BYTE, 0);
+
+          // 2. Draw Eye
+          const eyeBuffer = fish.direction === -1 ? sharedGeometry.eyeFlipped : sharedGeometry.eyeNormal;
+          gl.bindBuffer(gl.ARRAY_BUFFER, eyeBuffer);
+          gl.vertexAttribPointer(locations.a_position, 3, gl.FLOAT, false, 0, 0);
+
+          gl.uniform4fv(locations.u_color, eyeColor);
+          pointSizeBuffer[0] = Math.max(2.0, fish.scale * 24.0);
+          gl.uniform1fv(locations.u_pointsize, pointSizeBuffer);
+
+          gl.drawArrays(gl.POINTS, 0, 1);
+        }
+      }
+    </script>
+  </body>
+</html>
