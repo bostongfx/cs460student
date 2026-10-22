@@ -1,0 +1,263 @@
+<html>
+
+<head>
+    <style>
+        html,
+        body {
+            background: #000;
+            margin: 0;
+            height: 100%;
+            overflow: hidden;
+        }
+    </style>
+
+    <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+
+    <script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@latest/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@latest/examples/jsm/"
+  }
+}
+</script>
+
+    <script type="module">
+
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        var renderer, scene, camera, controls, plane;
+        var LASTOBJECT = null;
+        var OBJECTS = [];
+        var DRAGGING = false;
+        var FLICKERING = false;
+        var WIREFRAME = false;
+        var LASTSIGN = 1;
+
+        var PINK = 0xff69b4;
+        var GREEN = 0x7cfc00;
+
+        window.onload = function () {
+
+            scene = new THREE.Scene();
+
+            camera = new THREE.PerspectiveCamera(
+                75,
+                window.innerWidth / window.innerHeight,
+                1,
+                10000
+            );
+
+            camera.position.set(0, 0, 100);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+            scene.add(new THREE.AmbientLight(0xffffff, 2));
+
+            var light = new THREE.DirectionalLight(0xffffff, 5);
+            light.position.set(10, 100, 10);
+            scene.add(light);
+
+            var planeGeometry =
+                new THREE.PlaneGeometry(10000, 10000);
+
+            var planeMaterial =
+                new THREE.MeshBasicMaterial({
+                    transparent: true,
+                    opacity: 0
+                });
+
+            plane = new THREE.Mesh(
+                planeGeometry,
+                planeMaterial
+            );
+
+            scene.add(plane);
+
+            controls =
+                new OrbitControls(
+                    camera,
+                    renderer.domElement
+                );
+
+            renderer.domElement.onmousedown = function (e) {
+
+                if (!e.shiftKey || e.button != 0) {
+                    return;
+                }
+
+                controls.enabled = false;
+                DRAGGING = true;
+
+                var mouse = new THREE.Vector2(
+                    (e.clientX / window.innerWidth) * 2 - 1,
+                    -(e.clientY / window.innerHeight) * 2 + 1
+                );
+
+                var raycaster = new THREE.Raycaster();
+
+                raycaster.setFromCamera(
+                    mouse,
+                    camera
+                );
+
+                var intersects =
+                    raycaster.intersectObject(plane);
+
+                if (intersects.length == 0) {
+                    DRAGGING = false;
+                    controls.enabled = true;
+                    return;
+                }
+
+                var geometry =
+                    new THREE.TorusKnotGeometry(
+                        10, 3, 100, 16, 2, 3
+                    );
+
+                var material =
+                    new THREE.MeshStandardMaterial({
+                        color: PINK,
+                        transparent: true,
+                        opacity: 1,
+                        wireframe: WIREFRAME
+                    });
+
+                var torus =
+                    new THREE.Mesh(
+                        geometry,
+                        material
+                    );
+
+                torus.position.set(
+                    intersects[0].point.x,
+                    intersects[0].point.y,
+                    intersects[0].point.z
+                );
+
+                scene.add(torus);
+
+                OBJECTS.push(torus);
+                LASTOBJECT = torus;
+                LASTSIGN = 1;
+            };
+
+
+            renderer.domElement.onmousemove = function (e) {
+
+                if (!DRAGGING || LASTOBJECT == null) {
+                    return;
+                }
+
+                var scale =
+                    LASTOBJECT.scale.x -
+                    e.movementY * 0.02;
+
+                var sign;
+
+                if (scale >= 0) {
+                    sign = 1;
+                }
+                else {
+                    sign = -1;
+                }
+
+                if (sign != LASTSIGN) {
+
+                    if (
+                        LASTOBJECT.material.color.getHex()
+                        == PINK
+                    ) {
+                        LASTOBJECT.material.color.set(GREEN);
+                    }
+                    else {
+                        LASTOBJECT.material.color.set(PINK);
+                    }
+
+                    LASTSIGN = sign;
+                }
+
+                LASTOBJECT.scale.set(
+                    scale,
+                    scale,
+                    scale
+                );
+            };
+
+
+            window.onmouseup = function () {
+                DRAGGING = false;
+                controls.enabled = true;
+            };
+
+
+            window.onkeydown = function (e) {
+
+                if (e.key == 'f' || e.key == 'F') {
+
+                    FLICKERING = !FLICKERING;
+
+                    if (!FLICKERING) {
+                        for (
+                            var i = 0;
+                            i < OBJECTS.length;
+                            i++
+                        ) {
+                            OBJECTS[i].material.opacity = 1;
+                        }
+                    }
+                }
+
+                if (e.key == 'w' || e.key == 'W') {
+
+                    WIREFRAME = !WIREFRAME;
+
+                    for (
+                        var i = 0;
+                        i < OBJECTS.length;
+                        i++
+                    ) {
+                        OBJECTS[i].material.wireframe =
+                            WIREFRAME;
+                    }
+                }
+            };
+
+
+            animate();
+        };
+
+
+        function animate() {
+
+            requestAnimationFrame(animate);
+
+            if (FLICKERING) {
+
+                for (
+                    var i = 0;
+                    i < OBJECTS.length;
+                    i++
+                ) {
+                    OBJECTS[i].material.opacity =
+                        Math.random();
+                }
+            }
+
+            controls.update();
+
+            renderer.render(
+                scene,
+                camera
+            );
+        }
+
+    </script>
+</head>
+
+<body></body>
+
+</html>

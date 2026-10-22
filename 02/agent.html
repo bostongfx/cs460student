@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>XTK Interactive Sports Ball</title>
+
+  <!-- XTK WebGL framework -->
+  <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+
+  <style>
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #101318;
+      font-family: Arial, Helvetica, sans-serif;
+      color: white;
+    }
+
+    #viewer {
+      position: absolute;
+      inset: 0;
+      cursor: pointer;
+    }
+
+    #hud {
+      position: absolute;
+      top: 18px;
+      left: 18px;
+      z-index: 10;
+      background: rgba(0, 0, 0, 0.58);
+      padding: 14px 16px;
+      border-radius: 10px;
+      line-height: 1.45;
+      max-width: 330px;
+      pointer-events: none;
+      box-shadow: 0 4px 18px rgba(0,0,0,0.3);
+    }
+
+    #hud h1 {
+      font-size: 18px;
+      margin: 0 0 6px 0;
+    }
+
+    #hud p {
+      margin: 4px 0;
+      font-size: 13px;
+    }
+
+    #ballName {
+      font-weight: bold;
+    }
+
+    #loading {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #101318;
+      color: #ddd;
+      z-index: 20;
+      font-size: 16px;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="viewer"></div>
+
+  <div id="hud">
+    <h1>XTK Interactive Sports Ball</h1>
+    <p><b>Hover:</b> move over a black soccer panel to explode the panels.</p>
+    <p><b>Move away:</b> the soccer ball returns to its original shape.</p>
+    <p><b>Click:</b> switch between soccer ball, basketball, and football.</p>
+    <p>Current ball: <span id="ballName">Soccer Ball</span></p>
+  </div>
+
+  <div id="loading">Loading XTK scene...</div>
+
+  <script type="text/javascript">
+    (function () {
+      var viewer = document.getElementById('viewer');
+      var loading = document.getElementById('loading');
+      var ballName = document.getElementById('ballName');
+
+      if (typeof X === 'undefined') {
+        loading.innerHTML =
+          'XTK could not be loaded. Check your internet connection and refresh the page.';
+        return;
+      }
+
+      // ------------------------------------------------------------
+      // Renderer
+      // ------------------------------------------------------------
+      var r = new X.renderer3D();
+      r.container = 'viewer';
+      r.init();
+      r.config.PICKING_ENABLED = true;
+
+      // A slightly pulled-back camera gives room for the panel explosion.
+      r.camera.position = [0, 0, 75];
+
+      var currentMode = 0; // 0 soccer, 1 basketball, 2 football
+      var exploded = false;
+      var lastClickTime = 0;
+
+      var soccerObjects = [];
+      var soccerPanels = [];
+      var soccerPanelIds = [];
+
+      var basketballObjects = [];
+      var footballObjects = [];
+
+      // ------------------------------------------------------------
+      // Helpers
+      // ------------------------------------------------------------
+      function addSphere(center, radius, color, targetArray) {
+        var s = new X.sphere();
+        s.center = center.slice(0);
+        s.radius = radius;
+        s.color = color.slice(0);
+        s.opacity = 1.0;
+        r.add(s);
+        targetArray.push(s);
+        return s;
+      }
+
+      function addCube(center, lengths, color, targetArray) {
+        var c = new X.cube();
+        c.center = center.slice(0);
+        c.lengthX = lengths[0];
+        c.lengthY = lengths[1];
+        c.lengthZ = lengths[2];
+        c.color = color.slice(0);
+        r.add(c);
+        targetArray.push(c);
+        return c;
+      }
+
+      function setVisible(list, value) {
+        for (var i = 0; i < list.length; i++) {
+          list[i].visible = value;
+          list[i].modified();
+        }
+      }
+
+      function setMode(index) {
+        currentMode = index;
+
+        setVisible(soccerObjects, index === 0);
+        setVisible(basketballObjects, index === 1);
+        setVisible(footballObjects, index === 2);
+
+        if (index !== 0) {
+          setExploded(false);
+        }
+
+        if (index === 0) {
+          ballName.textContent = 'Soccer Ball';
+        } else if (index === 1) {
+          ballName.textContent = 'Basketball';
+        } else {
+          ballName.textContent = 'Football';
+        }
+
+        r.render();
+      }
+
+      // ------------------------------------------------------------
+      // Soccer ball
+      // ------------------------------------------------------------
+      var soccerBase = addSphere([0, 0, 0], 15.5, [0.96, 0.96, 0.96], soccerObjects);
+
+      // Approximate classic black panels using small spheres positioned
+      // around the surface. They are independent XTK objects so they can
+      // be picked and animated.
+      var panelDirections = [
+        [0, 0, 1],
+        [0, 0, -1],
+        [0, 1, 0],
+        [0, -1, 0],
+        [1, 0, 0],
+        [-1, 0, 0],
+
+        [0.58, 0.58, 0.58],
+        [-0.58, 0.58, 0.58],
+        [0.58, -0.58, 0.58],
+        [-0.58, -0.58, 0.58],
+
+        [0.58, 0.58, -0.58],
+        [-0.58, 0.58, -0.58],
+        [0.58, -0.58, -0.58],
+        [-0.58, -0.58, -0.58],
+
+        [0.85, 0.45, 0.25],
+        [-0.85, 0.45, 0.25],
+        [0.85, -0.45, 0.25],
+        [-0.85, -0.45, 0.25],
+
+        [0.25, 0.85, -0.45],
+        [-0.25, 0.85, -0.45],
+        [0.25, -0.85, -0.45],
+        [-0.25, -0.85, -0.45]
+      ];
+
+      function normalize(v) {
+        var m = Math.sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
+        return [v[0]/m, v[1]/m, v[2]/m];
+      }
+
+      for (var i = 0; i < panelDirections.length; i++) {
+        var n = normalize(panelDirections[i]);
+        var home = [n[0] * 15.0, n[1] * 15.0, n[2] * 15.0];
+
+        var p = addSphere(home, 2.25, [0.03, 0.03, 0.03], soccerObjects);
+        p._panelHome = home.slice(0);
+        p._panelNormal = n.slice(0);
+
+        soccerPanels.push(p);
+        soccerPanelIds.push(p.id);
+      }
+
+      function setExploded(value) {
+        if (exploded === value) return;
+        exploded = value;
+
+        for (var i = 0; i < soccerPanels.length; i++) {
+          var p = soccerPanels[i];
+          var h = p._panelHome;
+          var n = p._panelNormal;
+
+          if (value) {
+            p.center = [
+              h[0] + n[0] * 8.0,
+              h[1] + n[1] * 8.0,
+              h[2] + n[2] * 8.0
+            ];
+          } else {
+            p.center = h.slice(0);
+          }
+          p.modified();
+        }
+
+        // Slightly fade the center when exploded, then restore it.
+        soccerBase.opacity = value ? 0.82 : 1.0;
+        soccerBase.modified();
+        r.render();
+      }
+
+      // ------------------------------------------------------------
+      // Basketball
+      // ------------------------------------------------------------
+      addSphere([0, 0, 0], 15.5, [0.93, 0.34, 0.03], basketballObjects);
+
+      // Black seam lines are made from small spheres on several great-circle
+      // paths. This keeps the entire model inside XTK primitives.
+      function seamPoint(x, y, z) {
+        addSphere([x, y, z], 0.72, [0.02, 0.02, 0.02], basketballObjects);
+      }
+
+      var seamRadius = 15.8;
+      var steps = 40;
+
+      for (var j = 0; j < steps; j++) {
+        var a = (Math.PI * 2 * j) / steps;
+
+        // Equator
+        seamPoint(Math.cos(a) * seamRadius, Math.sin(a) * seamRadius, 0);
+
+        // Vertical circle
+        seamPoint(0, Math.cos(a) * seamRadius, Math.sin(a) * seamRadius);
+
+        // Angled circle
+        seamPoint(
+          Math.cos(a) * seamRadius * 0.72,
+          Math.sin(a) * seamRadius,
+          Math.cos(a) * seamRadius * 0.72
+        );
+      }
+
+      // ------------------------------------------------------------
+      // Football
+      // ------------------------------------------------------------
+      // Build an elongated football from overlapping XTK spheres.
+      // The varying radii create pointed ends without requiring an external model.
+      var brown = [0.42, 0.16, 0.05];
+      var footballParts = [
+        [-10, 3.2],
+        [-8, 5.0],
+        [-5.5, 7.0],
+        [-2.8, 8.4],
+        [0, 9.0],
+        [2.8, 8.4],
+        [5.5, 7.0],
+        [8, 5.0],
+        [10, 3.2]
+      ];
+
+      for (var k = 0; k < footballParts.length; k++) {
+        addSphere([footballParts[k][0], 0, 0], footballParts[k][1], brown, footballObjects);
+      }
+
+      // White end stripes.
+      addCube([-6.8, 0, 6.0], [1.2, 9.0, 1.0], [1, 1, 1], footballObjects);
+      addCube([6.8, 0, 6.0], [1.2, 9.0, 1.0], [1, 1, 1], footballObjects);
+
+      // White laces.
+      addCube([0, 0, 8.9], [7.0, 0.85, 0.7], [1, 1, 1], footballObjects);
+      addCube([-2.2, 0, 9.2], [0.55, 3.0, 0.55], [1, 1, 1], footballObjects);
+      addCube([-0.75, 0, 9.2], [0.55, 3.0, 0.55], [1, 1, 1], footballObjects);
+      addCube([0.75, 0, 9.2], [0.55, 3.0, 0.55], [1, 1, 1], footballObjects);
+      addCube([2.2, 0, 9.2], [0.55, 3.0, 0.55], [1, 1, 1], footballObjects);
+
+      // Start by showing only the soccer ball.
+      setVisible(basketballObjects, false);
+      setVisible(footballObjects, false);
+
+      r.render();
+      loading.style.display = 'none';
+
+      // ------------------------------------------------------------
+      // Hover picking: black soccer panels trigger the explosion.
+      // ------------------------------------------------------------
+      r.interactor.onMouseMove = function () {
+        if (currentMode !== 0) return;
+
+        var pos = r.interactor.mousePosition;
+        if (!pos) return;
+
+        var id = r.pick(pos[0], pos[1]);
+        var overPanel = soccerPanelIds.indexOf(id) !== -1;
+        setExploded(overPanel);
+      };
+
+      viewer.addEventListener('mouseleave', function () {
+        if (currentMode === 0) {
+          setExploded(false);
+        }
+      });
+
+      // ------------------------------------------------------------
+      // Click: soccer -> basketball -> football -> soccer
+      // ------------------------------------------------------------
+      viewer.addEventListener('click', function () {
+        // Small guard prevents an accidental rapid double click from skipping.
+        var now = Date.now();
+        if (now - lastClickTime < 180) return;
+        lastClickTime = now;
+
+        setMode((currentMode + 1) % 3);
+      });
+
+      // ------------------------------------------------------------
+      // Gentle continuous rotation.
+      // XTK transform methods are used so every displayed ball rotates.
+      // ------------------------------------------------------------
+      function rotateList(list, degrees) {
+        for (var i = 0; i < list.length; i++) {
+          if (list[i].visible) {
+            list[i].transform.rotateY(degrees);
+            list[i].transform.rotateX(degrees * 0.35);
+            list[i].modified();
+          }
+        }
+      }
+
+      setInterval(function () {
+        if (currentMode === 0) {
+          rotateList(soccerObjects, 0.38);
+        } else if (currentMode === 1) {
+          rotateList(basketballObjects, 0.42);
+        } else {
+          rotateList(footballObjects, 0.34);
+        }
+        r.render();
+      }, 45);
+    })();
+  </script>
+</body>
+</html>
