@@ -1,0 +1,1291 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta content="text/html;charset=utf-8" http-equiv="Content-Type">
+    <meta content="utf-8" http-equiv="encoding">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Magic WebGL Aquarium ✨ (Original Fish + Polish)</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        html,
+        body {
+            background-color: #000;
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+            overflow: hidden !important;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color: #e0f2fe;
+            /* Original assignment background */
+            background: #020916 url('https://cs460.org/assignments/04/bg.jpg') center center / cover no-repeat;
+        }
+
+        #c {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
+            cursor: crosshair;
+        }
+
+        /* Ambient underwater caustics overlay */
+        .caustics-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            background: radial-gradient(circle at 50% 0%, rgba(56, 189, 248, 0.16) 0%, rgba(14, 165, 233, 0.04) 50%, transparent 80%),
+                        linear-gradient(180deg, rgba(3, 105, 161, 0.1) 0%, transparent 60%);
+            mix-blend-mode: screen;
+            animation: waterPulse 8s ease-in-out infinite alternate;
+        }
+
+        @keyframes waterPulse {
+            0% { opacity: 0.6; }
+            100% { opacity: 0.95; }
+        }
+
+        /* Glassmorphic UI HUD */
+        #hud {
+            position: absolute;
+            top: 18px;
+            right: 18px;
+            width: 320px;
+            background: rgba(8, 24, 48, 0.78);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            border-radius: 16px;
+            padding: 16px 20px;
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+            z-index: 100;
+        }
+
+        #hud.minimized {
+            transform: translateX(calc(100% + 24px));
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .hud-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            border-bottom: 1px solid rgba(56, 189, 248, 0.2);
+            padding-bottom: 8px;
+        }
+
+        .hud-title {
+            font-size: 16px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #f87171, #38bdf8, #facc15);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .hud-btn-close {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #94a3b8;
+            border-radius: 8px;
+            width: 26px;
+            height: 26px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s ease;
+        }
+
+        .hud-btn-close:hover {
+            background: rgba(239, 68, 68, 0.3);
+            color: #f87171;
+            border-color: rgba(239, 68, 68, 0.5);
+        }
+
+        .hud-toggle-open {
+            position: absolute;
+            top: 18px;
+            right: 18px;
+            background: rgba(8, 24, 48, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(56, 189, 248, 0.4);
+            color: #38bdf8;
+            border-radius: 12px;
+            padding: 8px 14px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+            display: none;
+            align-items: center;
+            gap: 6px;
+            z-index: 99;
+            transition: all 0.2s ease;
+        }
+
+        .hud-toggle-open:hover {
+            background: rgba(14, 165, 233, 0.25);
+            box-shadow: 0 0 16px rgba(56, 189, 248, 0.4);
+        }
+
+        .fish-badge-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .fish-badge {
+            flex: 1;
+            padding: 6px 8px;
+            border-radius: 8px;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+
+        .badge-red {
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            color: #fca5a5;
+        }
+
+        .badge-blue {
+            background: rgba(14, 165, 233, 0.2);
+            border: 1px solid rgba(56, 189, 248, 0.4);
+            color: #bae6fd;
+        }
+
+        .control-group {
+            margin-bottom: 12px;
+        }
+
+        .control-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            font-weight: 500;
+            color: #93c5fd;
+            margin-bottom: 6px;
+        }
+
+        .control-slider {
+            width: 100%;
+            height: 5px;
+            border-radius: 3px;
+            background: rgba(15, 23, 42, 0.8);
+            outline: none;
+            -webkit-appearance: none;
+            cursor: pointer;
+        }
+
+        .control-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            background: #38bdf8;
+            box-shadow: 0 0 10px #38bdf8;
+            cursor: pointer;
+            transition: transform 0.1s ease;
+        }
+
+        .action-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .btn-action {
+            background: rgba(14, 165, 233, 0.18);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            color: #e0f2fe;
+            border-radius: 8px;
+            padding: 8px 10px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .btn-action:hover {
+            background: rgba(14, 165, 233, 0.35);
+            border-color: #7dd3fc;
+            box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
+            transform: translateY(-1px);
+        }
+
+        .btn-action:active {
+            transform: translateY(1px);
+        }
+
+        .btn-action.active-mode {
+            background: rgba(168, 85, 247, 0.28);
+            border-color: #c084fc;
+            box-shadow: 0 0 12px rgba(192, 132, 252, 0.4);
+            color: #f3e8ff;
+        }
+
+        /* Floating quick tip at bottom */
+        .bottom-hint {
+            position: absolute;
+            bottom: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(8, 24, 48, 0.7);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(56, 189, 248, 0.25);
+            border-radius: 20px;
+            padding: 6px 18px;
+            font-size: 12px;
+            color: #93c5fd;
+            pointer-events: none;
+            letter-spacing: 0.3px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+        }
+
+        .bottom-hint span {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="c"></canvas>
+    <div class="caustics-overlay"></div>
+
+    <button id="btnOpenHud" class="hud-toggle-open">⚙️ Controls</button>
+
+    <div id="hud">
+        <div class="hud-header">
+            <div class="hud-title">✨ Magic Aquarium</div>
+            <button id="btnCloseHud" class="hud-btn-close" title="Minimize Controls">✕</button>
+        </div>
+
+        <div class="fish-badge-row">
+            <div class="fish-badge badge-red">🔴 1 Big Red Fish</div>
+            <div class="fish-badge badge-blue">🔵 <span id="labelBlueCount">100</span> Pulsating Blue</div>
+        </div>
+
+        <div class="control-group">
+            <div class="control-label">
+                <span>Enhancement Mode</span>
+            </div>
+            <div class="action-buttons" style="margin-bottom: 0;">
+                <button id="btnModeMagic" class="btn-action active-mode">✨ Magic Polish</button>
+                <button id="btnModeClassic" class="btn-action">🐟 Original Classic</button>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <div class="control-label">
+                <span>Little Fish Population</span>
+                <span id="labelFishCount">100</span>
+            </div>
+            <input type="range" id="sliderFishCount" class="control-slider" min="20" max="250" value="100">
+        </div>
+
+        <div class="control-group">
+            <div class="control-label">
+                <span>Swimming Speed</span>
+                <span id="labelSpeed">1.0x</span>
+            </div>
+            <input type="range" id="sliderSpeed" class="control-slider" min="0.4" max="2.5" step="0.1" value="1.0">
+        </div>
+
+        <div class="action-buttons">
+            <button id="btnDropFood" class="btn-action">✨ Drop Food</button>
+            <button id="btnScatter" class="btn-action">⚡ Scatter Fish</button>
+        </div>
+
+        <div class="action-buttons">
+            <button id="btnToggleMouse" class="btn-action">🎯 Mouse: Active</button>
+            <button id="btnToggleAudio" class="btn-action">🔇 Audio: Off</button>
+        </div>
+    </div>
+
+    <div class="bottom-hint">
+        <span>🖱️ Move mouse to control Big Red Fish</span>
+        <span>•</span>
+        <span>👆 Click anywhere to drop magic food</span>
+        <span>•</span>
+        <span>⌨️ [Space] Scatter • [H] Toggle HUD</span>
+    </div>
+
+    <!-- GLMatrix Library from original assignment -->
+    <script type="text/javascript" src="https://cs460.org/js/glmatrix.js"></script>
+
+    <!-- FISH SHADERS -->
+    <script id="vertexshader" type="glsl">
+        attribute vec3 a_position;
+
+        uniform mat4 u_transform;
+        uniform float u_pointsize;
+        uniform float u_aspect;
+        uniform float u_time;
+        uniform float u_wag_speed;
+        uniform float u_wag_phase;
+        uniform float u_wag_amp;
+
+        varying vec3 v_position;
+
+        void main(void) {
+            vec3 pos = a_position;
+
+            // Tail flexion: vertices behind x=0.25 wag fluidly like a real swimming fish!
+            if (u_wag_amp > 0.0) {
+                float tail_factor = clamp((0.25 - pos.x) / 0.65, 0.0, 1.0);
+                float wave = sin(u_time * u_wag_speed + u_wag_phase - pos.x * 4.5);
+                pos.y += wave * (0.075 * u_wag_amp) * tail_factor;
+            }
+
+            // Apply transformation matrix (rotation, scale, translation)
+            vec4 final_position = u_transform * vec4(pos, 1.0);
+
+            // Correct for screen aspect ratio so fish stay perfectly proportioned
+            gl_Position = vec4(final_position.x / u_aspect, final_position.y, final_position.z, 1.0);
+
+            gl_PointSize = u_pointsize;
+
+            v_position = pos;
+        }
+    </script>
+
+    <script id="fragmentshader" type="glsl">
+        precision mediump float;
+
+        uniform vec4 u_color;
+        uniform float u_is_eye;
+        uniform float u_magic_mode; // 1.0 for polished mode, 0.0 for pure original
+
+        varying vec3 v_position;
+
+        void main(void) {
+            if (u_is_eye > 0.5) {
+                // EYE POINT
+                if (u_magic_mode > 0.5) {
+                    // Smooth circular glossy black eye with subtle specular shine
+                    vec2 coord = gl_PointCoord - vec2(0.5);
+                    float dist = length(coord);
+                    if (dist > 0.5) {
+                        discard;
+                    }
+                    float glint = 1.0 - smoothstep(0.0, 0.12, length(coord - vec2(-0.14, -0.14)));
+                    vec3 eye_rgb = mix(u_color.rgb, vec3(1.0, 1.0, 1.0), glint * 0.7);
+                    float alpha = (1.0 - smoothstep(0.46, 0.5, dist)) * u_color.a;
+                    gl_FragColor = vec4(eye_rgb, alpha);
+                } else {
+                    // Pure original eye
+                    gl_FragColor = u_color;
+                }
+            } else {
+                // FISH BODY
+                if (u_magic_mode > 0.5) {
+                    // Subtle organic spinal lighting on the original fish colors
+                    float dorsal = smoothstep(-0.25, 0.25, v_position.y);
+                    float spine_glow = sin(v_position.x * 7.0) * 0.08;
+                    vec3 col = u_color.rgb * (0.92 + 0.16 * dorsal + spine_glow);
+                    gl_FragColor = vec4(col, u_color.a);
+                } else {
+                    // Exact original color
+                    gl_FragColor = u_color;
+                }
+            }
+        }
+    </script>
+
+    <!-- PARTICLE SHADERS (BUBBLES, SPARKLES, FOOD) -->
+    <script id="particle_vshader" type="glsl">
+        attribute vec3 a_part_pos;
+        attribute vec4 a_part_meta; // x: size, y: type (0: bubble, 1: sparkle, 2: food, 3: burst), z: life_ratio, w: seed
+
+        uniform float u_aspect;
+        uniform float u_time;
+
+        varying vec4 v_part_meta;
+
+        void main(void) {
+            gl_Position = vec4(a_part_pos.x / u_aspect, a_part_pos.y, a_part_pos.z, 1.0);
+            gl_PointSize = a_part_meta.x;
+            v_part_meta = a_part_meta;
+        }
+    </script>
+
+    <script id="particle_fshader" type="glsl">
+        precision mediump float;
+
+        uniform float u_time;
+        varying vec4 v_part_meta;
+
+        void main(void) {
+            vec2 p = gl_PointCoord - vec2(0.5);
+            float dist = length(p);
+            if (dist > 0.5) {
+                discard;
+            }
+
+            float ptype = v_part_meta.y;
+            float life = v_part_meta.z;
+            float seed = v_part_meta.w;
+
+            if (ptype < 0.5) {
+                // BUBBLE: Translucent air bubble with spherical rim & shine
+                float rim = smoothstep(0.32, 0.48, dist) * (1.0 - smoothstep(0.48, 0.5, dist));
+                float glint = 1.0 - smoothstep(0.0, 0.12, length(p - vec2(-0.15, -0.15)));
+                vec3 bubble_col = vec3(0.65, 0.9, 1.0);
+                float alpha = (rim * 0.75 + glint * 0.95) * life;
+                gl_FragColor = vec4(bubble_col + glint * 0.35, alpha * 0.8);
+            } else if (ptype < 1.5) {
+                // MAGIC SPARKLE / DRIFTING MOTE
+                float glow = exp(-dist * 5.5);
+                float pulse = 0.7 + 0.3 * sin(u_time * 6.0 + seed * 25.0);
+                vec3 spark_col = mix(vec3(0.3, 0.85, 1.0), vec3(1.0, 0.8, 0.3), sin(seed * 12.0) * 0.5 + 0.5);
+                gl_FragColor = vec4(spark_col * pulse, glow * life * 0.85);
+            } else if (ptype < 2.5) {
+                // GLOWING MAGIC FOOD PEARL
+                float core = 1.0 - smoothstep(0.2, 0.44, dist);
+                float halo = exp(-dist * 4.2);
+                vec3 food_col = vec3(1.0, 0.88, 0.35); // golden mana pearl
+                float alpha = (core * 0.9 + halo * 0.5) * life;
+                gl_FragColor = vec4(food_col + core * 0.4, alpha);
+            } else {
+                // STAR BURST FLARE
+                float flare = max(0.0, 1.0 - abs(p.x) * 4.5) * max(0.0, 1.0 - abs(p.y) * 4.5);
+                float glow = exp(-dist * 5.0) + flare * 0.65;
+                vec3 burst_col = vec3(1.0, 0.95, 0.65);
+                gl_FragColor = vec4(burst_col, glow * life);
+            }
+        }
+    </script>
+
+    <script>
+        // ORIGINAL GLOBALS FROM index.html
+        var c, gl;
+        var v_shader, f_shader, shaderprogram;
+        var vertices, indices, v_buffer, i_buffer;
+        var all_fish = [];
+        var mouse_control = true;
+        var step_x = 0.01;
+        var step_y = 0.01;
+
+        // POLISHED ADD-IN GLOBALS
+        var particle_program;
+        var fish_locations = {}, particle_locations = {};
+        var particle_pos_buffer, particle_meta_buffer;
+        var aspect = 1.0;
+        var speed_mult = 1.0;
+        var magic_mode = 1.0; // 1.0 = Polished mode with tail-wag & particles, 0.0 = Classic mode
+
+        // Particle System Pool
+        var MAX_PARTICLES = 500;
+        var particles = [];
+        var part_pos_data = new Float32Array(MAX_PARTICLES * 3);
+        var part_meta_data = new Float32Array(MAX_PARTICLES * 4);
+
+        // Web Audio Synthesizer (Zero External Dependencies)
+        var audioCtx = null;
+        var soundEnabled = false;
+
+        function initAudio() {
+            if (!audioCtx) {
+                var AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                if (AudioContextClass) {
+                    audioCtx = new AudioContextClass();
+                }
+            }
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function playBubbleSound() {
+            if (!soundEnabled || !audioCtx) return;
+            try {
+                var now = audioCtx.currentTime;
+                var osc = audioCtx.createOscillator();
+                var gain = audioCtx.createGain();
+                var freq = 450 + Math.random() * 250;
+
+                osc.frequency.setValueAtTime(freq, now);
+                osc.frequency.exponentialRampToValueAtTime(freq * 1.6, now + 0.08);
+
+                gain.gain.setValueAtTime(0.06, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 0.1);
+            } catch (e) {}
+        }
+
+        function playChimeSound() {
+            if (!soundEnabled || !audioCtx) return;
+            try {
+                var now = audioCtx.currentTime;
+                var notes = [523.25, 659.25, 783.99, 1046.50, 1318.51];
+                var freq = notes[Math.floor(Math.random() * notes.length)];
+
+                var osc = audioCtx.createOscillator();
+                var gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq, now);
+
+                gain.gain.setValueAtTime(0.1, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 0.5);
+            } catch (e) {}
+        }
+
+        function compileShader(src, type) {
+            var shader = gl.createShader(type);
+            gl.shaderSource(shader, src);
+            gl.compileShader(shader);
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                console.error(gl.getShaderInfoLog(shader));
+            }
+            return shader;
+        }
+
+        window.onload = function () {
+
+            // INITIALIZE WEBGL
+            c = document.getElementById('c');
+            resize();
+            window.addEventListener('resize', resize);
+
+            gl = c.getContext('webgl', { alpha: true, antialias: true }) || c.getContext('experimental-webgl');
+            gl.viewport(0, 0, c.width, c.height);
+
+            // SHADERS
+            v_shader = compileShader(document.getElementById('vertexshader').innerText, gl.VERTEX_SHADER);
+            f_shader = compileShader(document.getElementById('fragmentshader').innerText, gl.FRAGMENT_SHADER);
+
+            shaderprogram = gl.createProgram();
+            gl.attachShader(shaderprogram, v_shader);
+            gl.attachShader(shaderprogram, f_shader);
+            gl.linkProgram(shaderprogram);
+            gl.useProgram(shaderprogram);
+
+            // Cache fish shader locations
+            fish_locations = {
+                a_position: gl.getAttribLocation(shaderprogram, 'a_position'),
+                u_transform: gl.getUniformLocation(shaderprogram, 'u_transform'),
+                u_pointsize: gl.getUniformLocation(shaderprogram, 'u_pointsize'),
+                u_aspect: gl.getUniformLocation(shaderprogram, 'u_aspect'),
+                u_time: gl.getUniformLocation(shaderprogram, 'u_time'),
+                u_wag_speed: gl.getUniformLocation(shaderprogram, 'u_wag_speed'),
+                u_wag_phase: gl.getUniformLocation(shaderprogram, 'u_wag_phase'),
+                u_wag_amp: gl.getUniformLocation(shaderprogram, 'u_wag_amp'),
+                u_color: gl.getUniformLocation(shaderprogram, 'u_color'),
+                u_is_eye: gl.getUniformLocation(shaderprogram, 'u_is_eye'),
+                u_magic_mode: gl.getUniformLocation(shaderprogram, 'u_magic_mode'),
+                u_scale: gl.getUniformLocation(shaderprogram, 'u_scale'),
+                u_direction: gl.getUniformLocation(shaderprogram, 'u_direction')
+            };
+
+            // COMPILE PARTICLE SHADERS
+            var p_vshader = compileShader(document.getElementById('particle_vshader').innerText, gl.VERTEX_SHADER);
+            var p_fshader = compileShader(document.getElementById('particle_fshader').innerText, gl.FRAGMENT_SHADER);
+
+            particle_program = gl.createProgram();
+            gl.attachShader(particle_program, p_vshader);
+            gl.attachShader(particle_program, p_fshader);
+            gl.linkProgram(particle_program);
+
+            particle_locations = {
+                a_part_pos: gl.getAttribLocation(particle_program, 'a_part_pos'),
+                a_part_meta: gl.getAttribLocation(particle_program, 'a_part_meta'),
+                u_aspect: gl.getUniformLocation(particle_program, 'u_aspect'),
+                u_time: gl.getUniformLocation(particle_program, 'u_time')
+            };
+
+            particle_pos_buffer = gl.createBuffer();
+            particle_meta_buffer = gl.createBuffer();
+
+            // POPULATE THE ORIGINAL FISH FROM index.html
+            initOriginalFish(100);
+
+            // INITIALIZE PARTICLES
+            initParticles();
+
+            // MOUSE MOVE LISTENER (Original index.html behavior)
+            c.addEventListener('mousemove', function (event) {
+                var rect = c.getBoundingClientRect();
+
+                // Convert mouse coordinates to WebGL coordinates
+                var mouse_x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+                var mouse_y = 1 - ((event.clientY - rect.top) / rect.height) * 2;
+
+                // Move only the large red fish
+                if (mouse_control && all_fish.length > 0) {
+                    all_fish[0][4][0] = mouse_x * aspect;
+                    all_fish[0][4][1] = mouse_y;
+                }
+            });
+
+            // CLICK TO SPAWN MAGIC FOOD
+            c.addEventListener('click', function (event) {
+                initAudio();
+                var rect = c.getBoundingClientRect();
+                var click_x = (((event.clientX - rect.left) / rect.width) * 2 - 1) * aspect;
+                var click_y = 1 - ((event.clientY - rect.top) / rect.height) * 2;
+                spawnFood(click_x, click_y);
+            });
+
+            // TOUCH SUPPORT
+            c.addEventListener('touchmove', function (event) {
+                if (event.touches.length > 0) {
+                    var rect = c.getBoundingClientRect();
+                    var touch = event.touches[0];
+                    var mouse_x = ((touch.clientX - rect.left) / rect.width) * 2 - 1;
+                    var mouse_y = 1 - ((touch.clientY - rect.top) / rect.height) * 2;
+                    if (mouse_control && all_fish.length > 0) {
+                        all_fish[0][4][0] = mouse_x * aspect;
+                        all_fish[0][4][1] = mouse_y;
+                    }
+                }
+            }, { passive: true });
+
+            c.addEventListener('touchstart', function (event) {
+                initAudio();
+                if (event.touches.length > 0) {
+                    var rect = c.getBoundingClientRect();
+                    var touch = event.touches[0];
+                    var tx = (((touch.clientX - rect.left) / rect.width) * 2 - 1) * aspect;
+                    var ty = 1 - ((touch.clientY - rect.top) / rect.height) * 2;
+                    spawnFood(tx, ty);
+                }
+            }, { passive: true });
+
+            // KEYBOARD SHORTCUTS
+            window.addEventListener('keydown', function (e) {
+                if (e.code === 'Space') {
+                    e.preventDefault();
+                    scatterFish();
+                } else if (e.key === 'h' || e.key === 'H') {
+                    toggleHud();
+                } else if (e.key === 'f' || e.key === 'F') {
+                    if (all_fish.length > 0) {
+                        spawnFood(all_fish[0][4][0], all_fish[0][4][1]);
+                    }
+                }
+            });
+
+            // SETUP UI HUD
+            setupUI();
+
+            // START ANIMATION LOOP
+            animate();
+        };
+
+        function resize() {
+            c.width = window.innerWidth;
+            c.height = window.innerHeight;
+            aspect = c.width / c.height;
+            if (gl) {
+                gl.viewport(0, 0, c.width, c.height);
+            }
+        }
+
+        // CREATE ORIGINAL FISH (Exactly matching index.html geometry & buffer structure)
+        function createFish(offset, color, scale = 1, direction = 1) {
+
+            // CREATE FISH GEOMETRY
+            var vertices = new Float32Array([
+                0.5, 0.0, 0.0,   // 0: nose
+                0.2, 0.25, 0.0,  // 1: upper body
+                -0.2, 0.15, 0.0, // 2: upper tail base
+                -0.4, 0.3, 0.0,  // 3: upper tail tip
+                -0.4, -0.3, 0.0, // 4: lower tail tip
+                -0.2, -0.15, 0.0,// 5: lower tail base
+                0.2, -0.25, 0.0  // 6: lower body
+            ]);
+
+            var indices = new Uint8Array([
+                0, 1, 6, // main body
+                1, 2, 6, // upper mid-body
+                2, 5, 6, // rear body
+                2, 3, 5, // tail top
+                3, 4, 5  // tail fin
+            ]);
+
+            // create vertex buffer
+            var v_buffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, v_buffer);
+            gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+            gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+            // create index buffer
+            var i_buffer = gl.createBuffer();
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, i_buffer);
+            gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+
+            // CREATE EYE GEOMETRY
+            var eye_vertex = new Float32Array([0.2, 0.2, 0.0]);
+
+            if (direction == -1) {
+                eye_vertex = new Float32Array([0.2, 0.2, 0.0]);
+            }
+
+            // create eye vertex buffer
+            var eye_v_buffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, eye_v_buffer);
+            gl.bufferData(gl.ARRAY_BUFFER, eye_vertex, gl.STATIC_DRAW);
+            gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+            return [
+                v_buffer,
+                i_buffer,
+                eye_v_buffer,
+                new Float32Array(color),
+                new Float32Array(offset),
+                scale,
+                direction,
+                // Metadata for polish features (tail undulation, food tracking)
+                {
+                    wag_speed: 12.0 + Math.random() * 6.0,
+                    wag_phase: Math.random() * Math.PI * 2,
+                    initial_scale: scale
+                }
+            ];
+        }
+
+        // POPULATE EXACTLY AS IN index.html
+        function initOriginalFish(littleFishCount) {
+            all_fish = [];
+
+            // 1: THE LARGE RED FISH (Index 0)
+            all_fish.push(createFish(
+                [0, 0, 0],
+                [1, 0, 0, Math.random()],
+                1,
+                1
+            ));
+            all_fish[0][7].wag_speed = 7.0;
+
+            // 2: THE 100 LITTLE FISH (Index 1..N)
+            for (var i = 0; i < littleFishCount; i++) {
+                var random_color = [
+                    Math.random(),
+                    Math.random(),
+                    Math.random(),
+                    Math.random(),
+                ];
+
+                var random_offset = [
+                    (Math.random() - Math.random()) * aspect,
+                    Math.random() - Math.random(),
+                    0
+                ];
+
+                var random_scale = Math.random() * 0.3;
+
+                all_fish.push(createFish(
+                    random_offset,
+                    random_color,
+                    random_scale,
+                    1
+                ));
+            }
+        }
+
+        // PARTICLE SYSTEM (BUBBLES, SPARKLES, FOOD)
+        function initParticles() {
+            particles = [];
+            for (var i = 0; i < 40; i++) {
+                spawnBubble((Math.random() * 2 - 1) * aspect, Math.random() * 2 - 1, false);
+            }
+            for (var j = 0; j < 30; j++) {
+                spawnSparkle((Math.random() * 2 - 1) * aspect, Math.random() * 2 - 1);
+            }
+        }
+
+        function spawnBubble(x, y, playSnd = true) {
+            if (particles.length >= MAX_PARTICLES) return;
+            particles.push({
+                x: x,
+                y: y,
+                vx: (Math.random() - 0.5) * 0.001,
+                vy: 0.002 + Math.random() * 0.003,
+                size: 8.0 + Math.random() * 16.0,
+                type: 0, // Bubble
+                life: 1.0,
+                decay: 0.0025,
+                seed: Math.random()
+            });
+            if (playSnd) playBubbleSound();
+        }
+
+        function spawnSparkle(x, y) {
+            if (particles.length >= MAX_PARTICLES) return;
+            particles.push({
+                x: x,
+                y: y,
+                vx: (Math.random() - 0.5) * 0.001,
+                vy: (Math.random() - 0.5) * 0.001,
+                size: 6.0 + Math.random() * 10.0,
+                type: 1, // Sparkle
+                life: 1.0,
+                decay: 0.005,
+                seed: Math.random()
+            });
+        }
+
+        function spawnFood(x, y) {
+            for (var i = 0; i < 4; i++) {
+                if (particles.length >= MAX_PARTICLES) break;
+                particles.push({
+                    x: x + (Math.random() - 0.5) * 0.06,
+                    y: y + (Math.random() - 0.5) * 0.06,
+                    vx: (Math.random() - 0.5) * 0.001,
+                    vy: -(0.0025 + Math.random() * 0.002),
+                    size: 14.0 + Math.random() * 6.0,
+                    type: 2, // Food
+                    life: 1.0,
+                    decay: 0.0012,
+                    seed: Math.random()
+                });
+            }
+            playBubbleSound();
+        }
+
+        function spawnBurst(x, y) {
+            for (var i = 0; i < 12; i++) {
+                if (particles.length >= MAX_PARTICLES) break;
+                var ang = Math.random() * Math.PI * 2;
+                var spd = 0.004 + Math.random() * 0.008;
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: Math.cos(ang) * spd,
+                    vy: Math.sin(ang) * spd,
+                    size: 8.0 + Math.random() * 12.0,
+                    type: 3, // Burst Star
+                    life: 1.0,
+                    decay: 0.02 + Math.random() * 0.015,
+                    seed: Math.random()
+                });
+            }
+            playChimeSound();
+        }
+
+        function scatterFish() {
+            initAudio();
+            for (var r = 1; r < all_fish.length; r++) {
+                var f = all_fish[r];
+                var ang = Math.random() * Math.PI * 2;
+                f[4][0] += Math.cos(ang) * (0.05 + Math.random() * 0.1);
+                f[4][1] += Math.sin(ang) * (0.05 + Math.random() * 0.1);
+                f[6] = Math.cos(ang) > 0 ? 1 : -1;
+            }
+            playBubbleSound();
+        }
+
+        // ANIMATION LOOP (Preserving index.html core movement & colors)
+        function animate() {
+            requestAnimationFrame(animate);
+
+            gl.clearColor(0., 0., 0., 0.);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+
+            // ENABLE TRANSPARENCY
+            gl.enable(gl.BLEND);
+            gl.blendEquation(gl.FUNC_ADD);
+            gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+            gl.disable(gl.DEPTH_TEST);
+
+            var time = performance.now() * 0.001;
+
+            // Ambient bubbles in magic mode
+            if (magic_mode > 0.5 && Math.random() < 0.05) {
+                spawnBubble((Math.random() * 2 - 1) * aspect, -1.08, false);
+            }
+
+            // DRAW PARTICLES
+            if (magic_mode > 0.5) {
+                drawParticles(time);
+            }
+
+            // DRAW ALL FISH
+            drawFish(time);
+        }
+
+        function drawFish(time) {
+            gl.useProgram(shaderprogram);
+
+            var a_position = fish_locations.a_position;
+            var u_transform = fish_locations.u_transform;
+            var u_color = fish_locations.u_color;
+            var u_pointsize = fish_locations.u_pointsize;
+            var u_aspect = fish_locations.u_aspect;
+            var u_time = fish_locations.u_time;
+            var u_wag_speed = fish_locations.u_wag_speed;
+            var u_wag_phase = fish_locations.u_wag_phase;
+            var u_wag_amp = fish_locations.u_wag_amp;
+            var u_is_eye = fish_locations.u_is_eye;
+            var u_magic_mode = fish_locations.u_magic_mode;
+            var u_scale = fish_locations.u_scale;
+            var u_direction = fish_locations.u_direction;
+
+            gl.uniform1f(u_aspect, aspect);
+            gl.uniform1f(u_time, time);
+            gl.uniform1f(u_magic_mode, magic_mode);
+
+            // Active food in magic mode
+            var active_foods = magic_mode > 0.5 ? particles.filter(p => p.type === 2) : [];
+
+            for (var r = 0; r < all_fish.length; r++) {
+
+                var current_buffers = all_fish[r];
+
+                var current_v_buffer = current_buffers[0];
+                var current_i_buffer = current_buffers[1];
+                var current_eye_v_buffer = current_buffers[2];
+                var current_color = current_buffers[3];
+                var current_offset = current_buffers[4];
+                var current_scale = current_buffers[5];
+                var current_direction = current_buffers[6];
+                var current_meta = current_buffers[7] || { wag_speed: 12.0, wag_phase: 0.0 };
+
+                // UPDATE OFFSETS (From index.html)
+                if (r == 0) {
+
+                    // LARGE RED FISH ONLY
+                    current_offset[0] += current_direction * step_x * speed_mult;
+
+                    current_offset[1] += (0.1 * Math.random() - 0.1 * Math.random()) * speed_mult;
+
+                    // Calculate screen boundaries based on fish size
+                    var x_limit = aspect - 0.5 * current_scale;
+                    var y_limit = 1 - 0.3 * current_scale;
+
+                    // Reverse direction at horizontal boundaries
+                    if (current_offset[0] >= x_limit) {
+                        current_offset[0] = x_limit;
+                        current_direction = -1;
+                    } else if (current_offset[0] <= -x_limit) {
+                        current_offset[0] = -x_limit;
+                        current_direction = 1;
+                    }
+
+                    // Keep fish within vertical boundaries
+                    if (current_offset[1] >= y_limit) {
+                        current_offset[1] = y_limit;
+                    } else if (current_offset[1] <= -y_limit) {
+                        current_offset[1] = -y_limit;
+                    }
+
+                    // Save the updated direction
+                    current_buffers[6] = current_direction;
+
+                    // Magic sparkle wake trailing behind the big red fish
+                    if (magic_mode > 0.5 && Math.random() < 0.22) {
+                        var tail_x = current_offset[0] - current_direction * (0.4 * current_scale);
+                        var tail_y = current_offset[1];
+                        spawnSparkle(tail_x, tail_y);
+                    }
+
+                } else {
+
+                    // 100 LITTLE PULSATING BLUE FISH
+                    current_offset[0] += current_direction * step_x * speed_mult;
+
+                    current_offset[1] += (0.005 * Math.random() - 0.005 * Math.random()) * speed_mult;
+
+                    var x_limit_little = aspect;
+                    if (current_offset[0] >= x_limit_little) {
+                        current_direction = -1;
+                    } else if (current_offset[0] <= -x_limit_little) {
+                        current_direction = 1;
+                    }
+
+                    current_buffers[6] = current_direction;
+
+                    // Food seeking in magic mode
+                    if (active_foods.length > 0) {
+                        for (var fi = 0; fi < active_foods.length; fi++) {
+                            var food = active_foods[fi];
+                            var fdx = food.x - current_offset[0];
+                            var fdy = food.y - current_offset[1];
+                            var fdist = Math.sqrt(fdx * fdx + fdy * fdy);
+                            if (fdist < 0.45) {
+                                current_offset[0] += (fdx / fdist) * 0.004 * speed_mult;
+                                current_offset[1] += (fdy / fdist) * 0.004 * speed_mult;
+                                current_direction = fdx >= 0 ? 1 : -1;
+                                current_buffers[6] = current_direction;
+
+                                if (fdist < 0.06) {
+                                    food.life = 0;
+                                    spawnBurst(food.x, food.y);
+                                }
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                // PASS TRANSFORMATION MATRIX (Original index.html transform)
+                var theta = (Math.random() * 20 - 5) * Math.PI / 180;
+                if (magic_mode > 0.5) {
+                    theta = Math.sin(time * 3.0 + r * 0.4) * 0.07;
+                }
+
+                var transform = [
+                    current_direction * current_scale * Math.cos(theta), current_scale * Math.sin(theta), 0, 0,
+                    -current_direction * current_scale * Math.sin(theta), current_scale * Math.cos(theta), 0, 0,
+                    0, 0, current_direction * current_scale * 1, 0,
+                    current_offset[0], current_offset[1], current_offset[2], 1
+                ];
+
+                // CONNECT SHADER WITH FISH GEOMETRY
+                gl.bindBuffer(gl.ARRAY_BUFFER, current_v_buffer);
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, current_i_buffer);
+
+                gl.vertexAttribPointer(a_position, 3, gl.FLOAT, false, 0, 0);
+                gl.enableVertexAttribArray(a_position);
+
+                gl.uniformMatrix4fv(u_transform, false, new Float32Array(transform));
+                gl.uniform1f(u_wag_speed, current_meta.wag_speed * speed_mult);
+                gl.uniform1f(u_wag_phase, current_meta.wag_phase);
+                gl.uniform1f(u_wag_amp, magic_mode > 0.5 ? 1.0 : 0.0);
+
+                // EXACT ORIGINAL COLORS FROM index.html
+                var t = time;
+                var a = 0.6 + 0.4 * Math.sin(t * 2.0);
+
+                // Set blue-ish pulsating color for the little fish (Exactly from index.html)
+                current_color = new Float32Array([
+                    0.3 + 0.2 * Math.sin(t + 0.0),
+                    0.6 + 0.2 * Math.sin(t + 2.0),
+                    0.9 + 0.1 * Math.sin(t + 4.0),
+                    a
+                ]);
+
+                // Keep big red (Exactly from index.html)
+                if (r == 0) {
+                    current_color = new Float32Array([1, 0, 0, 0.7]);
+                }
+
+                // Pass color to fragment shader
+                gl.uniform4fv(u_color, current_color);
+
+                if (u_scale) gl.uniform1f(u_scale, current_scale);
+                if (u_direction) gl.uniform1f(u_direction, current_direction);
+
+                // DRAW FISH TRIANGLES
+                gl.uniform1f(u_is_eye, 0.0);
+                gl.drawElements(gl.TRIANGLES, 15, gl.UNSIGNED_BYTE, 0);
+
+                // DRAW EYE (Exactly from index.html)
+                gl.uniform1f(u_is_eye, 1.0);
+
+                // Set eye color to black with transparency (Exactly from index.html)
+                gl.uniform4fv(u_color, new Float32Array([0, 0, 0, .5]));
+
+                // Set eye size based on fish scale (minimum 5px in magic mode for crispness)
+                var eye_size = current_scale * 20.0;
+                if (magic_mode > 0.5) eye_size = Math.max(5.0, eye_size);
+                gl.uniform1f(u_pointsize, eye_size);
+
+                // Bind eye vertex buffer
+                gl.bindBuffer(gl.ARRAY_BUFFER, current_eye_v_buffer);
+                gl.vertexAttribPointer(a_position, 3, gl.FLOAT, false, 0, 0);
+                gl.enableVertexAttribArray(a_position);
+
+                // Draw one point for the eye
+                gl.drawArrays(gl.POINTS, 0, 1);
+            }
+        }
+
+        // UPDATE AND DRAW PARTICLES
+        function drawParticles(time) {
+            var active_count = 0;
+
+            for (var i = particles.length - 1; i >= 0; i--) {
+                var p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+
+                p.x += Math.sin(time * 3.0 + p.seed * 10.0) * 0.0005;
+                p.life -= p.decay;
+
+                if (p.type === 0 && p.y > 1.1) {
+                    p.life = 0;
+                }
+
+                if (p.life <= 0) {
+                    particles.splice(i, 1);
+                    continue;
+                }
+
+                if (active_count < MAX_PARTICLES) {
+                    var idx3 = active_count * 3;
+                    var idx4 = active_count * 4;
+
+                    part_pos_data[idx3] = p.x;
+                    part_pos_data[idx3 + 1] = p.y;
+                    part_pos_data[idx3 + 2] = 0.0;
+
+                    part_meta_data[idx4] = p.size;
+                    part_meta_data[idx4 + 1] = p.type;
+                    part_meta_data[idx4 + 2] = p.life;
+                    part_meta_data[idx4 + 3] = p.seed;
+
+                    active_count++;
+                }
+            }
+
+            if (active_count === 0) return;
+
+            gl.useProgram(particle_program);
+
+            var a_part_pos = particle_locations.a_part_pos;
+            var a_part_meta = particle_locations.a_part_meta;
+            var u_p_aspect = particle_locations.u_aspect;
+            var u_p_time = particle_locations.u_time;
+
+            gl.uniform1f(u_p_aspect, aspect);
+            gl.uniform1f(u_p_time, time);
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, particle_pos_buffer);
+            gl.bufferData(gl.ARRAY_BUFFER, part_pos_data.subarray(0, active_count * 3), gl.DYNAMIC_DRAW);
+            gl.vertexAttribPointer(a_part_pos, 3, gl.FLOAT, false, 0, 0);
+            gl.enableVertexAttribArray(a_part_pos);
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, particle_meta_buffer);
+            gl.bufferData(gl.ARRAY_BUFFER, part_meta_data.subarray(0, active_count * 4), gl.DYNAMIC_DRAW);
+            gl.vertexAttribPointer(a_part_meta, 4, gl.FLOAT, false, 0, 0);
+            gl.enableVertexAttribArray(a_part_meta);
+
+            gl.drawArrays(gl.POINTS, 0, active_count);
+            gl.disableVertexAttribArray(a_part_meta);
+        }
+
+        // USER INTERFACE
+        function setupUI() {
+            var hud = document.getElementById('hud');
+            var btnOpen = document.getElementById('btnOpenHud');
+            var btnClose = document.getElementById('btnCloseHud');
+
+            function showHud() {
+                hud.classList.remove('minimized');
+                btnOpen.style.display = 'none';
+            }
+
+            function hideHud() {
+                hud.classList.add('minimized');
+                btnOpen.style.display = 'flex';
+            }
+
+            window.toggleHud = function () {
+                if (hud.classList.contains('minimized')) showHud();
+                else hideHud();
+            };
+
+            btnClose.addEventListener('click', hideHud);
+            btnOpen.addEventListener('click', showHud);
+
+            // ENHANCEMENT MODE BUTTONS
+            var btnMagic = document.getElementById('btnModeMagic');
+            var btnClassic = document.getElementById('btnModeClassic');
+
+            btnMagic.addEventListener('click', function () {
+                magic_mode = 1.0;
+                btnMagic.classList.add('active-mode');
+                btnClassic.classList.remove('active-mode');
+                document.querySelector('.caustics-overlay').style.display = 'block';
+            });
+
+            btnClassic.addEventListener('click', function () {
+                magic_mode = 0.0;
+                btnClassic.classList.add('active-mode');
+                btnMagic.classList.remove('active-mode');
+                document.querySelector('.caustics-overlay').style.display = 'none';
+            });
+
+            // FISH COUNT SLIDER
+            var sliderFish = document.getElementById('sliderFishCount');
+            var labelFish = document.getElementById('labelFishCount');
+            var labelBlue = document.getElementById('labelBlueCount');
+            sliderFish.addEventListener('input', function () {
+                var count = parseInt(this.value, 10);
+                labelFish.innerText = count;
+                labelBlue.innerText = count;
+                initOriginalFish(count);
+            });
+
+            // SPEED SLIDER
+            var sliderSpd = document.getElementById('sliderSpeed');
+            var labelSpd = document.getElementById('labelSpeed');
+            sliderSpd.addEventListener('input', function () {
+                speed_mult = parseFloat(this.value);
+                labelSpd.innerText = speed_mult.toFixed(1) + 'x';
+            });
+
+            // BUTTON: DROP FOOD
+            document.getElementById('btnDropFood').addEventListener('click', function () {
+                initAudio();
+                if (all_fish.length > 0) {
+                    spawnFood(all_fish[0][4][0], all_fish[0][4][1]);
+                }
+            });
+
+            // BUTTON: SCATTER FISH
+            document.getElementById('btnScatter').addEventListener('click', scatterFish);
+
+            // BUTTON: TOGGLE MOUSE
+            var btnMouse = document.getElementById('btnToggleMouse');
+            btnMouse.addEventListener('click', function () {
+                mouse_control = !mouse_control;
+                btnMouse.innerText = mouse_control ? '🎯 Mouse: Active' : '🌊 Mouse: Off';
+            });
+
+            // BUTTON: TOGGLE AUDIO
+            var btnAudio = document.getElementById('btnToggleAudio');
+            btnAudio.addEventListener('click', function () {
+                initAudio();
+                soundEnabled = !soundEnabled;
+                btnAudio.innerText = soundEnabled ? '🔊 Audio: On' : '🔇 Audio: Off';
+                if (soundEnabled) playChimeSound();
+            });
+        }
+    </script>
+</body>
+
+</html>
