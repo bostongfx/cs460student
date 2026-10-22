@@ -84,7 +84,7 @@ function upload(scene) {
         r.add(loaded_cube);
 
       } else if (type == 'sphere') {
-        
+
         loaded_sphere = new X.sphere();
         loaded_sphere.color = color;
         loaded_sphere.transform.matrix = new Float32Array(Object.values(matrix));
@@ -113,6 +113,5 @@ function upload(scene) {
 
   };
   req.send(null);
-  
-}
 
+}
