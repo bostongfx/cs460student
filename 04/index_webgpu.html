@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flashy Fish — WebGPU Superbonus</title>
+<style>
+html, body { margin: 0; height: 100%; overflow: hidden; background: #07394d url('bg.jpg') center / cover; }
+#c { display: block; width: 100%; height: 100%; }
+#error { position: fixed; inset: 20px; color: white; font: 18px system-ui; }
+</style>
+</head>
+<body>
+<canvas id="c" aria-label="Flashy Fish: one large red fish and one hundred pulsating blue fish swimming underwater"></canvas>
+<div id="error" role="alert" hidden></div>
+<script>
+'use strict';
+// Optional superbonus: native WebGPU, no rendering framework.
+var c, device, context, pipeline, vertexBuffer, indexBuffer, uniformBuffer, bindGroup;
+var all_fish = [];
+var uniformStride, colorFormat;
+const shader = `
+struct Uniforms {
+  transform: mat4x4f,
+  color: vec4f,
+  eye: vec4f, // x: size in pixels, yz: viewport dimensions, w: eye pass
+};
+@group(0) @binding(0) var<uniform> u: Uniforms;
+struct VertexOutput { @builtin(position) position: vec4f };
+@vertex fn vs(@location(0) position: vec3f) -> VertexOutput {
+  var output: VertexOutput;
+  if (u.eye.w > 0.5) {
+    // WebGPU has no variable point size: expand the eye into a pixel-sized quad.
+    let center = u.transform * vec4f(0.2, u.eye.w - 2.0, 0.0, 1.0);
+    output.position = center + vec4f(position.xy * u.eye.x / u.eye.yz, 0.0, 0.0);
+  } else {
+    output.position = u.transform * vec4f(position, 1.0);
+  }
+  return output;
+}
+@fragment fn fs() -> @location(0) vec4f { return u.color; }
+`;
+function resize() {
+  c.width = window.innerWidth; c.height = window.innerHeight;
+}
+function createBuffer(data, usage) {
+  const buffer = device.createBuffer({size: Math.ceil(data.byteLength / 4) * 4, usage, mappedAtCreation: true});
+  new data.constructor(buffer.getMappedRange()).set(data);
+  buffer.unmap(); return buffer;
+}
+async function initialize() {
+  c = document.getElementById('c');
+  if (!navigator.gpu) throw new Error('WebGPU is unavailable. Open index.html for the WebGL version.');
+  const adapter = await navigator.gpu.requestAdapter();
+  if (!adapter) throw new Error('No WebGPU adapter is available. Open index.html for WebGL.');
+  device = await adapter.requestDevice();
+  device.lost.then(info => showError('WebGPU device lost: ' + info.message));
+  device.addEventListener('uncapturederror', event => showError(event.error.message));
+  context = c.getContext('webgpu');
+  colorFormat = navigator.gpu.getPreferredCanvasFormat();
+  context.configure({device, format: colorFormat, alphaMode: 'premultiplied'});
+  resize(); window.addEventListener('resize', resize);
+  const module = device.createShaderModule({code: shader});
+  const layout = device.createBindGroupLayout({entries: [{binding: 0,
+    visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+    buffer: {type: 'uniform', hasDynamicOffset: true, minBindingSize: 96}}]});
+  pipeline = await device.createRenderPipelineAsync({
+    layout: device.createPipelineLayout({bindGroupLayouts: [layout]}),
+    vertex: {module, entryPoint: 'vs', buffers: [{arrayStride: 12,
+      attributes: [{shaderLocation: 0, offset: 0, format: 'float32x3'}]}]},
+    fragment: {module, entryPoint: 'fs', targets: [{format: colorFormat, blend: {
+      color: {srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add'},
+      alpha: {srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add'}
+    }}]},
+    primitive: {topology: 'triangle-list', cullMode: 'none'}
+  });
+  vertexBuffer = createBuffer(new Float32Array([
+    .5,0,0, .2,.25,0, -.2,.15,0, -.4,.3,0, -.4,-.3,0, -.2,-.15,0, .2,-.25,0,
+    -1,-1,0, 1,-1,0, -1,1,0, 1,1,0
+  ]), GPUBufferUsage.VERTEX);
+  indexBuffer = createBuffer(new Uint16Array([0,1,6, 1,2,6, 2,5,6, 2,3,5, 3,4,5, 7,8,9, 9,8,10]), GPUBufferUsage.INDEX);
+  all_fish.push({offset: [0,0,0], scale: 1, direction: -1});
+  for (let i = 0; i < 100; i++) all_fish.push({
+    offset: [Math.random()-Math.random(), Math.random()-Math.random(), 0],
+    scale: Math.random() * .3, direction: 1
+  });
+  uniformStride = Math.ceil(96 / device.limits.minUniformBufferOffsetAlignment) * device.limits.minUniformBufferOffsetAlignment;
+  uniformBuffer = device.createBuffer({size: uniformStride * 202, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST});
+  bindGroup = device.createBindGroup({layout, entries: [{binding: 0, resource: {buffer: uniformBuffer, size: 96}}]});
+  requestAnimationFrame(animate);
+}
+function animate(now) {
+  const data = new Float32Array(uniformStride * 202 / 4);
+  for (let r = 0; r < all_fish.length; r++) {
+    const fish = all_fish[r], o = fish.offset, s = fish.scale;
+    let direction = fish.direction;
+    o[0] += .01; o[1] += .1 * Math.random(); o[1] -= .1 * Math.random();
+    if (o[0] >= 1) direction = -1;
+    o[0] *= direction;
+    const theta = Math.random() * 10 * Math.PI / 180;
+    const matrix = [direction*s*Math.cos(theta), Math.sin(theta),0,0,
+      -Math.sin(theta),direction*s*Math.cos(theta),0,0, 0,0,direction*s,0, o[0],o[1],o[2],1];
+    const t = now * .001;
+    const color = r === 0 ? [1,0,0,.7] : [.3+.2*Math.sin(t),.6+.2*Math.sin(t+2),.9+.1*Math.sin(t+4),.6+.4*Math.sin(t*2)];
+    const base = r * 2 * uniformStride / 4;
+    data.set(matrix, base); data.set(color, base+16);
+    data.set([s*20,c.width,c.height,0],base+20);
+    const eye = base + uniformStride/4;
+    data.set(matrix,eye); data.set([0,0,0,.5],eye+16);
+    // w encodes the eye pass and original local y: 2 + (+/- 0.2).
+    data.set([s*20,c.width,c.height,fish.direction === -1 ? 1.8 : 2.2],eye+20);
+  }
+  device.queue.writeBuffer(uniformBuffer, 0, data);
+  const encoder = device.createCommandEncoder();
+  const pass = encoder.beginRenderPass({colorAttachments: [{
+    view: context.getCurrentTexture().createView(), clearValue: {r:0,g:0,b:0,a:0}, loadOp:'clear', storeOp:'store'
+  }]});
+  pass.setPipeline(pipeline); pass.setVertexBuffer(0,vertexBuffer); pass.setIndexBuffer(indexBuffer,'uint16');
+  for(let r=0;r<101;r++) {
+    pass.setBindGroup(0,bindGroup,[r*2*uniformStride]); pass.drawIndexed(15);
+    pass.setBindGroup(0,bindGroup,[(r*2+1)*uniformStride]); pass.drawIndexed(6,1,15);
+  }
+  pass.end(); device.queue.submit([encoder.finish()]); requestAnimationFrame(animate);
+}
+function showError(message) {
+  document.getElementById('error').hidden = false;
+  document.getElementById('error').textContent = message;
+  console.error(message);
+}
+window.addEventListener('load', () => initialize().catch(error => showError(error.message)));
+</script>
+</body>
+</html>
