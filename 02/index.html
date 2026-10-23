@@ -1,2 +1,732 @@
-Ready for assignment 2.
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CS460 - Cube Solar System & Orbit Visualization</title>
 
+  <!-- Primary XTK Edge script with local fallback -->
+  <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+  <script type="text/javascript">
+    if (typeof X === 'undefined') {
+      document.write('<script type="text/javascript" src="xtk_edge.js"><\/script>');
+    }
+  </script>
+
+  <!-- CS460 Scene Loader / Exporter -->
+  <script type="text/javascript" src="loader.js"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      background-color: #030308;
+      width: 100%;
+      height: 100%;
+      overflow: hidden !important;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: #e0e5ff;
+    }
+
+    /* Subtle background cosmic starfield effect */
+    #stars-bg {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at 50% 50%, rgba(25, 20, 50, 0.4) 0%, rgba(3, 3, 8, 0.95) 75%),
+                  radial-gradient(1px 1px at 25px 35px, #fff, rgba(0,0,0,0)),
+                  radial-gradient(1.5px 1.5px at 85px 140px, #a8c0ff, rgba(0,0,0,0)),
+                  radial-gradient(1px 1px at 190px 80px, #fff, rgba(0,0,0,0)),
+                  radial-gradient(1.5px 1.5px at 320px 220px, #ffd166, rgba(0,0,0,0)),
+                  radial-gradient(1px 1px at 450px 110px, #fff, rgba(0,0,0,0)),
+                  radial-gradient(1.5px 1.5px at 600px 310px, #c77dff, rgba(0,0,0,0)),
+                  radial-gradient(1px 1px at 780px 190px, #fff, rgba(0,0,0,0)),
+                  radial-gradient(1.5px 1.5px at 920px 450px, #a8dadc, rgba(0,0,0,0)),
+                  radial-gradient(1px 1px at 1100px 280px, #fff, rgba(0,0,0,0)),
+                  radial-gradient(1.5px 1.5px at 1280px 150px, #ffd166, rgba(0,0,0,0));
+      background-size: 100% 100%, 350px 350px, 450px 450px, 400px 400px, 500px 500px,
+                       420px 420px, 550px 550px, 480px 480px, 600px 600px, 510px 510px, 650px 650px;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* Ambient solar radial glow centered behind scene */
+    #solar-glow {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 75vmin;
+      height: 75vmin;
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255, 180, 20, 0.16) 0%, rgba(255, 90, 10, 0.06) 35%, rgba(3, 3, 8, 0) 70%);
+      pointer-events: none;
+      z-index: 2;
+      filter: blur(40px);
+    }
+
+    /* Minimalist Glassmorphic Control HUD */
+    #hud {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      z-index: 10;
+      width: 310px;
+      background: rgba(12, 16, 32, 0.72);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 14px;
+      padding: 16px 18px;
+      box-shadow: 0 10px 35px rgba(0, 0, 0, 0.5);
+      transition: transform 0.3s ease, opacity 0.3s ease;
+    }
+
+    #hud.collapsed {
+      transform: translateX(-340px);
+      opacity: 0.3;
+    }
+
+    .title-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+
+    .title-row h1 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      background: linear-gradient(135deg, #ffd166 0%, #ff9e00 50%, #ff5400 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-transform: uppercase;
+    }
+
+    .subtitle {
+      font-size: 0.73rem;
+      color: #8c97c6;
+      margin-bottom: 14px;
+      line-height: 1.3;
+    }
+
+    .control-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      font-size: 0.76rem;
+      color: #c0caf5;
+    }
+
+    .control-val {
+      font-family: monospace;
+      font-weight: 700;
+      color: #ffd166;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 4px;
+      border-radius: 2px;
+      background: rgba(255, 255, 255, 0.15);
+      outline: none;
+      margin-bottom: 12px;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #ffd166;
+      cursor: pointer;
+      box-shadow: 0 0 8px rgba(255, 209, 102, 0.8);
+      transition: transform 0.15s;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.25);
+    }
+
+    /* Buttons */
+    .btn-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 7px;
+      margin-bottom: 12px;
+    }
+
+    .btn {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+      color: #d0d7ff;
+      padding: 7px 10px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .btn:hover {
+      background: rgba(255, 209, 102, 0.18);
+      border-color: #ffd166;
+      color: #fff;
+    }
+
+    .btn.active {
+      background: linear-gradient(135deg, rgba(255, 158, 0, 0.4), rgba(255, 84, 0, 0.4));
+      border-color: #ffd166;
+      color: #fff;
+    }
+
+    /* Legend */
+    .legend-header {
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 1.1px;
+      text-transform: uppercase;
+      color: #7987bd;
+      margin: 10px 0 6px 0;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding-top: 10px;
+    }
+
+    .legend-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 5px 10px;
+      font-size: 0.7rem;
+      color: #aab5e0;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      padding: 2px 4px;
+      border-radius: 4px;
+      transition: background 0.15s;
+    }
+
+    .legend-item:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: #fff;
+    }
+
+    .legend-color {
+      width: 9px;
+      height: 9px;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+
+    /* Floating Toggle HUD Button */
+    #hud-toggle-btn {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      z-index: 9;
+      background: rgba(12, 16, 32, 0.75);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 8px;
+      color: #d0d7ff;
+      padding: 8px 12px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: none;
+    }
+
+    /* Quick status tag in bottom right */
+    #status-tag {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      z-index: 10;
+      background: rgba(12, 16, 32, 0.65);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 8px 14px;
+      font-size: 0.72rem;
+      color: #8c97c6;
+      font-family: monospace;
+      pointer-events: none;
+    }
+
+    #status-tag span {
+      color: #ffd166;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Starfield & Solar Atmosphere Background -->
+  <div id="stars-bg"></div>
+  <div id="solar-glow"></div>
+
+  <!-- Re-open button when HUD is closed -->
+  <button id="hud-toggle-btn" onclick="toggleHUD(true)">⚙️ Controls</button>
+
+  <!-- Interactive Control HUD -->
+  <div id="hud">
+    <div class="title-row">
+      <h1>Cube Solar System</h1>
+      <button onclick="toggleHUD(false)" style="background:none;border:none;color:#7987bd;font-size:1.1rem;cursor:pointer;">✕</button>
+    </div>
+    <div class="subtitle">
+      Concentric planetary orbits & ring belt "made of cubes" centered around the Sun, as drawn in the conceptual sketch.
+    </div>
+
+    <!-- Orbit Speed Slider -->
+    <div class="control-row">
+      <span>Orbital Velocity</span>
+      <span class="control-val" id="speed-val">1.0x</span>
+    </div>
+    <input type="range" id="speed-slider" min="0.1" max="3.0" step="0.05" value="1.0" oninput="setSpeed(this.value)">
+
+    <!-- Action Buttons -->
+    <div class="btn-group">
+      <button class="btn" id="pause-btn" onclick="togglePause()">
+        <span id="pause-icon">⏸</span> <span id="pause-text">Pause</span>
+      </button>
+      <button class="btn active" id="orbit-cam-btn" onclick="toggleCameraDrift()">
+        <span>🎥</span> <span id="orbit-cam-text">Camera Drift</span>
+      </button>
+    </div>
+
+    <div class="btn-group">
+      <button class="btn" onclick="resetCameraView()">
+        <span>🔄</span> <span>Reset View</span>
+      </button>
+      <button class="btn" onclick="download()" title="Export scene via CS460 loader.js">
+        <span>💾</span> <span>Save Scene</span>
+      </button>
+    </div>
+
+    <!-- Celestial Legend & Colors -->
+    <div class="legend-header">Celestial Bodies & Relevant Colors</div>
+    <div class="legend-grid">
+      <div class="legend-item" onclick="focusBody(0)">
+        <div class="legend-color" style="background:#ffb703; box-shadow:0 0 6px #ffb703;"></div>
+        <span>Sun (Center)</span>
+      </div>
+      <div class="legend-item" onclick="focusBody(1)">
+        <div class="legend-color" style="background:#b5b8c2;"></div>
+        <span>Mercury</span>
+      </div>
+      <div class="legend-item" onclick="focusBody(2)">
+        <div class="legend-color" style="background:#f4a261;"></div>
+        <span>Venus</span>
+      </div>
+      <div class="legend-item" onclick="focusBody(3)">
+        <div class="legend-color" style="background:#2a9d8f;"></div>
+        <span>Earth + Moon</span>
+      </div>
+      <div class="legend-item" onclick="focusBody(4)">
+        <div class="legend-color" style="background:#e76f51;"></div>
+        <span>Mars</span>
+      </div>
+      <div class="legend-item" onclick="focusBody(5)">
+        <div class="legend-color" style="background:#d4a373;"></div>
+        <span>Ring of Cubes</span>
+      </div>
+      <div class="legend-item" onclick="focusBody(6)">
+        <div class="legend-color" style="background:#d49e6a;"></div>
+        <span>Jupiter</span>
+      </div>
+      <div class="legend-item" onclick="focusBody(7)">
+        <div class="legend-color" style="background:#e9c46a;"></div>
+        <span>Saturn + Ring</span>
+      </div>
+      <div class="legend-item" onclick="focusBody(8)">
+        <div class="legend-color" style="background:#90e0ef;"></div>
+        <span>Uranus</span>
+      </div>
+      <div class="legend-item" onclick="focusBody(9)">
+        <div class="legend-color" style="background:#4361ee;"></div>
+        <span>Neptune</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="status-tag">
+    <span>XTK WebGL</span> &bull; Drag mouse to rotate &bull; Scroll to zoom
+  </div>
+
+  <script type="text/javascript">
+    // =========================================================================
+    // GLOBAL STATE & SYSTEM SETUP (Global r for CS460 loader.js compatibility)
+    // =========================================================================
+    var r = null;               // Global XTK 3D Renderer instance
+    var centerSunCube = null;   // The large central Sun cube ("center of orbit")
+    var ringCubes = [];         // Belt / ring of cubes ("made of cubes" in sketch)
+    var NUM_RING_CUBES = 48;    // 48 orbiting cubes forming the prominent ring
+    var planetObjects = [];     // 8 planets + 1 Moon
+    var saturnRingCubes = [];   // Mini-ring of 10 tiny cubes for Saturn
+
+    var time = 0.0;
+    var speedMultiplier = 1.0;
+    var isPaused = false;
+    var cameraDrift = true;
+    var driftAngle = 0.8;
+    var isUserInteracting = false;
+    var userInteractionTimer = null;
+
+    // Zero-allocation in-place 4x4 matrix transformation helper
+    function applyTransform(cube, x, y, z, sx, sy, sz, rx, ry, rz) {
+      var cx = Math.cos(rx), sx_s = Math.sin(rx);
+      var cy = Math.cos(ry), sy_s = Math.sin(ry);
+      var cz = Math.cos(rz), sz_s = Math.sin(rz);
+
+      var m = cube.transform.matrix;
+
+      // Col 0
+      m[0] = (cy * cz) * sx;
+      m[1] = (cy * sz_s) * sx;
+      m[2] = (-sy_s) * sx;
+      m[3] = 0.0;
+
+      // Col 1
+      m[4] = (sx_s * sy_s * cz - cx * sz_s) * sy;
+      m[5] = (sx_s * sy_s * sz_s + cx * cz) * sy;
+      m[6] = (sx_s * cy) * sy;
+      m[7] = 0.0;
+
+      // Col 2
+      m[8] = (cx * sy_s * cz + sx_s * sz_s) * sz;
+      m[9] = (cx * sy_s * sz_s - sx_s * cz) * sz;
+      m[10] = (cx * cy) * sz;
+      m[11] = 0.0;
+
+      // Col 3 (Translation)
+      m[12] = x;
+      m[13] = y;
+      m[14] = z;
+      m[15] = 1.0;
+
+      cube.transform.modified();
+    }
+
+    // =========================================================================
+    // PLANETARY PARAMETERS WITH RELEVANT CELESTIAL COLORS
+    // =========================================================================
+    var PLANETS_DATA = [
+      { name: "Mercury",  radius: 46,  scale: 0.28, speed: 1.60, color: [0.72, 0.70, 0.68], rotSpeed: 1.8, phase: 0.5 },
+      { name: "Venus",    radius: 64,  scale: 0.42, speed: 1.20, color: [0.94, 0.82, 0.52], rotSpeed: 1.2, phase: 2.1 },
+      { name: "Earth",    radius: 114, scale: 0.48, speed: 1.00, color: [0.18, 0.52, 0.88], rotSpeed: 2.2, phase: 4.3 },
+      { name: "Moon",     radius: 12,  scale: 0.16, speed: 4.50, color: [0.85, 0.85, 0.88], rotSpeed: 3.0, phase: 0.0 }, // Sub-orbit of Earth
+      { name: "Mars",     radius: 138, scale: 0.36, speed: 0.80, color: [0.88, 0.36, 0.22], rotSpeed: 2.0, phase: 1.7 },
+      { name: "Jupiter",  radius: 180, scale: 0.88, speed: 0.44, color: [0.84, 0.60, 0.36], rotSpeed: 1.4, phase: 5.6 },
+      { name: "Saturn",   radius: 226, scale: 0.75, speed: 0.32, color: [0.90, 0.82, 0.56], rotSpeed: 1.3, phase: 3.2 },
+      { name: "Uranus",   radius: 268, scale: 0.56, speed: 0.22, color: [0.42, 0.82, 0.85], rotSpeed: 1.6, phase: 0.9 },
+      { name: "Neptune",  radius: 308, scale: 0.54, speed: 0.16, color: [0.22, 0.42, 0.88], rotSpeed: 1.5, phase: 2.8 }
+    ];
+
+    // =========================================================================
+    // WINDOW ONLOAD: BUILD SCENE IN XTK
+    // =========================================================================
+    window.onload = function() {
+      // 1. Initialize XTK 3D Renderer
+      r = new X.renderer3D();
+      r.init();
+
+      // Deep cosmic black background
+      r.bgColor = [0.015, 0.015, 0.035];
+
+      // 2. Central Sun Cube ("center of orbit" in sketch)
+      centerSunCube = new X.cube();
+      centerSunCube.color = [1.0, 0.78, 0.12]; // Solar luminous gold
+      centerSunCube.opacity = 0.95;
+      r.add(centerSunCube);
+
+      // 3. Prominent Orbital Ring "Made of Cubes"
+      // As clearly depicted in Image (20).jpg: A dense ring disc of cubes
+      // circling around the central body with curved orbital arrow!
+      for (var k = 0; k < NUM_RING_CUBES; k++) {
+        var ringCube = new X.cube();
+        // Varied asteroid rock, cosmic dust, and golden reflective tones
+        var variant = k % 4;
+        if (variant === 0) ringCube.color = [0.85, 0.74, 0.52]; // Golden dust
+        else if (variant === 1) ringCube.color = [0.72, 0.68, 0.62]; // Cosmic rock
+        else if (variant === 2) ringCube.color = [0.92, 0.82, 0.60]; // Reflective sandstone
+        else ringCube.color = [0.60, 0.64, 0.68]; // Crystalline iron/ice
+
+        ringCube.opacity = 0.88;
+        r.add(ringCube);
+        ringCubes.push({
+          cube: ringCube,
+          // Staggered radius from 82 to 96 to give realistic ring thickness
+          radius: 82 + (k % 5) * 3.4 + ((k * 7) % 4) * 0.8,
+          phase: (k / NUM_RING_CUBES) * Math.PI * 2,
+          rotSpeed: 0.8 + ((k * 3) % 5) * 0.25,
+          scale: 0.28 + ((k * 5) % 4) * 0.05
+        });
+      }
+
+      // 4. Orbiting Planets
+      for (var p = 0; p < PLANETS_DATA.length; p++) {
+        var pData = PLANETS_DATA[p];
+        var pCube = new X.cube();
+        pCube.color = pData.color.slice();
+        pCube.opacity = 0.95;
+        r.add(pCube);
+        planetObjects.push({
+          cube: pCube,
+          data: pData
+        });
+      }
+
+      // 5. Saturn's Mini Ring of Tiny Cubes
+      for (var s = 0; s < 10; s++) {
+        var sCube = new X.cube();
+        sCube.color = [0.92, 0.86, 0.68];
+        sCube.opacity = 0.82;
+        r.add(sCube);
+        saturnRingCubes.push({
+          cube: sCube,
+          phase: (s / 10) * Math.PI * 2,
+          radius: 14.5
+        });
+      }
+
+      // 6. Camera Setup: 35-degree elevated perspective overlooking the disk
+      r.camera.position = [0, 220, 390];
+      r.camera.focus = [0, 0, 0];
+
+      // Setup interaction tracking so user drag pauses auto-drift
+      setupUserInteraction();
+
+      // 7. Render & Start Loop
+      r.render();
+
+      r.onRender = function() {
+        animateSolarSystem();
+      };
+    };
+
+    // =========================================================================
+    // MAIN SIMULATION LOOP (60 FPS)
+    // =========================================================================
+    function animateSolarSystem() {
+      if (!isPaused) {
+        time += 0.016 * speedMultiplier;
+      }
+
+      // 1. Animate Central Sun Cube ("center of orbit")
+      // Large spinning solar body with gentle breathing pulsation
+      var sunPulse = 1.95 + 0.08 * Math.sin(time * 2.5);
+      var sunSpin = time * 0.45;
+      applyTransform(centerSunCube, 0, 0, 0, sunPulse, sunPulse, sunPulse, 0, sunSpin, 0);
+
+      // 2. Animate the Prominent Ring "Made of Cubes"
+      // As shown in Image (20).jpg: Cubes revolving in a ring around the Sun!
+      var ringOrbitSpeed = 0.75;
+      for (var k = 0; k < ringCubes.length; k++) {
+        var item = ringCubes[k];
+        var angle = item.phase + time * ringOrbitSpeed;
+        var rx = item.radius * Math.cos(angle);
+        var rz = item.radius * Math.sin(angle);
+        // Slight natural vertical bobbing
+        var ry = Math.sin(time * 1.5 + item.phase * 3.0) * 1.8;
+
+        var s = item.scale;
+        // Tangential alignment + slow tumble
+        var rotX = time * item.rotSpeed;
+        var rotY = -angle + time * 0.3;
+        var rotZ = time * item.rotSpeed * 0.7;
+
+        applyTransform(item.cube, rx, ry, rz, s, s, s, rotX, rotY, rotZ);
+      }
+
+      // 3. Animate Planets & Moon
+      var earthPos = { x: 0, z: 0 };
+
+      for (var p = 0; p < planetObjects.length; p++) {
+        var pObj = planetObjects[p];
+        var pData = pObj.data;
+
+        if (pData.name === "Moon") {
+          // Moon orbits around Earth!
+          var moonAngle = time * pData.speed + pData.phase;
+          var mx = earthPos.x + pData.radius * Math.cos(moonAngle);
+          var mz = earthPos.z + pData.radius * Math.sin(moonAngle);
+          var my = Math.sin(moonAngle) * 2.0;
+
+          var ms = pData.scale;
+          applyTransform(pObj.cube, mx, my, mz, ms, ms, ms, 0, time * pData.rotSpeed, 0);
+          continue;
+        }
+
+        // Planetary Orbit around Sun
+        var pAngle = time * (pData.speed * 0.5) + pData.phase;
+        var px = pData.radius * Math.cos(pAngle);
+        var pz = pData.radius * Math.sin(pAngle);
+        var py = 0;
+
+        if (pData.name === "Earth") {
+          earthPos.x = px;
+          earthPos.z = pz;
+        }
+
+        var ps = pData.scale;
+        var rotY = time * pData.rotSpeed;
+        applyTransform(pObj.cube, px, py, pz, ps, ps, ps, 0, rotY, 0);
+
+        // If Saturn, animate its own mini-ring of cubes!
+        if (pData.name === "Saturn") {
+          for (var s = 0; s < saturnRingCubes.length; s++) {
+            var sItem = saturnRingCubes[s];
+            var sAngle = sItem.phase + time * 1.6;
+            // Tilted ring plane (25 degree tilt like Saturn)
+            var tilt = 0.44; // ~25 degrees
+            var sxLocal = sItem.radius * Math.cos(sAngle);
+            var szLocal = sItem.radius * Math.sin(sAngle) * Math.cos(tilt);
+            var syLocal = sItem.radius * Math.sin(sAngle) * Math.sin(tilt);
+
+            var sx = px + sxLocal;
+            var sy = py + syLocal;
+            var sz = pz + szLocal;
+
+            applyTransform(sItem.cube, sx, sy, sz, 0.13, 0.13, 0.13, 0, sAngle, 0);
+          }
+        }
+      }
+
+      // 4. Smooth Camera Drift (when not interrupted by user mouse drag)
+      if (cameraDrift && !isUserInteracting) {
+        driftAngle += 0.003 * speedMultiplier;
+        var camDist = 410;
+        var cx = camDist * Math.sin(driftAngle);
+        var cz = camDist * Math.cos(driftAngle);
+        var cy = 200 + 40 * Math.sin(driftAngle * 0.6);
+
+        r.camera.position = [cx, cy, cz];
+        r.camera.focus = [0, 0, 0];
+      }
+    }
+
+    // =========================================================================
+    // USER CONTROLS & EVENT LISTENERS
+    // =========================================================================
+    function setupUserInteraction() {
+      var markInteraction = function() {
+        isUserInteracting = true;
+        if (userInteractionTimer) clearTimeout(userInteractionTimer);
+        userInteractionTimer = setTimeout(function() {
+          isUserInteracting = false;
+        }, 3200);
+      };
+
+      window.addEventListener('mousedown', function(e) {
+        if (!e.target.closest('#hud')) markInteraction();
+      });
+
+      window.addEventListener('mousemove', function(e) {
+        if (e.buttons > 0 && !e.target.closest('#hud')) markInteraction();
+      });
+
+      window.addEventListener('wheel', function(e) {
+        if (!e.target.closest('#hud')) markInteraction();
+      }, { passive: true });
+
+      window.addEventListener('keydown', function(e) {
+        if (e.code === 'Space') {
+          togglePause();
+          e.preventDefault();
+        } else if (e.key === 'r' || e.key === 'R') {
+          resetCameraView();
+        } else if (e.key === 'c' || e.key === 'C') {
+          toggleCameraDrift();
+        }
+      });
+    }
+
+    function setSpeed(val) {
+      speedMultiplier = parseFloat(val);
+      document.getElementById('speed-val').textContent = speedMultiplier.toFixed(2) + 'x';
+    }
+
+    function togglePause() {
+      isPaused = !isPaused;
+      var btn = document.getElementById('pause-btn');
+      var icon = document.getElementById('pause-icon');
+      var text = document.getElementById('pause-text');
+
+      if (isPaused) {
+        btn.classList.add('active');
+        icon.textContent = '▶';
+        text.textContent = 'Resume';
+      } else {
+        btn.classList.remove('active');
+        icon.textContent = '⏸';
+        text.textContent = 'Pause';
+      }
+    }
+
+    function toggleCameraDrift() {
+      cameraDrift = !cameraDrift;
+      var btn = document.getElementById('orbit-cam-btn');
+      var text = document.getElementById('orbit-cam-text');
+      btn.classList.toggle('active', cameraDrift);
+      text.textContent = cameraDrift ? "Camera Drift: ON" : "Camera Drift: OFF";
+    }
+
+    function resetCameraView() {
+      r.camera.position = [0, 220, 390];
+      r.camera.focus = [0, 0, 0];
+      driftAngle = 0.8;
+      isUserInteracting = false;
+    }
+
+    function toggleHUD(show) {
+      var hud = document.getElementById('hud');
+      var toggleBtn = document.getElementById('hud-toggle-btn');
+      if (show) {
+        hud.classList.remove('collapsed');
+        toggleBtn.style.display = 'none';
+      } else {
+        hud.classList.add('collapsed');
+        toggleBtn.style.display = 'block';
+      }
+    }
+
+    // Quick camera focus presets for examining parts of the system
+    function focusBody(index) {
+      isUserInteracting = true;
+      if (index === 0) {
+        // Focus Sun & Close Ring
+        r.camera.position = [0, 75, 140];
+        r.camera.focus = [0, 0, 0];
+      } else if (index === 5) {
+        // Focus Ring of Cubes
+        r.camera.position = [0, 110, 190];
+        r.camera.focus = [0, 0, 0];
+      } else {
+        // Outer system view
+        r.camera.position = [0, 260, 440];
+        r.camera.focus = [0, 0, 0];
+      }
+    }
+  </script>
+</body>
+</html>
