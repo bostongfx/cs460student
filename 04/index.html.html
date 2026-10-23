@@ -1,0 +1,658 @@
+<html>
+  <head>
+    
+    <style>
+
+      html, body {    
+        background-color:#000;
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden !important;  
+      }
+
+      #computerwrist {
+
+        background: url('https://cs460.org/assignments/keen/bg.png');
+        width:1234px;
+        height:814px;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+      }
+
+      #c {
+        width:620px;
+        height:328px;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+      }
+
+      .score {
+        color: rgb(0,255,0);
+        font-size: 30px;
+        font-family: monospace;
+        font-weight: bold;
+      }
+
+      #keen {
+        position: relative;
+        top: 200px;
+        left: 445px;
+      }
+
+      #comp {
+        position: relative;
+        top: 200px;
+        left: 855px;
+      }
+
+      .result {
+        width:332px;
+        height:124px;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        display: none;
+      }
+
+      #overlay {
+        background-color: rgba(0,0,0,0.7);
+        position: absolute;
+        top: 0px;
+        left: 0px;
+        width: 100%;
+        height: 100%;
+        z-index: 1000;
+        display: none;
+      }
+    </style>
+
+    <script id="vertexshader" type="glsl">
+      attribute vec3 position;
+
+      uniform mat4 transform;
+
+      void main(void) {
+
+        vec4 final_position = transform * vec4( position, 1.);
+
+        gl_Position = final_position;
+
+        // TODO Part 2
+        gl_PointSize = 8.; // size of the ball in pixels
+      
+      }
+    </script>
+    
+    <script id="fragmentshader" type="glsl">
+      precision mediump float;
+
+      uniform vec4 color;
+
+      void main(void) {
+
+        gl_FragColor = color; //vec4(1., 1., 1., 1.);
+
+      }
+    </script>
+
+  <script>
+
+
+    window.onload = function() {
+
+      //************************************************************//
+      //
+      // INITIALIZE WEBGL
+      //
+      c = document.getElementById( 'c' ); // setup canvas
+      gl = c.getContext( 'webgl' ); // setup GL context
+      gl.viewport(0, 0, c.width, c.height );
+
+
+
+
+      //************************************************************//
+      //
+      // SHADERS
+      //
+      v_shader = gl.createShader( gl.VERTEX_SHADER );
+      f_shader = gl.createShader( gl.FRAGMENT_SHADER );
+
+      // compile vertex shader
+      gl.shaderSource( v_shader, document.getElementById( 'vertexshader' ).innerText );
+      gl.compileShader( v_shader );
+      if (!gl.getShaderParameter( v_shader, gl.COMPILE_STATUS)) {
+
+        console.log(gl.getShaderInfoLog( v_shader ));
+      
+      } else {
+
+        console.log('Vertex Shader compiled!');
+
+      }
+
+      // compile fragment shader
+      gl.shaderSource( f_shader, document.getElementById( 'fragmentshader' ).innerText );
+      gl.compileShader( f_shader );
+      if (!gl.getShaderParameter( f_shader, gl.COMPILE_STATUS)) {
+
+        console.log(gl.getShaderInfoLog( f_shader ));
+      
+      } else {
+
+        console.log('Fragment Shader compiled!');
+
+      }
+
+        
+      // attach and link the shaders
+      shaderprogram = gl.createProgram();
+      gl.attachShader( shaderprogram, v_shader );
+      gl.attachShader( shaderprogram, f_shader );
+       
+      gl.linkProgram( shaderprogram );
+       
+      gl.useProgram( shaderprogram );
+
+      SCALE = 1;
+      STEP = .1;
+      MAX_SCORE = 5;
+      STOPPED = false;
+
+      // bonus stuff
+      BALL_SPEED = 1;          // ball gets faster every paddle hit
+      PADDLE_SIZE = [1, 1];    // width of the top and bottom paddle
+      AUDIO = null;            // sound starts after the first key press
+
+      OBJECTS = [];
+      OBJECTS.push( createPaddle( [0.,1.,0.,1.], [0., 0.9, 0.]) ); // TOP PADDLE
+      OBJECTS.push( createPaddle( [0.,1.,0.,1.], [0., -0.9, 0.]) ); // BOTTOM PADDLE
+      OBJECTS.push( createBall( [0., 1., 0., 1.], [0., 0., 0.]) );
+
+
+      resetBall(1);
+
+
+      animate();
+
+    };
+
+    // TODO Part 1
+    function createPaddle(color, offset) {
+
+
+
+      //************************************************************//
+      //
+      // CREATE GEOMETRY
+      //
+
+      //
+      // TODO Part 1
+      //
+      vertices = new Float32Array( [
+                                     -0.1,  0.05, 0.0, // V0      // 0
+                                     -0.1, -0.05, 0.0, // V1, V4  // 1
+                                      0.1,  0.05, 0.0, // V2, V3  // 2
+                                      0.1, -0.05, 0.0  // V5      // 3
+                                    ] );
+
+      indices = new Uint8Array( [ 0, 1, 2,     // Triangle 1 
+                                  2, 1, 3 ] ); // Triangle 2
+
+
+      v_buffer = gl.createBuffer(); // create
+      gl.bindBuffer( gl.ARRAY_BUFFER, v_buffer ); // bind
+      gl.bufferData( gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW ); // put data in
+      gl.bindBuffer( gl.ARRAY_BUFFER, null ); // unbind
+
+
+      i_buffer = gl.createBuffer(); // create
+      gl.bindBuffer( gl.ELEMENT_ARRAY_BUFFER, i_buffer ); // bind
+      gl.bufferData( gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW ); // put data in
+      gl.bindBuffer( gl.ELEMENT_ARRAY_BUFFER, null ); // unbind
+
+      // TODO Part 2
+      // paddles are drawn as triangles so i added that at the end
+      return [v_buffer, i_buffer, color, offset, 6, gl.TRIANGLES];
+
+    }
+
+
+    function createBall(color, offset) {
+
+      //
+      // TODO Part 2
+      //
+      // the ball is just one point in the middle
+      vertices = new Float32Array( [ 0.0, 0.0, 0.0 ] );
+
+      // only one index since there is only one vertex
+      indices = new Uint8Array( [ 0 ] );
+
+
+      // same buffer setup as the paddle
+      v_buffer = gl.createBuffer(); // create
+      gl.bindBuffer( gl.ARRAY_BUFFER, v_buffer ); // bind
+      gl.bufferData( gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW ); // put data in
+      gl.bindBuffer( gl.ARRAY_BUFFER, null ); // unbind
+
+
+      i_buffer = gl.createBuffer(); // create
+      gl.bindBuffer( gl.ELEMENT_ARRAY_BUFFER, i_buffer ); // bind
+      gl.bufferData( gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW ); // put data in
+      gl.bindBuffer( gl.ELEMENT_ARRAY_BUFFER, null ); // unbind
+
+      // draw 1 vertex as a point instead of triangles
+      return [v_buffer, i_buffer, color, offset, 1, gl.POINTS];
+
+    }
+
+
+
+    function animate() {
+
+      if (STOPPED) {
+        return;
+      }
+
+      requestAnimationFrame( animate );
+
+      // CLEAR NOW BEFORE ANY DRAWING
+      gl.clearColor( 0., 0., 0., 0.)
+      gl.clear( gl.COLOR_BUFFER_BIT );
+
+      // TODO Part 4 and 5
+      updateBall(); // move the ball and check for bounces or points
+      updateComputer(); // move the top paddle toward the ball
+
+      for(var o=0; o<OBJECTS.length; o++) {
+
+        var current = OBJECTS[o];
+
+        var v_buffer = current[0];
+        var i_buffer = current[1];
+        var COLOR = current[2];
+        var OFFSET = current[3];
+        var VERTEXCOUNT = current[4];
+
+        // TODO Part 2
+        var PRIMITIVE = current[5]; // triangles for paddles and points for the ball
+
+
+
+
+        //************************************************************//
+        //
+        // CONNECT SHADER WITH GEOMETRY
+        //
+        gl.bindBuffer( gl.ARRAY_BUFFER, v_buffer );
+
+        gl.bindBuffer( gl.ELEMENT_ARRAY_BUFFER, i_buffer );
+
+        // find the attribute in the shader source
+        var a_position = gl.getAttribLocation( shaderprogram, 'position' );
+
+        gl.vertexAttribPointer( a_position, 3, gl.FLOAT, false, 0, 0 );
+
+        gl.enableVertexAttribArray ( a_position );
+
+        var u_color = gl.getUniformLocation( shaderprogram, 'color' );
+
+        gl.uniform4fv( u_color, new Float32Array(COLOR));
+
+        // var u_offset = gl.getUniformLocation( shaderprogram, 'offset' );
+
+        var u_transform = gl.getUniformLocation( shaderprogram, 'transform' );
+
+        // bonus part 3 paddles can be wider or thinner than the ball
+        var SCALE_X = SCALE;
+        if (o < 2) {
+          SCALE_X = SCALE * PADDLE_SIZE[o];
+        }
+
+        current_transform = new Float32Array([
+          SCALE_X, 0, 0, 0,
+          0, SCALE, 0, 0,
+          0, 0, SCALE, 0,
+          OFFSET[0], OFFSET[1], 0, 1
+          ]);
+
+        gl.uniformMatrix4fv( u_transform, false, current_transform );
+
+
+
+        //************************************************************//
+        //
+        // DRAW!
+        //
+        // gl.drawArrays( gl.LINES, 0, 6 );
+
+        // TODO Part 2
+        // use the primitive from the object instead of always triangles
+        gl.drawElements( PRIMITIVE, VERTEXCOUNT, gl.UNSIGNED_BYTE, 0);
+
+
+      }
+
+    }
+
+
+
+
+    function resetBall(direction) {
+
+      OBJECTS[2][3][0] = Math.random() / 10.; // SET TO CENTER
+      OBJECTS[2][3][1] = Math.random() / 10.;
+
+      BALLDIRECTION = (Math.PI / 8) + Math.random();
+      BALLDIRECTION *= direction;
+
+      BALL_SPEED = 1; // every serve starts slow again
+
+    };
+
+
+    function score(who) {
+
+      // console.log(who, 'scored!')
+
+      var old_score = document.getElementById(who).innerText;
+      document.getElementById(who).innerText = parseInt(old_score) + 1;
+
+      // bonus part 3 whoever scores gets a smaller paddle and the other one gets bigger
+      if (who == 'keen') {
+        PADDLE_SIZE[1] *= 0.9;
+        PADDLE_SIZE[0] *= 1.1;
+      } else {
+        PADDLE_SIZE[0] *= 0.9;
+        PADDLE_SIZE[1] *= 1.1;
+      }
+
+      // dont let them get too tiny or too huge
+      for (var p = 0; p < 2; p++) {
+        PADDLE_SIZE[p] = Math.min( Math.max( PADDLE_SIZE[p], 0.5 ), 1.5 );
+      }
+
+      if (parseInt(old_score) == MAX_SCORE-1) {
+
+        STOPPED = true;
+
+        document.getElementById('overlay').style.display = 'block';
+
+        if (who == 'keen') {
+          document.getElementById('won').style.display = 'block';
+          // happy notes going up
+          beep(523, 0.15, 0);
+          beep(659, 0.15, 0.13);
+          beep(784, 0.3, 0.26);
+        } else if (who == 'comp') {
+          document.getElementById('lost').style.display = 'block';
+          // sad notes going down
+          beep(392, 0.15, 0);
+          beep(330, 0.15, 0.13);
+          beep(262, 0.3, 0.26);
+        }
+
+      } else {
+
+        beep(150, 0.2, 0); // low sound for a point
+
+      }
+
+      if (who == 'keen') {
+
+        resetBall(1);
+      
+      } else if (who == 'comp') {
+      
+        resetBall(-1);
+      
+      }
+      
+    }
+
+
+    function updateComputer() {
+
+      BALL_X = OBJECTS[2][3][0];
+      BALL_Y = OBJECTS[2][3][1];
+
+      TOP_PADDLE_X = OBJECTS[0][3][0];
+      TOP_PADDLE_Y = OBJECTS[0][3][1];
+
+      if (BALL_X < TOP_PADDLE_X) {
+
+        OBJECTS[0][3][0] -= STEP/20;
+
+      } else if (BALL_X > TOP_PADDLE_X) {
+
+        OBJECTS[0][3][0] += STEP/20;
+
+      }
+
+    }
+
+
+    function updateBall() {
+
+      BALL_X = OBJECTS[2][3][0];
+      BALL_Y = OBJECTS[2][3][1];
+
+      TOP_PADDLE_X = OBJECTS[0][3][0];
+      TOP_PADDLE_Y = OBJECTS[0][3][1];
+      TOP_PADDLE_WIDTH = 0.2 * PADDLE_SIZE[0]; // bonus part 3 width changes now
+
+      BOTTOM_PADDLE_X = OBJECTS[1][3][0];
+      BOTTOM_PADDLE_Y = OBJECTS[1][3][1];
+      BOTTOM_PADDLE_WIDTH = 0.2 * PADDLE_SIZE[1];
+
+
+      // only bounce off a wall if the ball is moving toward it
+      // otherwise a fast ball can get stuck flipping back and forth
+      if (BALL_X >= .98 && Math.cos(BALLDIRECTION) > 0) {
+
+        // RIGHT WALL
+        BALLDIRECTION = (Math.PI - BALLDIRECTION);
+        beep(220, 0.05, 0);
+
+      } else if (BALL_X <= -.98 && Math.cos(BALLDIRECTION) < 0) {
+
+        // LEFT WALL
+        BALLDIRECTION = (Math.PI - BALLDIRECTION);
+        beep(220, 0.05, 0);
+
+      } else if (BALL_Y >= .85) {
+
+        // TOP
+
+        TOP_PADDLE_LEFT = TOP_PADDLE_X - (TOP_PADDLE_WIDTH/2);
+        TOP_PADDLE_RIGHT = TOP_PADDLE_X + (TOP_PADDLE_WIDTH/2);
+
+        // LET'S CHECK IF A PADDLE IS THERE
+        if (BALL_X >= TOP_PADDLE_LEFT && BALL_X <= TOP_PADDLE_RIGHT) {
+
+          // console.log('top bounce')
+
+          // bonus part 4 where the ball hits decides the angle
+          // hit is minus one on the left edge and one on the right edge
+          var HIT = (BALL_X - TOP_PADDLE_X) / (TOP_PADDLE_WIDTH/2);
+
+          // straight down from the middle and off to the side from the edges
+          BALLDIRECTION = -Math.PI/2 + HIT;
+
+          paddleHit(HIT);
+
+        } else {
+
+          // SCORE!
+          score('keen');
+
+          return;
+
+        }
+
+
+      } else if (BALL_Y <= -.85) {
+
+        // BOTTOM
+
+        BOTTOM_PADDLE_LEFT = BOTTOM_PADDLE_X - (BOTTOM_PADDLE_WIDTH/2);
+        BOTTOM_PADDLE_RIGHT = BOTTOM_PADDLE_X + (BOTTOM_PADDLE_WIDTH/2);
+
+        // LET'S CHECK IF A PADDLE IS THERE
+        if (BALL_X >= BOTTOM_PADDLE_LEFT && BALL_X <= BOTTOM_PADDLE_RIGHT) {
+
+          // console.log('bottom bounce')
+
+          // same idea as the top but the ball goes up
+          var HIT = (BALL_X - BOTTOM_PADDLE_X) / (BOTTOM_PADDLE_WIDTH/2);
+
+          BALLDIRECTION = Math.PI/2 - HIT;
+
+          paddleHit(HIT);
+
+        } else {
+
+          // SCORE!
+          score('comp');
+
+          return;
+
+        }
+
+      }
+
+
+      // UPDATE BALL POSITION
+      // bonus part 2 the speed makes it move further every frame
+      OBJECTS[2][3][0] += Math.cos(BALLDIRECTION) * STEP * 0.1 * BALL_SPEED;
+      OBJECTS[2][3][1] += Math.sin(BALLDIRECTION) * STEP * 0.1 * BALL_SPEED;
+
+    }
+
+
+    // runs every time a paddle hits the ball
+    function paddleHit(HIT) {
+
+      // bonus part 2 a little faster every hit
+      BALL_SPEED *= 1.05;
+
+      // bonus part 4 hitting with the corner is a smash and goes extra fast
+      if (Math.abs(HIT) > 0.8) {
+
+        BALL_SPEED *= 1.3;
+        beep(880, 0.1, 0);
+
+      } else {
+
+        beep(440, 0.07, 0);
+
+      }
+
+      // cap it so it stays playable
+      if (BALL_SPEED > 3) {
+        BALL_SPEED = 3;
+      }
+
+    }
+
+
+    // bonus part 1 plays a short retro beep so we dont need any sound files
+    function beep(frequency, duration, delay) {
+
+      if (!AUDIO) {
+        return;
+      }
+
+      var start = AUDIO.currentTime + delay;
+
+      var osc = AUDIO.createOscillator();
+      var volume = AUDIO.createGain();
+
+      osc.type = 'square';
+      osc.frequency.value = frequency;
+
+      // start quiet enough and fade out
+      volume.gain.setValueAtTime(0.08, start);
+      volume.gain.exponentialRampToValueAtTime(0.001, start + duration);
+
+      osc.connect(volume);
+      volume.connect(AUDIO.destination);
+
+      osc.start(start);
+      osc.stop(start + duration);
+
+    }
+
+
+    window.onkeydown = function(e) {
+
+      if (STOPPED) {
+        // restart the game
+        window.location.reload();
+      }
+
+      // browsers only allow sound after a key press so it starts here
+      if (!AUDIO) {
+        AUDIO = new AudioContext();
+      }
+
+      // TODO Part 3
+      // keens paddle is the bottom one and index 3 is its offset
+      var BOTTOM_PADDLE_OFFSET = OBJECTS[1][3];
+
+      // move the bottom paddle left or right
+      if (e.code == 'ArrowLeft') {
+
+        BOTTOM_PADDLE_OFFSET[0] -= STEP;
+
+      } else if (e.code == 'ArrowRight') {
+
+        BOTTOM_PADDLE_OFFSET[0] += STEP;
+
+      }
+
+      // stop the paddle from going off the screen
+      // the limit depends on how wide the paddle is right now
+      var LIMIT = 1 - 0.1 * PADDLE_SIZE[1];
+
+      if (BOTTOM_PADDLE_OFFSET[0] < -LIMIT) {
+        BOTTOM_PADDLE_OFFSET[0] = -LIMIT;
+      }
+      if (BOTTOM_PADDLE_OFFSET[0] > LIMIT) {
+        BOTTOM_PADDLE_OFFSET[0] = LIMIT;
+      }
+
+    }
+
+  </script>
+
+  </head>
+
+  <body>
+
+    <div id='computerwrist'>
+
+      <span id='keen' class='score'>0</span>
+      
+      <span id='comp' class='score'>0</span>
+
+      <div id='overlay'>
+        <img id='won' class='result' src='https://cs460.org/assignments/keen/won.png'>
+        <img id='lost' class='result' src='https://cs460.org/assignments/keen/lost.png'>
+      </div>
+
+      <canvas id='c'></canvas>
+
+    </div>
+
+  </body>
+
+</html>

@@ -1,0 +1,831 @@
+<html>
+  <head>
+    
+    <style>
+
+      html, body {    
+        background-color:#000;
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden !important;  
+      }
+
+      #computerwrist {
+
+        background: url('https://cs460.org/assignments/keen/bg.png');
+        width:1234px;
+        height:814px;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+      }
+
+      #c {
+        width:620px;
+        height:328px;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+      }
+
+      .score {
+        color: rgb(0,255,0);
+        font-size: 30px;
+        font-family: monospace;
+        font-weight: bold;
+        transition: color 0.2s;
+      }
+
+      #keen {
+        position: relative;
+        top: 200px;
+        left: 445px;
+      }
+
+      #comp {
+        position: relative;
+        top: 200px;
+        left: 855px;
+      }
+
+      .result {
+        width:332px;
+        height:124px;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        display: none;
+      }
+
+      #overlay {
+        background-color: rgba(0,0,0,0.7);
+        position: absolute;
+        top: 0px;
+        left: 0px;
+        width: 100%;
+        height: 100%;
+        z-index: 1000;
+        display: none;
+      }
+
+      #help {
+        position: fixed;
+        bottom: 12px;
+        width: 100%;
+        text-align: center;
+        color: rgb(0,255,0);
+        font-family: monospace;
+        font-size: 14px;
+        opacity: 0.7;
+      }
+    </style>
+
+    <script id="vertexshader" type="glsl">
+      attribute vec3 position;
+
+      uniform mat4 transform;
+      uniform float pointsize;
+
+      void main(void) {
+
+        vec4 final_position = transform * vec4( position, 1.);
+
+        gl_Position = final_position;
+
+        gl_PointSize = pointsize; // ball trail and sparks all use different sizes
+      
+      }
+    </script>
+    
+    <script id="fragmentshader" type="glsl">
+      precision mediump float;
+
+      uniform vec4 color;
+      uniform float roundpoint;
+
+      void main(void) {
+
+        vec4 final_color = color;
+
+        // turn the square point into a soft round dot
+        if (roundpoint > 0.5) {
+
+          float dist = length( gl_PointCoord - vec2( 0.5 ) );
+
+          if (dist > 0.5) {
+            discard;
+          }
+
+          final_color.a *= 1. - smoothstep( 0.2, 0.5, dist );
+
+        }
+
+        // every third row is darker so it looks like an old screen
+        if (mod( gl_FragCoord.y, 3. ) < 1.) {
+          final_color.rgb *= 0.65;
+        }
+
+        gl_FragColor = final_color;
+
+      }
+    </script>
+
+  <script>
+
+
+    window.onload = function() {
+
+      //************************************************************//
+      //
+      // INITIALIZE WEBGL
+      //
+      c = document.getElementById( 'c' ); // setup canvas
+      gl = c.getContext( 'webgl' ); // setup GL context
+      gl.viewport(0, 0, c.width, c.height );
+
+
+
+
+      //************************************************************//
+      //
+      // SHADERS
+      //
+      v_shader = gl.createShader( gl.VERTEX_SHADER );
+      f_shader = gl.createShader( gl.FRAGMENT_SHADER );
+
+      // compile vertex shader
+      gl.shaderSource( v_shader, document.getElementById( 'vertexshader' ).innerText );
+      gl.compileShader( v_shader );
+      if (!gl.getShaderParameter( v_shader, gl.COMPILE_STATUS)) {
+
+        console.log(gl.getShaderInfoLog( v_shader ));
+      
+      } else {
+
+        console.log('Vertex Shader compiled!');
+
+      }
+
+      // compile fragment shader
+      gl.shaderSource( f_shader, document.getElementById( 'fragmentshader' ).innerText );
+      gl.compileShader( f_shader );
+      if (!gl.getShaderParameter( f_shader, gl.COMPILE_STATUS)) {
+
+        console.log(gl.getShaderInfoLog( f_shader ));
+      
+      } else {
+
+        console.log('Fragment Shader compiled!');
+
+      }
+
+        
+      // attach and link the shaders
+      shaderprogram = gl.createProgram();
+      gl.attachShader( shaderprogram, v_shader );
+      gl.attachShader( shaderprogram, f_shader );
+       
+      gl.linkProgram( shaderprogram );
+       
+      gl.useProgram( shaderprogram );
+
+      // turn on alpha so the trail and sparks can fade out
+      gl.enable( gl.BLEND );
+      gl.blendFuncSeparate( gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA );
+
+      // find the shader inputs once instead of every frame
+      A_POSITION = gl.getAttribLocation( shaderprogram, 'position' );
+      U_COLOR = gl.getUniformLocation( shaderprogram, 'color' );
+      U_TRANSFORM = gl.getUniformLocation( shaderprogram, 'transform' );
+      U_POINTSIZE = gl.getUniformLocation( shaderprogram, 'pointsize' );
+      U_ROUNDPOINT = gl.getUniformLocation( shaderprogram, 'roundpoint' );
+
+      STEP = .1;
+      MAX_SCORE = 5;
+      STOPPED = false;
+      CAN_RESTART = false;
+
+      // extra game state for the bonus parts
+      BALL_SPEED = 1.;          // goes up every paddle hit
+      PADDLE_SIZE = [1., 1.];   // width of top and bottom paddle right now
+      PADDLE_TARGET = [1., 1.]; // width they slowly grow or shrink toward
+      FLASH = [0., 0.];         // paddle glows white after a hit
+      KEYS = {};                // which keys are held down
+      TRAIL = [];               // old ball positions
+      PARTICLES = [];           // little sparks
+      SHAKE = 0.;               // how hard the screen shakes
+      SHAKE_X = 0.;
+      SHAKE_Y = 0.;
+      SERVE_TIMER = 0;          // frames to wait before the ball moves
+      WAITING = true;           // wait for a key before the first serve
+      AUDIO = null;
+      MUTED = false;
+
+      OBJECTS = [];
+      OBJECTS.push( createPaddle( [0.,1.,0.,1.], [0., 0.9, 0.]) ); // TOP PADDLE
+      OBJECTS.push( createPaddle( [0.,1.,0.,1.], [0., -0.9, 0.]) ); // BOTTOM PADDLE
+      OBJECTS.push( createBall( [0., 1., 0., 1.], [0., 0., 0.]) );
+
+      NET = createNet( [0., 1., 0., 0.25], [0., 0., 0.] );
+
+
+      resetBall(1);
+
+
+      animate();
+
+    };
+
+
+    // the buffer code was the same for every shape so i moved it here
+    function createBuffers(vertices, indices) {
+
+      var v_buffer = gl.createBuffer(); // create
+      gl.bindBuffer( gl.ARRAY_BUFFER, v_buffer ); // bind
+      gl.bufferData( gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW ); // put data in
+      gl.bindBuffer( gl.ARRAY_BUFFER, null ); // unbind
+
+
+      var i_buffer = gl.createBuffer(); // create
+      gl.bindBuffer( gl.ELEMENT_ARRAY_BUFFER, i_buffer ); // bind
+      gl.bufferData( gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW ); // put data in
+      gl.bindBuffer( gl.ELEMENT_ARRAY_BUFFER, null ); // unbind
+
+      return [v_buffer, i_buffer];
+
+    }
+
+
+    function createPaddle(color, offset) {
+
+      var vertices = new Float32Array( [
+                                     -0.1,  0.05, 0.0, // V0      // 0
+                                     -0.1, -0.05, 0.0, // V1, V4  // 1
+                                      0.1,  0.05, 0.0, // V2, V3  // 2
+                                      0.1, -0.05, 0.0  // V5      // 3
+                                    ] );
+
+      var indices = new Uint8Array( [ 0, 1, 2,     // Triangle 1 
+                                      2, 1, 3 ] ); // Triangle 2
+
+      var buffers = createBuffers( vertices, indices );
+
+      return [buffers[0], buffers[1], color, offset, 6, gl.TRIANGLES];
+
+    }
+
+
+    function createBall(color, offset) {
+
+      // the ball is just one point in the middle
+      var vertices = new Float32Array( [ 0.0, 0.0, 0.0 ] );
+
+      var indices = new Uint8Array( [ 0 ] );
+
+      var buffers = createBuffers( vertices, indices );
+
+      return [buffers[0], buffers[1], color, offset, 1, gl.POINTS];
+
+    }
+
+
+    function createNet(color, offset) {
+
+      // dashed line across the middle made of short line pieces
+      var points = [];
+      var lines = [];
+
+      for (var x = -0.95; x < 0.95; x += 0.1) {
+
+        points.push( x, 0., 0. );
+        points.push( x + 0.05, 0., 0. );
+
+        lines.push( lines.length, lines.length + 1 );
+
+      }
+
+      var buffers = createBuffers( new Float32Array( points ), new Uint8Array( lines ) );
+
+      return [buffers[0], buffers[1], color, offset, lines.length, gl.LINES];
+
+    }
+
+
+    // draws one object at x y with its own color and width
+    function drawObject(object, x, y, color, scale_x, point_size, round) {
+
+      gl.bindBuffer( gl.ARRAY_BUFFER, object[0] );
+      gl.bindBuffer( gl.ELEMENT_ARRAY_BUFFER, object[1] );
+
+      gl.vertexAttribPointer( A_POSITION, 3, gl.FLOAT, false, 0, 0 );
+      gl.enableVertexAttribArray( A_POSITION );
+
+      gl.uniform4fv( U_COLOR, new Float32Array( color ) );
+      gl.uniform1f( U_POINTSIZE, point_size );
+      gl.uniform1f( U_ROUNDPOINT, round ? 1. : 0. );
+
+      // scale_x makes paddles wider or thinner and shake moves everything a bit
+      var transform = new Float32Array([
+        scale_x, 0, 0, 0,
+        0, 1, 0, 0,
+        0, 0, 1, 0,
+        x + SHAKE_X, y + SHAKE_Y, 0, 1
+      ]);
+
+      gl.uniformMatrix4fv( U_TRANSFORM, false, transform );
+
+      gl.drawElements( object[5], object[4], gl.UNSIGNED_BYTE, 0 );
+
+    }
+
+
+    function animate() {
+
+      if (STOPPED) {
+        return;
+      }
+
+      requestAnimationFrame( animate );
+
+      // CLEAR NOW BEFORE ANY DRAWING
+      gl.clearColor( 0., 0., 0., 0.)
+      gl.clear( gl.COLOR_BUFFER_BIT );
+
+      movePlayer();
+
+      // ball only moves after the serve wait is over
+      if (!WAITING && SERVE_TIMER <= 0) {
+        updateBall();
+      } else if (!WAITING) {
+        SERVE_TIMER--;
+      }
+
+      updateComputer();
+      updateEffects();
+
+
+      // net in the middle
+      drawObject( NET, 0., 0., NET[2], 1., 1., false );
+
+      // paddles go from green to white when they flash
+      for (var p = 0; p < 2; p++) {
+
+        var paddle = OBJECTS[p];
+        var glow = FLASH[p];
+
+        drawObject( paddle, paddle[3][0], paddle[3][1], [glow, 1., glow, 1.], PADDLE_SIZE[p], 1., false );
+
+      }
+
+      var BALL = OBJECTS[2];
+      var HOT = ballColor();
+
+      // trail gets smaller and more see through the older it is
+      for (var t = 0; t < TRAIL.length; t++) {
+
+        var fade = (t + 1) / TRAIL.length;
+
+        drawObject( BALL, TRAIL[t][0], TRAIL[t][1], [HOT[0], HOT[1], HOT[2], fade * 0.4], 1., 4. + 10. * fade, true );
+
+      }
+
+      // sparks
+      for (var s = 0; s < PARTICLES.length; s++) {
+
+        var spark = PARTICLES[s];
+
+        drawObject( BALL, spark.x, spark.y, [spark.color[0], spark.color[1], spark.color[2], spark.life], 1., 2. + 6. * spark.life, true );
+
+      }
+
+      // ball blinks while it waits to be served
+      var blink = (WAITING || SERVE_TIMER > 0) && Math.floor( Date.now() / 200 ) % 2 == 0;
+
+      if (!blink) {
+        drawObject( BALL, BALL[3][0], BALL[3][1], HOT, 1., 16., true );
+      }
+
+    }
+
+
+    // ball goes from green to orange the faster it gets
+    function ballColor() {
+
+      var heat = Math.min( Math.max( (BALL_SPEED - 1.) / 2., 0. ), 1. );
+
+      return [heat, 1. - heat * 0.4, 0., 1.];
+
+    }
+
+
+    // smooth movement while the key is held down
+    function movePlayer() {
+
+      var BOTTOM_PADDLE_OFFSET = OBJECTS[1][3];
+      var speed = STEP / 6;
+
+      if (KEYS['ArrowLeft'] || KEYS['KeyA']) {
+        BOTTOM_PADDLE_OFFSET[0] -= speed;
+      }
+      if (KEYS['ArrowRight'] || KEYS['KeyD']) {
+        BOTTOM_PADDLE_OFFSET[0] += speed;
+      }
+
+      keepOnScreen(1);
+
+    }
+
+
+    // stop a paddle from going off the screen and bigger paddles get less room
+    function keepOnScreen(index) {
+
+      var offset = OBJECTS[index][3];
+      var limit = 1. - 0.1 * PADDLE_SIZE[index];
+
+      if (offset[0] < -limit) {
+        offset[0] = -limit;
+      }
+      if (offset[0] > limit) {
+        offset[0] = limit;
+      }
+
+    }
+
+
+    function resetBall(direction) {
+
+      OBJECTS[2][3][0] = Math.random() / 10.; // SET TO CENTER
+      OBJECTS[2][3][1] = Math.random() / 10.;
+
+      BALLDIRECTION = (Math.PI / 8) + Math.random();
+      BALLDIRECTION *= direction;
+
+      // every serve starts slow again
+      BALL_SPEED = 1.;
+      TRAIL = [];
+      SERVE_TIMER = 50;
+
+    };
+
+
+    function score(who) {
+
+      var BALL = OBJECTS[2][3];
+
+      // big burst where the ball got past
+      sparks( BALL[0], BALL[1], 40, [1., 1., 1.] );
+      SHAKE = 0.06;
+
+      var old_score = document.getElementById(who).innerText;
+      document.getElementById(who).innerText = parseInt(old_score) + 1;
+
+      // flash the number white for a moment
+      var number = document.getElementById(who);
+      number.style.color = '#fff';
+      setTimeout( function() { number.style.color = ''; }, 300 );
+
+      // whoever scored gets a smaller paddle and the other one gets a bigger one
+      if (who == 'keen') {
+        PADDLE_TARGET[1] *= 0.85;
+        PADDLE_TARGET[0] *= 1.15;
+      } else {
+        PADDLE_TARGET[0] *= 0.85;
+        PADDLE_TARGET[1] *= 1.15;
+      }
+
+      for (var p = 0; p < 2; p++) {
+        PADDLE_TARGET[p] = Math.min( Math.max( PADDLE_TARGET[p], 0.5 ), 1.8 );
+      }
+
+      if (parseInt(old_score) == MAX_SCORE-1) {
+
+        STOPPED = true;
+
+        document.getElementById('overlay').style.display = 'block';
+
+        if (who == 'keen') {
+          document.getElementById('won').style.display = 'block';
+          jingle( [523, 659, 784, 1047] );
+        } else if (who == 'comp') {
+          document.getElementById('lost').style.display = 'block';
+          jingle( [392, 330, 262, 196] );
+        }
+
+        // wait a second so holding a key does not restart right away
+        setTimeout( function() { CAN_RESTART = true; }, 1000 );
+
+      } else {
+
+        beep( 150, 0.25 );
+
+      }
+
+      if (who == 'keen') {
+
+        resetBall(1);
+      
+      } else if (who == 'comp') {
+      
+        resetBall(-1);
+      
+      }
+      
+    }
+
+
+    function updateComputer() {
+
+      var BALL_X = OBJECTS[2][3][0];
+      var TOP_PADDLE_OFFSET = OBJECTS[0][3];
+
+      // computer gets a little faster when the ball does
+      var speed = STEP / 20 * (0.6 + BALL_SPEED * 0.4);
+      var diff = BALL_X - TOP_PADDLE_OFFSET[0];
+
+      if (Math.abs(diff) < speed) {
+
+        TOP_PADDLE_OFFSET[0] = BALL_X;
+
+      } else if (diff < 0) {
+
+        TOP_PADDLE_OFFSET[0] -= speed;
+
+      } else {
+
+        TOP_PADDLE_OFFSET[0] += speed;
+
+      }
+
+      keepOnScreen(0);
+
+    }
+
+
+    function updateBall() {
+
+      var BALL = OBJECTS[2][3];
+
+      var TOP_PADDLE_X = OBJECTS[0][3][0];
+      var BOTTOM_PADDLE_X = OBJECTS[1][3][0];
+
+      // half the paddle width plus a little for the size of the ball
+      var TOP_HALF = 0.1 * PADDLE_SIZE[0] + 0.02;
+      var BOTTOM_HALF = 0.1 * PADDLE_SIZE[1] + 0.02;
+
+      var MOVING_RIGHT = Math.cos(BALLDIRECTION) > 0;
+      var MOVING_UP = Math.sin(BALLDIRECTION) > 0;
+
+
+      // walls only bounce if the ball is going toward them so it never gets stuck
+      if ((BALL[0] >= .98 && MOVING_RIGHT) || (BALL[0] <= -.98 && !MOVING_RIGHT)) {
+
+        BALLDIRECTION = (Math.PI - BALLDIRECTION);
+        beep( 220, 0.05 );
+
+      }
+
+
+      if (BALL[1] >= .85 && MOVING_UP) {
+
+        // where it hit the paddle from minus one on the left to one on the right
+        var HIT = (BALL[0] - TOP_PADDLE_X) / TOP_HALF;
+
+        if (Math.abs(HIT) <= 1) {
+
+          // middle sends it straight and edges send it off to the side
+          BALLDIRECTION = -Math.PI / 2 + HIT;
+          paddleHit( 0, HIT );
+
+        } else {
+
+          score('keen');
+          return;
+
+        }
+
+      } else if (BALL[1] <= -.85 && !MOVING_UP) {
+
+        var HIT = (BALL[0] - BOTTOM_PADDLE_X) / BOTTOM_HALF;
+
+        if (Math.abs(HIT) <= 1) {
+
+          BALLDIRECTION = Math.PI / 2 - HIT;
+          paddleHit( 1, HIT );
+
+        } else {
+
+          score('comp');
+          return;
+
+        }
+
+      }
+
+
+      // UPDATE BALL POSITION
+      BALL[0] += Math.cos(BALLDIRECTION) * STEP * 0.1 * BALL_SPEED;
+      BALL[1] += Math.sin(BALLDIRECTION) * STEP * 0.1 * BALL_SPEED;
+
+      // remember where the ball was for the trail
+      TRAIL.push( [BALL[0], BALL[1]] );
+
+      if (TRAIL.length > 14) {
+        TRAIL.shift();
+      }
+
+    }
+
+
+    // called every time a paddle hits the ball
+    function paddleHit(index, HIT) {
+
+      var BALL = OBJECTS[2][3];
+
+      // hitting with the very edge is a smash and it goes extra fast
+      var SMASH = Math.abs(HIT) > 0.75;
+
+      BALL_SPEED = Math.min( BALL_SPEED * 1.06, 3.5 );
+
+      FLASH[index] = 1.;
+
+      if (SMASH) {
+
+        BALL_SPEED = Math.min( BALL_SPEED * 1.2, 3.5 );
+        SHAKE = 0.04;
+        sparks( BALL[0], BALL[1], 30, [1., 1., 1.] );
+        beep( 660, 0.06 );
+        beep( 1320, 0.12, 0.05 );
+
+      } else {
+
+        SHAKE = 0.012;
+        sparks( BALL[0], BALL[1], 12, [0., 1., 0.] );
+        beep( 440, 0.07 );
+
+      }
+
+    }
+
+
+    // shoots sparks out in random directions
+    function sparks(x, y, count, color) {
+
+      for (var i = 0; i < count; i++) {
+
+        var angle = Math.random() * Math.PI * 2;
+        var power = Math.random() * 0.03;
+
+        PARTICLES.push( {
+          x: x,
+          y: y,
+          vx: Math.cos(angle) * power,
+          vy: Math.sin(angle) * power,
+          life: 1.,
+          color: color
+        } );
+
+      }
+
+    }
+
+
+    // flash and shake fade out and paddles slowly change size
+    function updateEffects() {
+
+      for (var p = 0; p < 2; p++) {
+
+        FLASH[p] *= 0.9;
+        PADDLE_SIZE[p] += (PADDLE_TARGET[p] - PADDLE_SIZE[p]) * 0.1;
+
+      }
+
+      SHAKE *= 0.85;
+      SHAKE_X = (Math.random() - 0.5) * SHAKE;
+      SHAKE_Y = (Math.random() - 0.5) * SHAKE;
+
+      // go backwards so removing a spark does not skip the next one
+      for (var i = PARTICLES.length - 1; i >= 0; i--) {
+
+        var spark = PARTICLES[i];
+
+        spark.x += spark.vx;
+        spark.y += spark.vy;
+        spark.vx *= 0.93;
+        spark.vy *= 0.93;
+        spark.life -= 0.025;
+
+        if (spark.life <= 0) {
+          PARTICLES.splice(i, 1);
+        }
+
+      }
+
+    }
+
+
+    // retro beep made with web audio so no sound files are needed
+    function beep(frequency, duration, delay) {
+
+      if (!AUDIO || MUTED) {
+        return;
+      }
+
+      var start = AUDIO.currentTime + (delay || 0);
+
+      var osc = AUDIO.createOscillator();
+      var gain = AUDIO.createGain();
+
+      osc.type = 'square';
+      osc.frequency.value = frequency;
+
+      // start loud and fade out fast
+      gain.gain.setValueAtTime( 0.08, start );
+      gain.gain.exponentialRampToValueAtTime( 0.001, start + duration );
+
+      osc.connect( gain );
+      gain.connect( AUDIO.destination );
+
+      osc.start( start );
+      osc.stop( start + duration );
+
+    }
+
+
+    // plays notes one after the other for winning or losing
+    function jingle(notes) {
+
+      for (var i = 0; i < notes.length; i++) {
+        beep( notes[i], 0.15, i * 0.13 );
+      }
+
+    }
+
+
+    window.onkeydown = function(e) {
+
+      if (STOPPED) {
+
+        // restart the game
+        if (CAN_RESTART) {
+          window.location.reload();
+        }
+        return;
+
+      }
+
+      // browsers only allow sound after a key press so it starts here
+      if (!AUDIO) {
+        AUDIO = new (window.AudioContext || window.webkitAudioContext)();
+      }
+
+      // first key press starts the game
+      if (WAITING) {
+        WAITING = false;
+        SERVE_TIMER = 30;
+      }
+
+      if (e.code == 'KeyM') {
+        MUTED = !MUTED;
+      }
+
+      KEYS[e.code] = true;
+
+    }
+
+
+    window.onkeyup = function(e) {
+
+      KEYS[e.code] = false;
+
+    }
+
+  </script>
+
+  </head>
+
+  <body>
+
+    <div id='computerwrist'>
+
+      <span id='keen' class='score'>0</span>
+      
+      <span id='comp' class='score'>0</span>
+
+      <div id='overlay'>
+        <img id='won' class='result' src='https://cs460.org/assignments/keen/won.png'>
+        <img id='lost' class='result' src='https://cs460.org/assignments/keen/lost.png'>
+      </div>
+
+      <canvas id='c' width='620' height='328'></canvas>
+
+    </div>
+
+    <div id='help'>press any key to start &nbsp; arrows or a d to move &nbsp; hit with the edge to smash &nbsp; m to mute</div>
+
+  </body>
+
+</html>
