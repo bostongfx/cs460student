@@ -1,0 +1,270 @@
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Flashy Fish - WebGPU</title>
+    <style>
+      html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background-color: #000; }
+      body { background: url('https://cs460.org/assignments/04/bg.jpg'); background-size: cover; }
+      #c { width: 100%; height: 100%; display: block; }
+    </style>
+  </head>
+  <body>
+    <canvas id="c"></canvas>
+
+    <div id="score" style="position:absolute; top:12px; right:16px; color:white;
+         font-family:sans-serif; font-size:24px; font-weight:bold;
+         text-shadow:0 0 6px black;">Score: 0</div>
+
+    <script type="module">
+
+      // ---------- INITIALIZE WEBGPU ----------
+      const c = document.getElementById('c');
+      c.width = window.innerWidth;
+      c.height = window.innerHeight;
+
+      if ( !navigator.gpu ) {
+        document.body.innerHTML = '<h2 style="color:white">WebGPU is not supported in this browser.</h2>';
+        throw new Error('no WebGPU');
+      }
+
+      const adapter = await navigator.gpu.requestAdapter();
+      const device = await adapter.requestDevice();
+
+      const context = c.getContext('webgpu');
+      const format = navigator.gpu.getPreferredCanvasFormat();
+      context.configure({ device, format, alphaMode: 'premultiplied' }); // transparent canvas
+
+      const keys = {};
+      let score = 0;
+
+      window.addEventListener( 'keydown', function(e) {
+        keys[e.key] = true;
+        if ( e.key.startsWith('Arrow') ) e.preventDefault(); // stop page scrolling
+      });
+      window.addEventListener( 'keyup', function(e) {
+        keys[e.key] = false;
+      });
+
+      // ---------- SHADERS (WGSL instead of GLSL) ----------
+      const shaderCode = `
+        struct Uniforms {
+          transform : mat4x4f,   // same job as u_transform
+          color     : vec4f,     // same job as u_color
+        };
+        @group(0) @binding(0) var<uniform> u : Uniforms;
+
+        @vertex
+        fn vs( @location(0) a_position : vec3f ) -> @builtin(position) vec4f {
+          return u.transform * vec4f( a_position, 1.0 );
+        }
+
+        @fragment
+        fn fs() -> @location(0) vec4f {
+          // canvas is 'premultiplied', so multiply rgb by alpha
+          return vec4f( u.color.rgb * u.color.a, u.color.a );
+        }
+      `;
+      const module = device.createShaderModule({ code: shaderCode });
+
+      // ---------- GEOMETRY (same fish as WebGL) ----------
+      const vertices = new Float32Array([
+         0.5,  0.0,  0.0,
+         0.2,  0.25, 0.0,
+        -0.2,  0.15, 0.0,
+        -0.4,  0.3,  0.0,
+        -0.4, -0.3,  0.0,
+        -0.2, -0.15, 0.0,
+         0.2, -0.25, 0.0
+      ]);
+
+      // WebGPU needs uint16 (not uint8), and buffer sizes must be multiples of 4 bytes, so we pad 15 indices to 16 with a dummy 0 (we only draw 15).
+      const indices = new Uint16Array([
+        0, 1, 6,
+        1, 2, 6,
+        2, 5, 6,
+        2, 3, 5,
+        3, 4, 5,
+        0
+      ]);
+
+      const v_buffer = device.createBuffer({ size: vertices.byteLength, usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST });
+      device.queue.writeBuffer( v_buffer, 0, vertices );
+
+      const i_buffer = device.createBuffer({ size: indices.byteLength, usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST });
+      device.queue.writeBuffer( i_buffer, 0, indices );
+
+      // The eye = a tiny square (2 triangles), since WebGPU has no gl_PointSize.
+      // Half-size chosen so it matches WebGL's 20px point at scale 1 (and stays square on screen).
+      const hx = 10 * 2 / c.width;
+      const hy = 10 * 2 / c.height;
+
+      function makeEyeBuffer( ex, ey ) {
+        const quad = new Float32Array([
+          ex - hx, ey - hy, 0,   ex + hx, ey - hy, 0,   ex + hx, ey + hy, 0,   // triangle 1
+          ex - hx, ey - hy, 0,   ex + hx, ey + hy, 0,   ex - hx, ey + hy, 0    // triangle 2
+        ]);
+        const buf = device.createBuffer({ size: quad.byteLength, usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST });
+        device.queue.writeBuffer( buf, 0, quad );
+        return buf;
+      }
+      const eye_up   = makeEyeBuffer( 0.2,  0.1 );  // normal fish (direction 1)
+      const eye_down = makeEyeBuffer( 0.2, -0.1 );  // flipped fish (direction -1), like Part 11
+
+      // ---------- PIPELINE (shaders + vertex layout + blending, all in one object) ----------
+      const pipeline = device.createRenderPipeline({
+        layout: 'auto',
+        vertex: {
+          module, entryPoint: 'vs',
+          buffers: [{ arrayStride: 12, attributes: [{ shaderLocation: 0, offset: 0, format: 'float32x3' }] }]
+        },
+        fragment: {
+          module, entryPoint: 'fs',
+          targets: [{
+            format,
+            blend: {   // same idea as gl.blendFunc(SRC_ALPHA, ONE_MINUS_SRC_ALPHA), premultiplied version
+              color: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+              alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' }
+            }
+          }]
+        },
+        primitive: { topology: 'triangle-list' }
+      });
+
+      // ---------- FISH: each fish has its own uniform buffers + bind groups ----------
+      // uniforms = 16 floats (matrix) + 4 floats (color) = 80 bytes
+      function makeUniforms() {
+        const u_buffer = device.createBuffer({
+          size: 80,
+          usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+        });
+        const bind_group = device.createBindGroup({
+          layout: pipeline.getBindGroupLayout(0),
+          entries: [{ binding: 0, resource: { buffer: u_buffer } }]
+        });
+        return { u_buffer, bind_group };
+      }
+
+      function createFish( offset, color, scale, direction ) {
+        const body = makeUniforms();
+        const eye  = makeUniforms();   // separate uniforms for the eye (different color)
+        return {
+          u_buffer: body.u_buffer, bind_group: body.bind_group,
+          eye_u_buffer: eye.u_buffer, eye_bind_group: eye.bind_group,
+          eye_v_buffer: ( direction == -1 ) ? eye_down : eye_up,
+          offset, color, scale, direction
+        };
+      }
+
+      // big red fish first (Part 11: direction -1), then 100 random little fish (Part 4)
+      const all_fish = [];
+      all_fish.push( createFish( [0, 0, 0], [1, 0, 0, 1], 1, -1 ) );
+
+      for ( let i = 0; i < 100; i++ ) {
+        const random_color  = [Math.random(), Math.random(), Math.random(), Math.random()];
+        const random_offset = [Math.random() - Math.random(), Math.random() - Math.random(), 0];
+        const random_scale  = Math.random() * 0.3;
+        all_fish.push( createFish( random_offset, random_color, random_scale, 1 ) );
+      }
+
+      const uniforms = new Float32Array(20); // reused scratch array
+
+      // ---------- ANIMATE ----------
+      function animate() {
+        requestAnimationFrame( animate );
+
+        const t = performance.now() * 0.001;
+        const a = 0.6 + 0.4 * Math.sin( t * 2.0 );
+        const blue = [ 0.3 + 0.2 * Math.sin(t + 0.0),
+                       0.6 + 0.2 * Math.sin(t + 2.0),
+                       0.9 + 0.1 * Math.sin(t + 4.0),
+                       a ];
+
+        const encoder = device.createCommandEncoder();
+        const pass = encoder.beginRenderPass({
+          colorAttachments: [{
+            view: context.getCurrentTexture().createView(),
+            clearValue: { r: 0, g: 0, b: 0, a: 0 },
+            loadOp: 'clear',
+            storeOp: 'store'
+          }]
+        });
+        pass.setPipeline( pipeline );
+        pass.setIndexBuffer( i_buffer, 'uint16' );
+
+        for ( let r = 0; r < all_fish.length; r++ ) {
+          const fish = all_fish[r];
+          const o = fish.offset;
+          let dir = fish.direction;
+
+          if ( r == 0 ) {
+            const speed = 0.015;
+            if ( keys['ArrowLeft'] )  { o[0] -= speed; fish.direction = -1; }
+            if ( keys['ArrowRight'] ) { o[0] += speed; fish.direction = 1; }
+            if ( keys['ArrowUp'] )    o[1] += speed;
+            if ( keys['ArrowDown'] )  o[1] -= speed;
+
+            // keep it on screen
+            o[0] = Math.max( -1, Math.min( 1, o[0] ) );
+            o[1] = Math.max( -1, Math.min( 1, o[1] ) );
+
+            // face the way we're swimming, and use the matching eye
+            dir = fish.direction;
+            fish.eye_v_buffer = ( dir == 1 ) ? eye_up : eye_down;
+
+          } else {
+            // LITTLE FISH: Part 5 movement (swim right, wiggle, wrap around)
+            o[0] += 0.01;
+            o[1] += 0.1 * Math.random();
+            o[1] -= 0.1 * Math.random();
+            if ( o[0] >= 1 ) dir = -1;
+            o[0] *= dir;
+
+            const big = all_fish[0];
+            const dx = o[0] - big.offset[0];
+            const dy = o[1] - big.offset[1];
+
+            if ( Math.abs(dx) < 0.4 * big.scale && Math.abs(dy) < 0.2 * big.scale ) {
+              // respawn at the left edge, random height
+              o[0] = -1;
+              o[1] = Math.random() * 2 - 1;
+
+              // big fish grows a little (up to a limit)
+              big.scale = Math.min( big.scale + 0.003, 1.2 );
+
+              score++;
+              document.getElementById('score').innerText = 'Score: ' + score;
+            }
+          }
+
+          const theta = Math.random() * 10 * Math.PI / 180;
+          const s = fish.scale;
+          const cs = Math.cos(theta), sn = Math.sin(theta);
+          uniforms.set([ dir * s * cs,  s * sn,       0,        0,
+                         -s * sn,       dir * s * cs, 0,        0,
+                         0,             0,            dir * s,  0,
+                         o[0],          o[1],         o[2],     1 ], 0);
+
+          // --- body ---
+          uniforms.set( r == 0 ? [1, 0, 0, .7] : blue, 16 );
+          device.queue.writeBuffer( fish.u_buffer, 0, uniforms );
+          pass.setVertexBuffer( 0, v_buffer );
+          pass.setBindGroup( 0, fish.bind_group );
+          pass.drawIndexed( 15 );
+
+          // --- eye --- same matrix, black with 0.5 alpha 
+          uniforms.set( [0, 0, 0, .5], 16 );
+          device.queue.writeBuffer( fish.eye_u_buffer, 0, uniforms );
+          pass.setVertexBuffer( 0, fish.eye_v_buffer );
+          pass.setBindGroup( 0, fish.eye_bind_group );
+          pass.draw( 6 );
+        }
+
+        pass.end();
+        device.queue.submit([ encoder.finish() ]);
+      }
+
+      animate();
+
+    </script>
+  </body>
+</html>

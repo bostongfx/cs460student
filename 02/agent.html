@@ -1,0 +1,1520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CS460 - 3D Kinetic Cube Art Visualization</title>
+  <style>
+    :root {
+      --primary: #00f0ff;
+      --secondary: #ff007f;
+      --accent: #ffe600;
+      --bg-dark: rgba(10, 12, 24, 0.82);
+      --border-glow: rgba(0, 240, 255, 0.35);
+      --text: #e2e8f0;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      background-color: #030308;
+      background-image: 
+        radial-gradient(circle at 50% 30%, rgba(20, 25, 55, 0.5) 0%, transparent 70%),
+        radial-gradient(circle at 80% 80%, rgba(45, 10, 60, 0.3) 0%, transparent 60%);
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      color: var(--text);
+    }
+
+    /* Ambient background grid lines */
+    .bg-grid {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-size: 50px 50px;
+      background-image: 
+        linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+      z-index: 0;
+    }
+
+    /* Glassmorphism HUD Container */
+    #hud {
+      position: fixed;
+      top: 16px;
+      left: 16px;
+      width: 320px;
+      max-height: calc(100vh - 32px);
+      overflow-y: auto;
+      background: var(--bg-dark);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--border-glow);
+      border-radius: 16px;
+      padding: 18px 20px;
+      box-shadow: 
+        0 16px 40px rgba(0, 0, 0, 0.7),
+        0 0 20px rgba(0, 240, 255, 0.15);
+      z-index: 100;
+      transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.35s ease;
+    }
+
+    #hud.collapsed {
+      transform: translateX(-360px);
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    /* HUD Scrollbar */
+    #hud::-webkit-scrollbar {
+      width: 5px;
+    }
+    #hud::-webkit-scrollbar-thumb {
+      background: rgba(0, 240, 255, 0.3);
+      border-radius: 4px;
+    }
+
+    /* Header & Branding */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .brand {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .title {
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      background: linear-gradient(135deg, #00f0ff 0%, #ff007f 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin: 0;
+    }
+
+    .subtitle {
+      font-size: 10px;
+      color: var(--text-muted);
+      letter-spacing: 0.8px;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 8px;
+      border-radius: 20px;
+      background: rgba(0, 240, 255, 0.12);
+      color: var(--primary);
+      border: 1px solid rgba(0, 240, 255, 0.3);
+    }
+
+    .pulse-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--primary);
+      box-shadow: 0 0 8px var(--primary);
+      animation: pulse 1.6s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.4); opacity: 0.6; }
+    }
+
+    /* Section Headers */
+    .section-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin: 16px 0 8px 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Grid Button Groups */
+    .btn-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .btn-grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 5px;
+      margin-bottom: 8px;
+    }
+
+    .hud-btn {
+      appearance: none;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 7px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .hud-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.25);
+      transform: translateY(-1px);
+    }
+
+    .hud-btn.active {
+      background: linear-gradient(135deg, rgba(0, 240, 255, 0.25), rgba(255, 0, 127, 0.25));
+      border-color: var(--primary);
+      color: #fff;
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.35);
+    }
+
+    .hud-btn.primary {
+      background: linear-gradient(135deg, #00f0ff 0%, #0088ff 100%);
+      color: #000;
+      font-weight: 700;
+      border: none;
+      box-shadow: 0 4px 14px rgba(0, 240, 255, 0.4);
+    }
+
+    .hud-btn.primary:hover {
+      box-shadow: 0 6px 20px rgba(0, 240, 255, 0.6);
+      transform: translateY(-1px);
+    }
+
+    .hud-btn.accent {
+      background: linear-gradient(135deg, #ff007f 0%, #9900ff 100%);
+      color: #fff;
+      font-weight: 700;
+      border: none;
+      box-shadow: 0 4px 14px rgba(255, 0, 127, 0.4);
+    }
+
+    .hud-btn.accent:hover {
+      box-shadow: 0 6px 20px rgba(255, 0, 127, 0.6);
+      transform: translateY(-1px);
+    }
+
+    /* Sliders */
+    .control-row {
+      margin-bottom: 12px;
+    }
+
+    .control-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: 5px;
+    }
+
+    .control-val {
+      color: var(--primary);
+      font-family: monospace;
+      font-weight: bold;
+    }
+
+    input[type=range] {
+      width: 100%;
+      height: 4px;
+      border-radius: 2px;
+      background: rgba(255, 255, 255, 0.1);
+      outline: none;
+      appearance: none;
+      -webkit-appearance: none;
+    }
+
+    input[type=range]::-webkit-slider-thumb {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--primary);
+      cursor: pointer;
+      box-shadow: 0 0 10px var(--primary);
+      border: 2px solid #fff;
+      transition: transform 0.15s ease;
+    }
+
+    input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    /* Color Swatches */
+    .color-swatches {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+
+    .swatch-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 8px;
+      border-radius: 8px;
+      font-size: 10px;
+      font-weight: 600;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .swatch-btn:hover {
+      background: rgba(255, 255, 255, 0.09);
+    }
+
+    .swatch-btn.active {
+      border-color: #fff;
+      box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+    }
+
+    .swatch-pip {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* Stats Bar */
+    .stats-card {
+      background: rgba(0, 0, 0, 0.35);
+      border-radius: 10px;
+      padding: 8px 12px;
+      display: flex;
+      justify-content: space-around;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      margin-top: 14px;
+    }
+
+    .stat-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+    }
+
+    .stat-val {
+      font-size: 13px;
+      font-weight: 800;
+      font-family: monospace;
+      color: var(--primary);
+    }
+
+    .stat-lbl {
+      font-size: 9px;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+
+    /* Toggle HUD floating button */
+    #toggle-hud-btn {
+      position: fixed;
+      top: 16px;
+      left: 16px;
+      z-index: 90;
+      background: var(--bg-dark);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-glow);
+      color: var(--primary);
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+      transition: all 0.2s ease;
+    }
+
+    #toggle-hud-btn:hover {
+      transform: scale(1.05);
+      border-color: var(--primary);
+    }
+
+    /* Shortcut Hints Pill */
+    #shortcut-bar {
+      position: fixed;
+      bottom: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(10, 12, 24, 0.7);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 30px;
+      padding: 7px 16px;
+      font-size: 11px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      pointer-events: none;
+      z-index: 80;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+    }
+
+    .kbd {
+      background: rgba(255, 255, 255, 0.12);
+      color: #fff;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-weight: 700;
+      font-size: 10px;
+      margin-right: 4px;
+      border-bottom: 2px solid rgba(0,0,0,0.4);
+    }
+
+    /* Toast Notification */
+    #toast {
+      position: fixed;
+      top: 24px;
+      right: 24px;
+      background: rgba(15, 20, 35, 0.9);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--primary);
+      border-radius: 12px;
+      padding: 10px 18px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #fff;
+      box-shadow: 0 10px 30px rgba(0, 240, 255, 0.3);
+      z-index: 200;
+      transform: translateY(-50px);
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    #toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  </style>
+
+  <!-- Load XTK Edge from official source -->
+  <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+  <!-- Load CS460 Assignment 2 loader.js -->
+  <script type="text/javascript" src="loader.js"></script>
+</head>
+<body>
+  <div class="bg-grid"></div>
+
+  <!-- HUD Toggle Button (visible when HUD is closed) -->
+  <button id="toggle-hud-btn" title="Toggle Controls HUD [H]">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+      <line x1="9" y1="3" x2="9" y2="21"></line>
+    </svg>
+  </button>
+
+  <!-- Interactive Control HUD -->
+  <div id="hud">
+    <div class="header">
+      <div class="brand">
+        <h1 class="title">XTK Cube Art</h1>
+        <span class="subtitle">CS460 Kinetic Visualizer</span>
+      </div>
+      <div class="status-badge" id="status-badge">
+        <div class="pulse-dot"></div>
+        <span id="status-text">ONLINE</span>
+      </div>
+    </div>
+
+    <!-- Art Formations -->
+    <div class="section-title">
+      <span>Sculpture Formation</span>
+      <span style="font-size:9px; color:var(--primary)">[1-5]</span>
+    </div>
+    <div class="btn-grid">
+      <button class="hud-btn active" data-mode="wave">🌊 Quantum Wave</button>
+      <button class="hud-btn" data-mode="flying">🚀 Cosmic Flight</button>
+      <button class="hud-btn" data-mode="tesseract">💠 Tesseract 4D</button>
+      <button class="hud-btn" data-mode="vortex">🌪️ Helix Vortex</button>
+      <button class="hud-btn" data-mode="sphere" style="grid-column: span 2;">🔮 Pulsing Hyper-Sphere</button>
+    </div>
+
+    <!-- Dynamic Color Palettes -->
+    <div class="section-title">
+      <span>Color Energy Theme</span>
+      <span style="font-size:9px; color:var(--primary)">[C]</span>
+    </div>
+    <div class="color-swatches">
+      <button class="swatch-btn active" data-palette="neon">
+        <span class="swatch-pip" style="background: linear-gradient(135deg, #00f0ff, #ff007f);"></span>
+        Neon
+      </button>
+      <button class="swatch-btn" data-palette="synthwave">
+        <span class="swatch-pip" style="background: linear-gradient(135deg, #ff007f, #ffe600);"></span>
+        Synth
+      </button>
+      <button class="swatch-btn" data-palette="aurora">
+        <span class="swatch-pip" style="background: linear-gradient(135deg, #00ffaa, #0088ff);"></span>
+        Aurora
+      </button>
+      <button class="swatch-btn" data-palette="fire">
+        <span class="swatch-pip" style="background: linear-gradient(135deg, #ff2200, #ffaa00);"></span>
+        Inferno
+      </button>
+      <button class="swatch-btn" data-palette="matrix">
+        <span class="swatch-pip" style="background: linear-gradient(135deg, #00ff44, #003311);"></span>
+        Matrix
+      </button>
+      <button class="swatch-btn" data-palette="rainbow">
+        <span class="swatch-pip" style="background: linear-gradient(135deg, #ff0000, #00ff00, #0000ff);"></span>
+        Flux
+      </button>
+    </div>
+
+    <!-- Motion Dynamics & Physics -->
+    <div class="section-title">Motion Dynamics</div>
+    <div class="control-row">
+      <div class="control-label">
+        <span>Animation Speed</span>
+        <span class="control-val" id="val-speed">1.0x</span>
+      </div>
+      <input type="range" id="slider-speed" min="0.1" max="2.5" step="0.1" value="1.0">
+    </div>
+
+    <div class="control-row">
+      <div class="control-label">
+        <span>Wave Amplitude</span>
+        <span class="control-val" id="val-amp">32</span>
+      </div>
+      <input type="range" id="slider-amp" min="8" max="65" step="1" value="32">
+    </div>
+
+    <div class="control-row">
+      <div class="control-label">
+        <span>Cube Geometry Scale</span>
+        <span class="control-val" id="val-scale">1.0x</span>
+      </div>
+      <input type="range" id="slider-scale" min="0.4" max="1.8" step="0.1" value="1.0">
+    </div>
+
+    <!-- Kinetic Actions -->
+    <div class="section-title">Kinetic Triggers</div>
+    <div class="btn-grid">
+      <button class="hud-btn primary" id="btn-explode" title="Blast cubes outward [F]">
+        💥 Blast Scatter
+      </button>
+      <button class="hud-btn accent" id="btn-spawn" title="Launch a new flying cube [N]">
+        🚀 Launch Cube
+      </button>
+    </div>
+    <div class="btn-grid">
+      <button class="hud-btn" id="btn-pulse" title="Trigger rhythmic beat pulse [B]">
+        🎵 Beat Pulse
+      </button>
+      <button class="hud-btn" id="btn-pause" title="Pause or resume animation [Space]">
+        ⏸️ Pause/Play
+      </button>
+    </div>
+
+    <!-- Scene Export / Import (CS460 loader.js integration) -->
+    <div class="section-title">Scene Storage (loader.js)</div>
+    <div class="btn-grid">
+      <button class="hud-btn" id="btn-download" title="Export scene via loader.js download() [D]">
+        💾 Save JSON
+      </button>
+      <button class="hud-btn" id="btn-upload" title="Import scene.json">
+        📂 Load JSON
+      </button>
+    </div>
+    <!-- Hidden file input for loading saved JSON offline -->
+    <input type="file" id="file-input" accept=".json" style="display:none;">
+
+    <!-- System Performance Stats -->
+    <div class="stats-card">
+      <div class="stat-item">
+        <span class="stat-val" id="stat-fps">60</span>
+        <span class="stat-lbl">FPS</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-val" id="stat-cubes">125</span>
+        <span class="stat-lbl">Cubes</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-val" id="stat-flying">25</span>
+        <span class="stat-lbl">Flying</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Shortcut Hints -->
+  <div id="shortcut-bar">
+    <span><span class="kbd">Space</span>Pause</span>
+    <span><span class="kbd">1-5</span>Formations</span>
+    <span><span class="kbd">C</span>Color</span>
+    <span><span class="kbd">F</span>Blast</span>
+    <span><span class="kbd">N</span>Launch</span>
+    <span><span class="kbd">B</span>Beat</span>
+    <span><span class="kbd">D</span>Save</span>
+    <span><span class="kbd">H</span>Hide HUD</span>
+  </div>
+
+  <!-- Toast Notification element -->
+  <div id="toast"></div>
+
+  <!-- Visualization Application Script -->
+  <script type="text/javascript">
+    // Global XTK renderer and camera array expected by loader.js
+    var r = null;
+    var CAMERAS = [];
+
+    // Configuration & State
+    var config = {
+      mode: 'wave',           // 'wave', 'flying', 'tesseract', 'vortex', 'sphere'
+      palette: 'neon',        // 'neon', 'synthwave', 'aurora', 'fire', 'matrix', 'rainbow'
+      speed: 1.0,
+      amplitude: 32,
+      scale: 1.0,
+      isPaused: false,
+      gridDim: 10,            // 10x10 = 100 formation cubes
+      numFlying: 25           // 25 continuous cosmic flying cubes
+    };
+
+    // Arrays holding cube objects and their physics/animation metadata
+    var formationCubes = [];
+    var flyingCubes = [];
+    var allCubes = [];
+
+    // Animation timing & metrics
+    var simTime = 0.0;
+    var lastTimestamp = 0;
+    var frameCount = 0;
+    var lastFpsCheck = 0;
+
+    // Pulse & Shockwave wave state
+    var pulseTime = 999.0;
+    var pulseAmp = 0.0;
+
+    // Color Palettes
+    var PALETTES = {
+      neon: {
+        name: 'Cyber Neon',
+        colors: [
+          [0.0, 0.94, 1.0],   // Cyan
+          [1.0, 0.0, 0.55],   // Hot Magenta
+          [1.0, 0.9, 0.0],    // Electric Yellow
+          [0.47, 0.16, 0.95], // Violet
+          [1.0, 0.35, 0.0]    // Electric Orange
+        ]
+      },
+      synthwave: {
+        name: '80s Synthwave',
+        colors: [
+          [0.18, 0.05, 0.42], // Deep Purple
+          [1.0, 0.05, 0.6],   // Neon Pink
+          [1.0, 0.45, 0.25],  // Coral Sunset
+          [1.0, 0.85, 0.15],  // Golden Sunset
+          [0.0, 0.82, 0.95]   // Synth Cyan
+        ]
+      },
+      aurora: {
+        name: 'Cosmic Aurora',
+        colors: [
+          [0.0, 1.0, 0.65],   // Jade Green
+          [0.05, 0.6, 1.0],   // Electric Teal
+          [0.65, 0.15, 1.0],  // Aurora Purple
+          [0.2, 1.0, 0.35],   // Radiant Emerald
+          [0.9, 0.95, 1.0]    // Starlight
+        ]
+      },
+      fire: {
+        name: 'Solar Flare',
+        colors: [
+          [1.0, 0.08, 0.02],  // Lava Crimson
+          [1.0, 0.42, 0.0],   // Fire Orange
+          [1.0, 0.82, 0.08],  // Amber Sun
+          [1.0, 0.15, 0.35],  // Ruby Flare
+          [1.0, 0.98, 0.85]   // Plasma White
+        ]
+      },
+      matrix: {
+        name: 'Matrix Digital',
+        colors: [
+          [0.0, 0.25, 0.08],  // Shadow Green
+          [0.0, 0.92, 0.28],  // Matrix Green
+          [0.35, 1.0, 0.45],  // Mint Code
+          [0.0, 1.0, 0.8],    // Glitch Cyan
+          [0.9, 1.0, 0.9]     // White Phosphor
+        ]
+      },
+      rainbow: {
+        name: 'Prismatic Flux',
+        isDynamic: true
+      }
+    };
+
+    // Helper: HSL to RGB conversion (h in [0, 360], s, l in [0, 1], returns [r, g, b] in [0, 1])
+    function hslToRgb(h, s, l) {
+      h = (h % 360 + 360) % 360;
+      var c = (1 - Math.abs(2 * l - 1)) * s;
+      var x = c * (1 - Math.abs((h / 60) % 2 - 1));
+      var m = l - c / 2;
+      var r = 0, g = 0, b = 0;
+      if (h < 60) { r = c; g = x; b = 0; }
+      else if (h < 120) { r = x; g = c; b = 0; }
+      else if (h < 180) { r = 0; g = c; b = x; }
+      else if (h < 240) { r = 0; g = x; b = c; }
+      else if (h < 300) { r = x; g = 0; b = c; }
+      else { r = c; g = 0; b = x; }
+      return [r + m, g + m, b + m];
+    }
+
+    // Helper: Interpolate palette color based on scalar value 0.0 to 1.0
+    function samplePalette(paletteKey, t) {
+      if (paletteKey === 'rainbow' || !PALETTES[paletteKey]) {
+        return hslToRgb(t * 360, 0.9, 0.55);
+      }
+      var pal = PALETTES[paletteKey].colors;
+      var scaled = (t % 1.0 + 1.0) % 1.0 * (pal.length - 1);
+      var idx = Math.floor(scaled);
+      var frac = scaled - idx;
+      var c1 = pal[idx];
+      var c2 = pal[(idx + 1) % pal.length];
+      return [
+        c1[0] + (c2[0] - c1[0]) * frac,
+        c1[1] + (c2[1] - c1[1]) * frac,
+        c1[2] + (c2[2] - c1[2]) * frac
+      ];
+    }
+
+    // Helper: Direct Mathematical Matrix Transformation
+    // Computes Rz * Ry * Rx and injects translation (x, y, z) and scale directly into Float32Array(16)
+    function applyTransform(cube, x, y, z, rotX, rotY, rotZ, scale) {
+      scale = scale || 1.0;
+      var radX = rotX * Math.PI / 180;
+      var radY = rotY * Math.PI / 180;
+      var radZ = rotZ * Math.PI / 180;
+
+      var cx = Math.cos(radX), sx = Math.sin(radX);
+      var cy = Math.cos(radY), sy = Math.sin(radY);
+      var cz = Math.cos(radZ), sz = Math.sin(radZ);
+
+      var m = cube.transform.matrix;
+      // Column 0
+      m[0] = (cz * cy) * scale;
+      m[1] = (sz * cy) * scale;
+      m[2] = (-sy) * scale;
+      m[3] = 0;
+      // Column 1
+      m[4] = (cz * sy * sx - sz * cx) * scale;
+      m[5] = (sz * sy * sx + cz * cx) * scale;
+      m[6] = (cy * sx) * scale;
+      m[7] = 0;
+      // Column 2
+      m[8] = (cz * sy * cx + sz * sx) * scale;
+      m[9] = (sz * sy * cx - cz * sx) * scale;
+      m[10] = (cy * cx) * scale;
+      m[11] = 0;
+      // Column 3 (Translation)
+      m[12] = x;
+      m[13] = y;
+      m[14] = z;
+      m[15] = 1;
+
+      // Mark object modified so XTK uploads buffer/uniform changes
+      cube.modified();
+    }
+
+    // Toast notification
+    function showToast(msg) {
+      var toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.classList.add('show');
+      clearTimeout(toast._timer);
+      toast._timer = setTimeout(function() {
+        toast.classList.remove('show');
+      }, 2000);
+    }
+
+    // Initialize XTK Renderer and build the 3D Cube Art Scene
+    window.onload = function() {
+      // Create and initialize 3D XTK Renderer
+      r = new X.renderer3D();
+      r.init();
+
+      // Ensure global CAMERAS exists for loader.js
+      if (typeof CAMERAS === 'undefined') {
+        CAMERAS = [];
+      }
+
+      // Build Formation Cubes (10x10 Grid = 100 Cubes)
+      var dim = config.gridDim;
+      var cubeSize = 13.0;
+
+      for (var z = 0; z < dim; z++) {
+        for (var x = 0; x < dim; x++) {
+          var cube = new X.cube();
+          cube.center = [0, 0, 0];
+          cube.lengthX = cubeSize;
+          cube.lengthY = cubeSize;
+          cube.lengthZ = cubeSize;
+          cube.color = [0.0, 0.94, 1.0];
+          cube.opacity = 0.92;
+          r.add(cube);
+
+          var i = formationCubes.length;
+          var item = {
+            cube: cube,
+            index: i,
+            gridX: x,
+            gridZ: z,
+            // Smooth interpolated positions
+            currX: (x - (dim - 1) / 2) * 25,
+            currY: 0,
+            currZ: (z - (dim - 1) / 2) * 25,
+            targetX: 0,
+            targetY: 0,
+            targetZ: 0,
+            rotX: 0,
+            rotY: 0,
+            rotZ: 0,
+            targetRotX: 0,
+            targetRotY: 0,
+            targetRotZ: 0,
+            // Blast and impulse physics
+            dispX: 0, dispY: 0, dispZ: 0,
+            velX: 0, velY: 0, velZ: 0,
+            spinVelX: 0, spinVelY: 0, spinVelZ: 0,
+            scale: 1.0,
+            phase: (x * 0.4 + z * 0.4) + Math.random() * 0.5,
+            highlightTimer: 0.0
+          };
+          formationCubes.push(item);
+          allCubes.push(item);
+        }
+      }
+
+      // Build Dedicated Flying Starfield / Comet Cubes
+      for (var f = 0; f < config.numFlying; f++) {
+        createFlyingCube(false);
+      }
+
+      // Setup UI Events & Keyboard Listeners
+      setupUI();
+
+      // Start the 60 FPS Animation Loop
+      requestAnimationFrame(animationLoop);
+
+      showToast('✨ XTK 3D Cube Art Visualizer Loaded');
+    };
+
+    // Spawn a dedicated Flying Comet Cube
+    function createFlyingCube(fromCamera) {
+      var flyCube = new X.cube();
+      var sz = 8.0 + Math.random() * 8.0;
+      flyCube.center = [0, 0, 0];
+      flyCube.lengthX = sz;
+      flyCube.lengthY = sz;
+      flyCube.lengthZ = sz;
+      flyCube.color = [1.0, 0.0, 0.5];
+      flyCube.opacity = 0.88;
+      r.add(flyCube);
+
+      var startX, startY, startZ, vx, vy, vz;
+
+      if (fromCamera) {
+        // Launch from viewing camera towards scene center
+        startX = (Math.random() - 0.5) * 60;
+        startY = (Math.random() - 0.5) * 60 + 20;
+        startZ = 220 + Math.random() * 40;
+        vx = (Math.random() - 0.5) * 2.5;
+        vy = (Math.random() - 0.5) * 2.5;
+        vz = -(4.0 + Math.random() * 4.5);
+      } else {
+        // Random celestial spawn in 3D bounding box
+        startX = (Math.random() - 0.5) * 500;
+        startY = (Math.random() - 0.5) * 260;
+        startZ = (Math.random() - 0.5) * 500;
+        var spd = 1.2 + Math.random() * 2.5;
+        var angle = Math.random() * Math.PI * 2;
+        vx = Math.cos(angle) * spd;
+        vy = (Math.random() - 0.5) * spd * 0.8;
+        vz = Math.sin(angle) * spd;
+      }
+
+      var item = {
+        cube: flyCube,
+        currX: startX,
+        currY: startY,
+        currZ: startZ,
+        targetX: startX,
+        targetY: startY,
+        targetZ: startZ,
+        vx: vx,
+        vy: vy,
+        vz: vz,
+        rotX: Math.random() * 360,
+        rotY: Math.random() * 360,
+        rotZ: Math.random() * 360,
+        spinX: (Math.random() - 0.5) * 6.0,
+        spinY: (Math.random() - 0.5) * 6.0,
+        spinZ: (Math.random() - 0.5) * 6.0,
+        dispX: 0, dispY: 0, dispZ: 0,
+        velX: 0, velY: 0, velZ: 0,
+        isFlying: true,
+        scale: 1.0,
+        phase: Math.random() * Math.PI * 2,
+        highlightTimer: 0.0
+      };
+
+      flyingCubes.push(item);
+      allCubes.push(item);
+      updateUIStats();
+      return item;
+    }
+
+    // Calculate Formations for Base Cubes
+    function solveFormations(t) {
+      var N = formationCubes.length;
+      var dim = config.gridDim;
+      var amp = config.amplitude;
+
+      for (var i = 0; i < N; i++) {
+        var c = formationCubes[i];
+        var gx = c.gridX;
+        var gz = c.gridZ;
+        var x = 0, y = 0, z = 0;
+        var rx = 0, ry = 0, rz = 0;
+        var s = 1.0;
+
+        switch (config.mode) {
+          case 'wave':
+            // 🌊 Mathematical Quantum Wave Grid
+            x = (gx - (dim - 1) / 2) * 25.0;
+            z = (gz - (dim - 1) / 2) * 25.0;
+            var dist = Math.sqrt(x * x + z * z);
+            y = amp * Math.sin(dist * 0.045 - t * 2.5) * Math.cos(x * 0.02 + t * 1.2);
+            rx = Math.cos(dist * 0.045 - t * 2.5) * 18.0;
+            rz = -Math.sin(dist * 0.045 - t * 2.5) * 18.0;
+            ry = (t * 25.0 + dist * 0.6) % 360;
+            s = 0.85 + 0.28 * Math.sin(dist * 0.05 - t * 2.2);
+            break;
+
+          case 'flying':
+            // 🚀 Cosmic Swarm / Starfield Flow
+            var orbitR = 120.0 + 35.0 * Math.sin(t * 0.8 + c.phase);
+            var orbitAngle = t * 1.2 + c.phase * 2.0;
+            x = Math.cos(orbitAngle) * orbitR + 25.0 * Math.sin(t * 2.1 + i);
+            z = Math.sin(orbitAngle) * orbitR + 25.0 * Math.cos(t * 1.9 + i);
+            y = 75.0 * Math.sin(t * 1.4 + c.phase * 3.0) + 15.0 * Math.cos(orbitAngle * 2.0);
+            rx = (t * 80.0 + c.phase * 120.0) % 360;
+            ry = (t * 90.0 + i * 20.0) % 360;
+            rz = (t * 70.0 + c.phase * 90.0) % 360;
+            s = 0.9 + 0.35 * Math.sin(t * 3.0 + c.phase);
+            break;
+
+          case 'tesseract':
+            // 💠 Concentric Kinetic Hypercube / Tesseract
+            var layer = Math.floor(i / 25); // 4 concentric shells
+            var inLayer = i % 25;
+            var baseRadius = 25.0 + layer * 38.0;
+            var breathe = 1.0 + 0.18 * Math.sin(t * 2.0 + layer * 0.8);
+            var rad = baseRadius * breathe;
+            var angle = (inLayer / 25) * Math.PI * 2;
+            var rotDir = (layer % 2 === 0) ? 1 : -1;
+
+            if (layer === 0) {
+              // Central pulsating nucleus
+              x = Math.cos(angle + t * rotDir) * rad * 0.6;
+              y = Math.sin(angle * 2.0 + t) * 20.0;
+              z = Math.sin(angle + t * rotDir) * rad * 0.6;
+            } else if (layer === 1) {
+              // Orbiting equatorial ring
+              x = Math.cos(angle + t * 1.5 * rotDir) * rad;
+              y = Math.sin(t * 2.5 + angle * 3.0) * 30.0;
+              z = Math.sin(angle + t * 1.5 * rotDir) * rad;
+            } else if (layer === 2) {
+              // Vertical meridian ring
+              x = Math.sin(t * 2.0 + angle * 2.0) * 35.0;
+              y = Math.cos(angle + t * 1.2 * rotDir) * rad;
+              z = Math.sin(angle + t * 1.2 * rotDir) * rad;
+            } else {
+              // Outer cage vertices
+              x = Math.cos(angle + t * 0.8 * rotDir) * rad;
+              y = Math.sin(angle + t * 0.8 * rotDir) * rad;
+              z = Math.cos(angle * 3.0 + t) * rad * 0.5;
+            }
+            rx = (t * 40.0 * rotDir) % 360;
+            ry = (t * 55.0 * rotDir + inLayer * 14.4) % 360;
+            rz = (t * 30.0) % 360;
+            s = 0.8 + 0.3 * Math.sin(t * 3.0 + layer);
+            break;
+
+          case 'vortex':
+            // 🌪️ DNA Double Helix / Tornado Vortex
+            var strand = i % 2;
+            var heightProgress = (i / N);
+            var h = (heightProgress - 0.5) * 240.0;
+            var coneRadius = 20.0 + 85.0 * Math.pow(heightProgress, 1.4);
+            var vAngle = i * 0.45 + t * 2.6 + strand * Math.PI;
+            x = Math.cos(vAngle) * coneRadius;
+            z = Math.sin(vAngle) * coneRadius;
+            y = h + 10.0 * Math.sin(t * 3.0 + i * 0.2);
+            rx = Math.sin(vAngle) * 35.0;
+            ry = (-vAngle * 180 / Math.PI) % 360;
+            rz = Math.cos(vAngle) * 25.0;
+            s = 0.75 + 0.4 * heightProgress;
+            break;
+
+          case 'sphere':
+            // 🔮 Pulsing Geodesic Fibonacci Sphere
+            var phi = Math.acos(1 - 2 * (i + 0.5) / N);
+            var goldenTheta = Math.PI * (3 - Math.sqrt(5)) * i + t * 0.6;
+            var sphereRadius = 105.0 + 22.0 * Math.sin(t * 2.5 + phi * 3.0);
+            x = sphereRadius * Math.sin(phi) * Math.cos(goldenTheta);
+            y = sphereRadius * Math.cos(phi);
+            z = sphereRadius * Math.sin(phi) * Math.sin(goldenTheta);
+            rx = (phi * 180 / Math.PI + t * 30.0) % 360;
+            ry = (goldenTheta * 180 / Math.PI + t * 40.0) % 360;
+            rz = (t * 25.0) % 360;
+            s = 0.85 + 0.3 * Math.sin(phi * 4.0 - t * 3.0);
+            break;
+        }
+
+        c.targetX = x;
+        c.targetY = y;
+        c.targetZ = z;
+        c.targetRotX = rx;
+        c.targetRotY = ry;
+        c.targetRotZ = rz;
+        c.scale = s;
+      }
+    }
+
+    // Update Cosmic Flying Cubes
+    function updateFlyingCubes(dt, t) {
+      var box = 320.0;
+      var speedMult = config.speed;
+
+      for (var f = 0; f < flyingCubes.length; f++) {
+        var fc = flyingCubes[f];
+
+        // Linear flight movement
+        fc.currX += fc.vx * speedMult;
+        fc.currY += fc.vy * speedMult;
+        fc.currZ += fc.vz * speedMult;
+
+        // Continuous tumbling spin
+        fc.rotX = (fc.rotX + fc.spinX * speedMult) % 360;
+        fc.rotY = (fc.rotY + fc.spinY * speedMult) % 360;
+        fc.rotZ = (fc.rotZ + fc.spinZ * speedMult) % 360;
+
+        // Boundary wrapping: keep comets flying continuously in view
+        if (fc.currX > box) fc.currX = -box;
+        else if (fc.currX < -box) fc.currX = box;
+
+        if (fc.currY > box * 0.7) fc.currY = -box * 0.7;
+        else if (fc.currY < -box * 0.7) fc.currY = box * 0.7;
+
+        if (fc.currZ > box) fc.currZ = -box;
+        else if (fc.currZ < -box) fc.currZ = box;
+
+        // Flying cube pulsating scale
+        fc.scale = 0.9 + 0.35 * Math.sin(t * 3.5 + fc.phase);
+      }
+    }
+
+    // Primary 60 FPS Animation & Render Loop
+    function animationLoop(timestamp) {
+      requestAnimationFrame(animationLoop);
+
+      if (!lastTimestamp) lastTimestamp = timestamp;
+      var dt = (timestamp - lastTimestamp) / 1000.0;
+      lastTimestamp = timestamp;
+      if (dt > 0.1) dt = 0.1; // clamp delta on tab switch
+
+      // FPS Measurement
+      frameCount++;
+      if (timestamp - lastFpsCheck >= 500) {
+        var fps = Math.round((frameCount * 1000) / (timestamp - lastFpsCheck));
+        document.getElementById('stat-fps').textContent = fps;
+        frameCount = 0;
+        lastFpsCheck = timestamp;
+      }
+
+      if (!config.isPaused) {
+        simTime += dt * config.speed;
+      }
+
+      // Pulse wave timer
+      pulseTime += dt;
+      pulseAmp *= 0.94; // smooth decay
+
+      // 1. Solve base formation positions & orientations
+      solveFormations(simTime);
+
+      // 2. Update dedicated flying starfield cubes
+      if (!config.isPaused) {
+        updateFlyingCubes(dt, simTime);
+      }
+
+      // 3. Process Physics, Colors, and Apply Transforms to all Cubes
+      var userScale = config.scale;
+      var activePalette = config.palette;
+
+      for (var k = 0; k < allCubes.length; k++) {
+        var c = allCubes[k];
+
+        // Smooth transition lerp towards formation targets (for base cubes)
+        if (!c.isFlying) {
+          var lerpFactor = 0.12;
+          c.currX += (c.targetX - c.currX) * lerpFactor;
+          c.currY += (c.targetY - c.currY) * lerpFactor;
+          c.currZ += (c.targetZ - c.currZ) * lerpFactor;
+
+          c.rotX += (c.targetRotX - c.rotX) * lerpFactor;
+          c.rotY += (c.targetRotY - c.rotY) * lerpFactor;
+          c.rotZ += (c.targetRotZ - c.rotZ) * lerpFactor;
+        }
+
+        // Apply Explosion / Impulse Physics
+        c.dispX += c.velX;
+        c.dispY += c.velY;
+        c.dispZ += c.velZ;
+
+        c.rotX += c.spinVelX;
+        c.rotY += c.spinVelY;
+        c.rotZ += c.spinVelZ;
+
+        // Damping and spring recovery
+        c.velX *= 0.88;
+        c.velY *= 0.88;
+        c.velZ *= 0.88;
+        c.spinVelX *= 0.92;
+        c.spinVelY *= 0.92;
+        c.spinVelZ *= 0.92;
+
+        c.dispX *= 0.93;
+        c.dispY *= 0.93;
+        c.dispZ *= 0.93;
+
+        // Final composite coordinates
+        var finalX = c.currX + c.dispX;
+        var finalY = c.currY + c.dispY;
+        var finalZ = c.currZ + c.dispZ;
+
+        // Distance from scene origin
+        var dist = Math.sqrt(finalX * finalX + finalZ * finalZ);
+
+        // Compute Dynamic Color Shifting
+        var colorProgress = (dist * 0.0035 + (finalY + 120.0) * 0.002 + simTime * 0.12) % 1.0;
+        var baseRgb = samplePalette(activePalette, colorProgress);
+
+        // Highlight / Click / Beat flash
+        if (c.highlightTimer > 0) {
+          c.highlightTimer -= dt * 2.5;
+          baseRgb = [
+            Math.min(1.0, baseRgb[0] + 0.8),
+            Math.min(1.0, baseRgb[1] + 0.8),
+            Math.min(1.0, baseRgb[2] + 0.8)
+          ];
+        }
+
+        // Rhythmic Pulse Shockwave Color Flare
+        if (pulseAmp > 0.01) {
+          var ringDist = pulseTime * 180.0;
+          var diff = Math.abs(dist - ringDist);
+          if (diff < 35.0) {
+            var flare = (1.0 - diff / 35.0) * pulseAmp;
+            baseRgb[0] = Math.min(1.0, baseRgb[0] + flare * 0.7);
+            baseRgb[1] = Math.min(1.0, baseRgb[1] + flare * 0.9);
+            baseRgb[2] = Math.min(1.0, baseRgb[2] + flare * 1.0);
+          }
+        }
+
+        // Assign color and apply full 4x4 transformation matrix
+        c.cube.color = baseRgb;
+        var finalScale = c.scale * userScale;
+        applyTransform(c.cube, finalX, finalY, finalZ, c.rotX, c.rotY, c.rotZ, finalScale);
+      }
+
+      // XTK Render Pass
+      r.render();
+    }
+
+    // Trigger Supernova Explosion Scatter
+    function triggerExplosion() {
+      for (var i = 0; i < allCubes.length; i++) {
+        var c = allCubes[i];
+        var dx = c.currX || (Math.random() - 0.5) * 10;
+        var dy = c.currY || (Math.random() - 0.5) * 10;
+        var dz = c.currZ || (Math.random() - 0.5) * 10;
+        var len = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1.0;
+        var spd = 65.0 + Math.random() * 85.0;
+
+        c.velX = (dx / len) * spd + (Math.random() - 0.5) * 35.0;
+        c.velY = (dy / len) * spd + (Math.random() - 0.5) * 35.0;
+        c.velZ = (dz / len) * spd + (Math.random() - 0.5) * 35.0;
+
+        c.spinVelX = (Math.random() - 0.5) * 25.0;
+        c.spinVelY = (Math.random() - 0.5) * 25.0;
+        c.spinVelZ = (Math.random() - 0.5) * 25.0;
+        c.highlightTimer = 0.8;
+      }
+      showToast('💥 Supernova Blast Triggered!');
+    }
+
+    // Trigger Rhythmic Beat Pulse
+    function triggerBeatPulse() {
+      pulseTime = 0.0;
+      pulseAmp = 1.0;
+      for (var i = 0; i < allCubes.length; i++) {
+        var c = allCubes[i];
+        c.velY += (Math.random() - 0.5) * 8.0;
+      }
+      showToast('🎵 Rhythm Beat Pulse Active');
+    }
+
+    // Handle interactive cube click
+    function onCubeClicked(pickedObject) {
+      for (var i = 0; i < allCubes.length; i++) {
+        if (allCubes[i].cube === pickedObject) {
+          var c = allCubes[i];
+          c.velY += 45.0;
+          c.spinVelY += 40.0;
+          c.highlightTimer = 1.5;
+
+          // Propagate ripple to nearby cubes
+          for (var j = 0; j < allCubes.length; j++) {
+            var o = allCubes[j];
+            var d = Math.hypot(o.currX - c.currX, o.currZ - c.currZ);
+            if (d < 120.0) {
+              var factor = 1.0 - d / 120.0;
+              o.velY += factor * 25.0;
+              o.highlightTimer = factor * 0.8;
+            }
+          }
+          showToast('✨ Cube Activated: Shockwave Launched');
+          return;
+        }
+      }
+    }
+
+    // UI Statistics display update
+    function updateUIStats() {
+      document.getElementById('stat-cubes').textContent = allCubes.length;
+      document.getElementById('stat-flying').textContent = flyingCubes.length;
+    }
+
+    // Load Scene from local JSON File (loader.js compatible format)
+    function loadSceneFile(file) {
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          var loaded = JSON.parse(e.target.result);
+          // Hide all existing objects
+          for (var i = 0; i < r.Ha.length; i++) {
+            r.Ha[i].visible = false;
+          }
+          formationCubes = [];
+          flyingCubes = [];
+          allCubes = [];
+
+          // Rebuild cubes from loaded data
+          var objs = loaded['objects'] || [];
+          for (var k = 0; k < objs.length; k++) {
+            var obj = objs[k];
+            var type = obj[0];
+            var color = obj[1];
+            var matrix = obj[2];
+            var radius = obj[3];
+            var lengthX = obj[4];
+            var lengthY = obj[5];
+            var lengthZ = obj[6];
+
+            if (type === 'cube') {
+              var loaded_cube = new X.cube();
+              loaded_cube.color = color;
+              loaded_cube.transform.matrix = new Float32Array(Object.values(matrix));
+              loaded_cube.lengthX = lengthX;
+              loaded_cube.lengthY = lengthY;
+              loaded_cube.lengthZ = lengthZ;
+              r.add(loaded_cube);
+
+              var item = {
+                cube: loaded_cube,
+                currX: loaded_cube.transform.matrix[12],
+                currY: loaded_cube.transform.matrix[13],
+                currZ: loaded_cube.transform.matrix[14],
+                targetX: loaded_cube.transform.matrix[12],
+                targetY: loaded_cube.transform.matrix[13],
+                targetZ: loaded_cube.transform.matrix[14],
+                rotX: 0, rotY: 0, rotZ: 0,
+                targetRotX: 0, targetRotY: 0, targetRotZ: 0,
+                dispX: 0, dispY: 0, dispZ: 0,
+                velX: 0, velY: 0, velZ: 0,
+                spinVelX: 0, spinVelY: 0, spinVelZ: 0,
+                scale: 1.0,
+                phase: Math.random() * Math.PI * 2,
+                highlightTimer: 0.0,
+                isFlying: false
+              };
+              formationCubes.push(item);
+              allCubes.push(item);
+            }
+          }
+
+          // Restore camera if provided
+          if (loaded['camera'] && loaded['camera'][0]) {
+            r.camera.view = new Float32Array(Object.values(loaded['camera'][0]));
+          }
+
+          updateUIStats();
+          showToast('📂 Scene imported successfully from JSON!');
+        } catch (err) {
+          console.error(err);
+          showToast('❌ Failed to parse scene.json');
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    // Setup HUD Buttons, Sliders, and Controls
+    function setupUI() {
+      // Formation mode buttons
+      var modeBtns = document.querySelectorAll('[data-mode]');
+      modeBtns.forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          modeBtns.forEach(function(b) { b.classList.remove('active'); });
+          btn.classList.add('active');
+          config.mode = btn.getAttribute('data-mode');
+          showToast('Formation: ' + btn.textContent.trim());
+        });
+      });
+
+      // Color palette buttons
+      var swatchBtns = document.querySelectorAll('[data-palette]');
+      swatchBtns.forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          swatchBtns.forEach(function(b) { b.classList.remove('active'); });
+          btn.classList.add('active');
+          config.palette = btn.getAttribute('data-palette');
+          showToast('Theme: ' + PALETTES[config.palette].name);
+        });
+      });
+
+      // Sliders
+      var speedSlider = document.getElementById('slider-speed');
+      speedSlider.addEventListener('input', function(e) {
+        config.speed = parseFloat(e.target.value);
+        document.getElementById('val-speed').textContent = config.speed.toFixed(1) + 'x';
+      });
+
+      var ampSlider = document.getElementById('slider-amp');
+      ampSlider.addEventListener('input', function(e) {
+        config.amplitude = parseFloat(e.target.value);
+        document.getElementById('val-amp').textContent = config.amplitude;
+      });
+
+      var scaleSlider = document.getElementById('slider-scale');
+      scaleSlider.addEventListener('input', function(e) {
+        config.scale = parseFloat(e.target.value);
+        document.getElementById('val-scale').textContent = config.scale.toFixed(1) + 'x';
+      });
+
+      // Kinetic trigger buttons
+      document.getElementById('btn-explode').addEventListener('click', function(e) {
+        e.stopPropagation();
+        triggerExplosion();
+      });
+
+      document.getElementById('btn-spawn').addEventListener('click', function(e) {
+        e.stopPropagation();
+        createFlyingCube(true);
+        showToast('🚀 New Flying Comet Launched!');
+      });
+
+      document.getElementById('btn-pulse').addEventListener('click', function(e) {
+        e.stopPropagation();
+        triggerBeatPulse();
+      });
+
+      document.getElementById('btn-pause').addEventListener('click', function(e) {
+        e.stopPropagation();
+        config.isPaused = !config.isPaused;
+        this.textContent = config.isPaused ? '▶️ Resume' : '⏸️ Pause/Play';
+        document.getElementById('status-text').textContent = config.isPaused ? 'PAUSED' : 'ONLINE';
+        showToast(config.isPaused ? 'Animation Paused' : 'Animation Resumed');
+      });
+
+      // Save scene JSON via loader.js download()
+      document.getElementById('btn-download').addEventListener('click', function(e) {
+        e.stopPropagation();
+        if (typeof download === 'function') {
+          download();
+          showToast('💾 Scene exported to scene.json');
+        } else {
+          showToast('❌ download() from loader.js not found');
+        }
+      });
+
+      // Load scene JSON
+      var fileInput = document.getElementById('file-input');
+      document.getElementById('btn-upload').addEventListener('click', function(e) {
+        e.stopPropagation();
+        fileInput.click();
+      });
+
+      fileInput.addEventListener('change', function(e) {
+        if (e.target.files && e.target.files[0]) {
+          loadSceneFile(e.target.files[0]);
+        }
+      });
+
+      // Toggle HUD visibility
+      var hud = document.getElementById('hud');
+      var toggleBtn = document.getElementById('toggle-hud-btn');
+      function toggleHUD() {
+        hud.classList.toggle('collapsed');
+      }
+      toggleBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        toggleHUD();
+      });
+
+      // Interactive 3D Mouse Picking
+      window.addEventListener('click', function(e) {
+        if (e.target.closest('#hud') || e.target.closest('#toggle-hud-btn')) return;
+        try {
+          var pickId = r.pick(e.clientX, e.clientY);
+          if (pickId && pickId !== 0) {
+            var picked = r.get(pickId);
+            if (picked) {
+              onCubeClicked(picked);
+              return;
+            }
+          }
+        } catch (err) {}
+      });
+
+      // Keyboard Shortcuts
+      window.addEventListener('keydown', function(e) {
+        if (e.target.tagName === 'INPUT') return;
+
+        switch (e.code) {
+          case 'Space':
+            e.preventDefault();
+            config.isPaused = !config.isPaused;
+            document.getElementById('btn-pause').textContent = config.isPaused ? '▶️ Resume' : '⏸️ Pause/Play';
+            document.getElementById('status-text').textContent = config.isPaused ? 'PAUSED' : 'ONLINE';
+            showToast(config.isPaused ? 'Paused [Space]' : 'Resumed [Space]');
+            break;
+
+          case 'Digit1':
+          case 'Numpad1':
+            setModeByCode('wave');
+            break;
+          case 'Digit2':
+          case 'Numpad2':
+            setModeByCode('flying');
+            break;
+          case 'Digit3':
+          case 'Numpad3':
+            setModeByCode('tesseract');
+            break;
+          case 'Digit4':
+          case 'Numpad4':
+            setModeByCode('vortex');
+            break;
+          case 'Digit5':
+          case 'Numpad5':
+            setModeByCode('sphere');
+            break;
+
+          case 'KeyC':
+            // Cycle Color Palettes
+            var keys = Object.keys(PALETTES);
+            var nextIdx = (keys.indexOf(config.palette) + 1) % keys.length;
+            setPaletteByCode(keys[nextIdx]);
+            break;
+
+          case 'KeyF':
+            triggerExplosion();
+            break;
+
+          case 'KeyN':
+            createFlyingCube(true);
+            showToast('🚀 Flying Comet Launched [N]');
+            break;
+
+          case 'KeyB':
+            triggerBeatPulse();
+            break;
+
+          case 'KeyD':
+            if (typeof download === 'function') {
+              download();
+              showToast('💾 Scene exported to scene.json [D]');
+            }
+            break;
+
+          case 'KeyH':
+            toggleHUD();
+            break;
+        }
+      });
+    }
+
+    function setModeByCode(modeName) {
+      config.mode = modeName;
+      document.querySelectorAll('[data-mode]').forEach(function(b) {
+        b.classList.toggle('active', b.getAttribute('data-mode') === modeName);
+      });
+      showToast('Mode: ' + modeName.toUpperCase());
+    }
+
+    function setPaletteByCode(palName) {
+      config.palette = palName;
+      document.querySelectorAll('[data-palette]').forEach(function(b) {
+        b.classList.toggle('active', b.getAttribute('data-palette') === palName);
+      });
+      showToast('Theme: ' + PALETTES[palName].name);
+    }
+  </script>
+</body>
+</html>

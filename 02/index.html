@@ -1,2 +1,1279 @@
-Ready for assignment 2.
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CS460 - 3D Cube Solar System</title>
 
+  <!-- Load XTK Edge from official source -->
+  <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+  <!-- Load CS460 Assignment 2 loader.js -->
+  <script type="text/javascript" src="loader.js"></script>
+
+  <style>
+    :root {
+      --bg-dark: rgba(12, 15, 26, 0.88);
+      --bg-card: rgba(18, 22, 38, 0.92);
+      --border-glow: rgba(255, 255, 255, 0.14);
+      --accent: #ffcc00;
+      --accent-blue: #38bdf8;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      background-color: #000000;
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: var(--text);
+    }
+
+    /* Ambient Subtle Grid / Nebula Depth */
+    #space-glow {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background: radial-gradient(circle at 50% 50%, rgba(255, 200, 50, 0.035) 0%, transparent 45%),
+                  radial-gradient(circle at 80% 20%, rgba(56, 189, 248, 0.025) 0%, transparent 40%);
+      z-index: 1;
+    }
+
+    /* On-Screen Controls & Planet Legend HUD */
+    #legend {
+      position: fixed;
+      top: 18px;
+      left: 18px;
+      width: 290px;
+      background: var(--bg-dark);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--border-glow);
+      border-radius: 14px;
+      padding: 16px 18px;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.75), 0 0 15px rgba(255, 204, 0, 0.08);
+      z-index: 100;
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+    }
+
+    #legend.collapsed {
+      transform: translateX(-330px);
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .legend-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+    }
+
+    .legend-title {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .legend-badge {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: rgba(255, 204, 0, 0.15);
+      color: #ffcc00;
+      border: 1px solid rgba(255, 204, 0, 0.35);
+    }
+
+    .legend-section-title {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-muted);
+      margin: 10px 0 6px 0;
+    }
+
+    /* Controls List */
+    .controls-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      font-size: 12px;
+      background: rgba(0, 0, 0, 0.32);
+      border-radius: 8px;
+      padding: 8px 10px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .ctrl-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: #cbd5e1;
+    }
+
+    .key-badge {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 10.5px;
+      font-weight: 600;
+      background: rgba(255, 255, 255, 0.12);
+      padding: 1.5px 6px;
+      border-radius: 4px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      color: #ffffff;
+    }
+
+    /* Interactive Quick Control Buttons */
+    .btn-row {
+      display: flex;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .hud-btn {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      padding: 7px 8px;
+      font-size: 11.5px;
+      font-weight: 600;
+      color: #f1f5f9;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.18s ease;
+    }
+
+    .hud-btn:hover {
+      background: rgba(255, 204, 0, 0.2);
+      border-color: rgba(255, 204, 0, 0.5);
+      color: #ffffff;
+    }
+
+    .hud-btn:active {
+      transform: scale(0.97);
+    }
+
+    /* Planet Legend Color Swatches */
+    .planet-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-top: 8px;
+      max-height: 220px;
+      overflow-y: auto;
+      padding-right: 2px;
+    }
+
+    .planet-list::-webkit-scrollbar {
+      width: 4px;
+    }
+    .planet-list::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 2px;
+    }
+
+    .planet-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 5px 8px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid transparent;
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.18s ease;
+    }
+
+    .planet-item:hover {
+      background: rgba(255, 255, 255, 0.09);
+      border-color: rgba(255, 255, 255, 0.18);
+    }
+
+    .planet-item.active {
+      background: rgba(255, 204, 0, 0.18);
+      border-color: rgba(255, 204, 0, 0.6);
+      box-shadow: 0 0 10px rgba(255, 204, 0, 0.25);
+    }
+
+    .planet-info-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .planet-color-dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 2px; /* Cube silhouette */
+      box-shadow: 0 0 6px rgba(0, 0, 0, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      flex-shrink: 0;
+    }
+
+    .planet-order {
+      font-size: 10px;
+      color: var(--text-muted);
+      font-weight: 600;
+      width: 14px;
+    }
+
+    .planet-name-text {
+      font-weight: 500;
+      color: #e2e8f0;
+    }
+
+    .planet-color-label {
+      font-size: 10.5px;
+      color: var(--text-muted);
+    }
+
+    /* Toggle Legend Button */
+    #toggle-legend-btn {
+      position: fixed;
+      top: 18px;
+      left: 18px;
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: var(--bg-dark);
+      border: 1px solid var(--border-glow);
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 90;
+      transition: all 0.2s ease;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+    }
+
+    #toggle-legend-btn:hover {
+      background: rgba(255, 204, 0, 0.25);
+      border-color: #ffcc00;
+    }
+
+    /* Interactive Planet Inspection HTML Label Card */
+    #planet-card {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%) translateY(0);
+      background: var(--bg-card);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 204, 0, 0.45);
+      border-radius: 12px;
+      padding: 12px 18px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.8), 0 0 25px rgba(255, 204, 0, 0.2);
+      z-index: 100;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    #planet-card.hidden {
+      transform: translateX(-50%) translateY(-100px);
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .card-color-box {
+      width: 22px;
+      height: 22px;
+      border-radius: 4px;
+      border: 1.5px solid rgba(255, 255, 255, 0.6);
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.8);
+      flex-shrink: 0;
+    }
+
+    .card-details {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .card-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .card-subtitle {
+      font-size: 11.5px;
+      color: var(--text-muted);
+    }
+
+    .card-stats {
+      display: flex;
+      gap: 12px;
+      font-size: 11px;
+      margin-top: 3px;
+      color: #cbd5e1;
+    }
+
+    .card-stat-item b {
+      color: #ffcc00;
+    }
+
+    .card-close-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 18px;
+      line-height: 1;
+      padding: 4px 6px;
+      cursor: pointer;
+      border-radius: 6px;
+      transition: color 0.15s ease;
+    }
+
+    .card-close-btn:hover {
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    /* Floating 3D Anchor Label */
+    #floating-label {
+      position: fixed;
+      pointer-events: none;
+      transform: translate(-50%, -130%);
+      background: rgba(15, 23, 42, 0.88);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 204, 0, 0.6);
+      border-radius: 8px;
+      padding: 4px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: 0.3px;
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.6), 0 0 12px rgba(255, 204, 0, 0.3);
+      z-index: 80;
+      white-space: nowrap;
+      transition: opacity 0.2s ease;
+      display: none;
+    }
+
+    #floating-label::after {
+      content: '';
+      position: absolute;
+      bottom: -6px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0;
+      height: 0;
+      border-left: 6px solid transparent;
+      border-right: 6px solid transparent;
+      border-top: 6px solid rgba(255, 204, 0, 0.6);
+    }
+
+    /* Status Toast Notification */
+    #toast {
+      position: fixed;
+      bottom: 22px;
+      left: 50%;
+      transform: translateX(-50%) translateY(30px);
+      background: rgba(15, 23, 42, 0.92);
+      border: 1px solid var(--border-glow);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      color: #ffffff;
+      font-size: 12.5px;
+      font-weight: 600;
+      padding: 8px 18px;
+      border-radius: 999px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      z-index: 150;
+    }
+
+    #toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  <div id="space-glow"></div>
+
+  <!-- HUD Toggle Button -->
+  <button id="toggle-legend-btn" title="Toggle Controls Legend">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+      <line x1="9" y1="3" x2="9" y2="21"></line>
+    </svg>
+  </button>
+
+  <!-- Interactive Control & Planet Legend HUD -->
+  <div id="legend">
+    <div class="legend-header">
+      <div class="legend-title">
+        <span>🪐 Cube Solar System</span>
+      </div>
+      <span class="legend-badge" id="sim-status-badge">Running</span>
+    </div>
+
+    <!-- Navigation Controls -->
+    <div class="legend-section-title">Controls</div>
+    <div class="controls-grid">
+      <div class="ctrl-row">
+        <span>Orbit Camera</span>
+        <span class="key-badge">Mouse Drag</span>
+      </div>
+      <div class="ctrl-row">
+        <span>Zoom In / Out</span>
+        <span class="key-badge">Mouse Scroll</span>
+      </div>
+      <div class="ctrl-row">
+        <span>Highlight Planet</span>
+        <span class="key-badge">Left Click</span>
+      </div>
+      <div class="ctrl-row">
+        <span>Pause / Resume</span>
+        <span class="key-badge">Space</span>
+      </div>
+      <div class="ctrl-row">
+        <span>Speed Control</span>
+        <span class="key-badge">+ / −</span>
+      </div>
+    </div>
+
+    <!-- Quick Action Buttons -->
+    <div class="btn-row">
+      <button class="hud-btn" id="btn-pause">⏸️ Pause</button>
+      <button class="hud-btn" id="btn-slower" title="Slow Down Orbit Speed [−]">− Slow</button>
+      <button class="hud-btn" id="btn-faster" title="Speed Up Orbit Speed [+]">+ Fast</button>
+      <button class="hud-btn" id="btn-reset" title="Reset Camera View [R]">🔄 Tilt</button>
+    </div>
+
+    <!-- 8 Planets Order & Color Legend -->
+    <div class="legend-section-title" style="margin-top: 14px;">Planets (Ordered by Ring)</div>
+    <div class="planet-list" id="planet-list-container">
+      <!-- Generated via JS -->
+    </div>
+  </div>
+
+  <!-- Selected Planet HTML Label Card -->
+  <div id="planet-card" class="hidden">
+    <div class="card-color-box" id="card-color-box"></div>
+    <div class="card-details">
+      <div class="card-title">
+        <span id="card-name">Earth</span>
+      </div>
+      <div class="card-subtitle" id="card-sub">Ring 3 • Blue</div>
+      <div class="card-stats">
+        <div class="card-stat-item">Radius: <b id="card-dist">112 AU</b></div>
+        <div class="card-stat-item">Speed: <b id="card-speed">0.85 rad/s</b></div>
+        <div class="card-stat-item">Direction: <b>CCW</b></div>
+      </div>
+    </div>
+    <button class="card-close-btn" id="card-close-btn" title="Deselect">&times;</button>
+  </div>
+
+  <!-- Floating 3D Anchor Label -->
+  <div id="floating-label">Earth</div>
+
+  <!-- Status Toast -->
+  <div id="toast"></div>
+
+  <!-- 3D Solar System Simulation Script -->
+  <script type="text/javascript">
+    // Global XTK renderer and camera array expected by CS460 loader.js
+    var r = null;
+    var CAMERAS = [];
+
+    // Simulation Clock & Parameters
+    var simTime = 0.0;
+    var speedMultiplier = 1.0;
+    var isPaused = false;
+    var lastTimestamp = 0;
+
+    // Camera initial tilt coordinates
+    var DEFAULT_CAMERA_POS = [0, 180, 460];
+    var DEFAULT_CAMERA_FOCUS = [0, 0, 0];
+
+    // Sun & Rays references
+    var sun = {
+      cube: null,
+      size: 32.0,
+      color: [1.0, 0.90, 0.04], // Large yellow cube
+      rotY: 0.0
+    };
+    var sunRays = [];
+
+    // 8 Planets Data Definition (Exact order, colors, radii, and speeds)
+    var PLANET_DEFS = [
+      {
+        order: 1,
+        name: 'Mercury',
+        colorName: 'silver',
+        colorRgb: [0.84, 0.85, 0.88], // Silver
+        ringRadius: 52.0,
+        baseSize: 4.6,
+        orbitSpeed: 1.45,             // Inner planets orbit fastest
+        spinSpeed: 45.0,              // Axial spin
+        axialTilt: 10.0,
+        startAngle: 0.3
+      },
+      {
+        order: 2,
+        name: 'Venus',
+        colorName: 'pale cream',
+        colorRgb: [0.96, 0.93, 0.78], // Pale cream
+        ringRadius: 82.0,
+        baseSize: 6.2,
+        orbitSpeed: 1.10,
+        spinSpeed: 38.0,
+        axialTilt: 15.0,
+        startAngle: 1.8
+      },
+      {
+        order: 3,
+        name: 'Earth',
+        colorName: 'blue',
+        colorRgb: [0.18, 0.55, 1.0],  // Blue
+        ringRadius: 112.0,
+        baseSize: 6.8,
+        orbitSpeed: 0.85,
+        spinSpeed: 55.0,
+        axialTilt: 23.5,
+        startAngle: 3.5
+      },
+      {
+        order: 4,
+        name: 'Mars',
+        colorName: 'red',
+        colorRgb: [0.95, 0.22, 0.15], // Red
+        ringRadius: 142.0,
+        baseSize: 5.2,
+        orbitSpeed: 0.65,
+        spinSpeed: 50.0,
+        axialTilt: 25.0,
+        startAngle: 5.1
+      },
+      {
+        order: 5,
+        name: 'Jupiter',
+        colorName: 'orange',
+        colorRgb: [1.0, 0.52, 0.05],  // Orange
+        ringRadius: 172.0,
+        baseSize: 16.0,               // Largest planet!
+        orbitSpeed: 0.45,
+        spinSpeed: 68.0,
+        axialTilt: 8.0,
+        startAngle: 0.9,
+        isLargest: true
+      },
+      {
+        order: 6,
+        name: 'Saturn',
+        colorName: 'pink',
+        colorRgb: [1.0, 0.45, 0.72],  // Pink
+        ringRadius: 202.0,
+        baseSize: 12.0,               // Second largest
+        orbitSpeed: 0.32,
+        spinSpeed: 60.0,
+        axialTilt: 27.0,
+        startAngle: 2.7
+      },
+      {
+        order: 7,
+        name: 'Uranus',
+        colorName: 'light blue',
+        colorRgb: [0.45, 0.85, 0.98], // Light blue
+        ringRadius: 232.0,
+        baseSize: 9.0,
+        orbitSpeed: 0.22,
+        spinSpeed: 40.0,
+        axialTilt: 85.0,
+        startAngle: 4.3
+      },
+      {
+        order: 8,
+        name: 'Neptune',
+        colorName: 'white',
+        colorRgb: [0.96, 0.98, 1.0],  // White
+        ringRadius: 262.0,
+        baseSize: 8.5,
+        orbitSpeed: 0.15,             // Outermost orbits slowest
+        spinSpeed: 42.0,
+        axialTilt: 28.0,
+        startAngle: 5.8
+      }
+    ];
+
+    var planets = [];
+    var selectedPlanet = null;
+    var mouseDownPos = { x: 0, y: 0 };
+
+    // Helper: Linear Interpolation
+    function lerp(a, b, t) {
+      return a + (b - a) * t;
+    }
+
+    // Helper: Apply Direct 4x4 Matrix Transformation to Cube
+    // Computes Rz * Ry * Rx with uniform or non-uniform scaling and translation
+    function applyTransform(cube, x, y, z, rotX, rotY, rotZ, scaleX, scaleY, scaleZ) {
+      if (scaleY === undefined) {
+        scaleY = scaleX;
+        scaleZ = scaleX;
+      }
+      var radX = rotX * Math.PI / 180;
+      var radY = rotY * Math.PI / 180;
+      var radZ = rotZ * Math.PI / 180;
+
+      var cx = Math.cos(radX), sx = Math.sin(radX);
+      var cy = Math.cos(radY), sy = Math.sin(radY);
+      var cz = Math.cos(radZ), sz = Math.sin(radZ);
+
+      var m = cube.transform.matrix;
+      // Column 0
+      m[0] = (cz * cy) * scaleX;
+      m[1] = (sz * cy) * scaleX;
+      m[2] = (-sy) * scaleX;
+      m[3] = 0;
+      // Column 1
+      m[4] = (cz * sy * sx - sz * cx) * scaleY;
+      m[5] = (sz * sy * sx + cz * cx) * scaleY;
+      m[6] = (cy * sx) * scaleY;
+      m[7] = 0;
+      // Column 2
+      m[8] = (cz * sy * cx + sz * sx) * scaleZ;
+      m[9] = (sz * sy * cx - cz * sx) * scaleZ;
+      m[10] = (cy * cx) * scaleZ;
+      m[11] = 0;
+      // Column 3 (Translation)
+      m[12] = x;
+      m[13] = y;
+      m[14] = z;
+      m[15] = 1;
+    }
+
+    // Helper: Convert 3D World Coordinates to 2D Screen Pixels
+    function projectToScreen(wx, wy, wz) {
+      if (!r || !r.camera || !r.camera.view) return null;
+      var V = r.camera.view;
+      // Transform world coordinate to eye coordinate
+      var ex = V[0]*wx + V[4]*wy + V[8]*wz + V[12];
+      var ey = V[1]*wx + V[5]*wy + V[9]*wz + V[13];
+      var ez = V[2]*wx + V[6]*wy + V[10]*wz + V[14];
+
+      // In OpenGL eye space, camera looks down -Z, so visible points have ez < 0
+      if (ez >= -1.0) return null;
+
+      var w = window.innerWidth;
+      var h = window.innerHeight;
+      var aspect = w / Math.max(1, h);
+      var f = 1.0 / Math.tan((45.0 * Math.PI / 180.0) / 2.0); // XTK default ~45 deg FOV
+
+      var ndcX = (ex * (f / aspect)) / (-ez);
+      var ndcY = (ey * f) / (-ez);
+
+      var sx = (ndcX * 0.5 + 0.5) * w;
+      var sy = (-ndcY * 0.5 + 0.5) * h;
+
+      return { x: sx, y: sy, depth: -ez };
+    }
+
+    // Toast Notifications
+    function showToast(msg) {
+      var toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.classList.add('show');
+      clearTimeout(toast._timer);
+      toast._timer = setTimeout(function() {
+        toast.classList.remove('show');
+      }, 1800);
+    }
+
+    // Initialize 3D Scene
+    window.onload = function() {
+      // 1. Create and initialize 3D XTK Renderer
+      r = new X.renderer3D();
+      r.init();
+
+      // Ensure global CAMERAS exists for loader.js
+      if (typeof CAMERAS === 'undefined') {
+        CAMERAS = [];
+      }
+
+      // 2. Set camera tilted slightly above the orbit plane
+      // Orbit plane is Y=0; placing camera at [0, 180, 460] gives a 21.4° tilt
+      // so the concentric orbit rings project as sweeping arcs!
+      r.camera.position = [DEFAULT_CAMERA_POS[0], DEFAULT_CAMERA_POS[1], DEFAULT_CAMERA_POS[2]];
+      r.camera.focus = [DEFAULT_CAMERA_FOCUS[0], DEFAULT_CAMERA_FOCUS[1], DEFAULT_CAMERA_FOCUS[2]];
+      r.camera.up = [0, 1, 0];
+
+      // 3. Create Stars: a few hundred tiny white cubes scattered far away
+      var NUM_STARS = 350;
+      for (var s = 0; s < NUM_STARS; s++) {
+        var starCube = new X.cube();
+        starCube.lengthX = 1.2;
+        starCube.lengthY = 1.2;
+        starCube.lengthZ = 1.2;
+        starCube.color = [1.0, 1.0, 1.0]; // Tiny white cubes
+        starCube.opacity = 0.85 + Math.random() * 0.15;
+
+        // Distribute on distant celestial sphere (radius 650 to 1100)
+        var rad = 650.0 + Math.random() * 450.0;
+        var phi = Math.acos(2.0 * Math.random() - 1.0);
+        var theta = 2.0 * Math.PI * Math.random();
+
+        var sx = rad * Math.sin(phi) * Math.cos(theta);
+        var sy = rad * Math.cos(phi) * 0.8;
+        var sz = rad * Math.sin(phi) * Math.sin(theta);
+
+        starCube.center = [sx, sy, sz];
+        r.add(starCube);
+      }
+
+      // 4. Create Sun: a large yellow cube at the center
+      var sunCube = new X.cube();
+      sunCube.lengthX = sun.size;
+      sunCube.lengthY = sun.size;
+      sunCube.lengthZ = sun.size;
+      sunCube.color = sun.color;
+      sunCube.opacity = 1.0;
+      sunCube.center = [0, 0, 0];
+      r.add(sunCube);
+      sun.cube = sunCube;
+
+      // 5. Create Sun Rays: thin stretched yellow/orange cubes radiating outward
+      var NUM_RAYS = 16;
+      for (var i = 0; i < NUM_RAYS; i++) {
+        var rayCube = new X.cube();
+        rayCube.lengthX = 1.0; // base dimensions; stretched dynamically via matrix
+        rayCube.lengthY = 1.0;
+        rayCube.lengthZ = 1.0;
+
+        // Alternate glowing yellow and warm orange
+        var isOrange = (i % 2 === 1);
+        var rayColor = isOrange ? [1.0, 0.50, 0.0] : [1.0, 0.88, 0.0];
+        rayCube.color = rayColor;
+        rayCube.opacity = 0.95;
+
+        r.add(rayCube);
+
+        sunRays.push({
+          cube: rayCube,
+          index: i,
+          baseAngle: (i / NUM_RAYS) * Math.PI * 2,
+          isOrange: isOrange,
+          baseColor: rayColor,
+          phase: i * 0.7
+        });
+      }
+
+      // 6. Create 8 Orbit Rings: circles of very small grey cubes, evenly spaced outward
+      var ringCubeCounts = [36, 44, 52, 60, 68, 76, 84, 92];
+      for (var k = 0; k < PLANET_DEFS.length; k++) {
+        var ringR = PLANET_DEFS[k].ringRadius;
+        var count = ringCubeCounts[k];
+
+        for (var j = 0; j < count; j++) {
+          var ringCube = new X.cube();
+          ringCube.lengthX = 1.1;
+          ringCube.lengthY = 1.1;
+          ringCube.lengthZ = 1.1;
+          ringCube.color = [0.45, 0.45, 0.48]; // Small grey cubes
+          ringCube.opacity = 0.75;
+
+          var angle = (j / count) * Math.PI * 2;
+          var rx = ringR * Math.cos(angle);
+          var ry = 0.0; // on orbit plane
+          var rz = -ringR * Math.sin(angle);
+
+          ringCube.center = [rx, ry, rz];
+          r.add(ringCube);
+        }
+      }
+
+      // 7. Create 8 Planets as cubes, one on each ring
+      for (var p = 0; p < PLANET_DEFS.length; p++) {
+        var def = PLANET_DEFS[p];
+        var pCube = new X.cube();
+        pCube.lengthX = def.baseSize;
+        pCube.lengthY = def.baseSize;
+        pCube.lengthZ = def.baseSize;
+        pCube.color = [def.colorRgb[0], def.colorRgb[1], def.colorRgb[2]];
+        pCube.opacity = 1.0;
+        r.add(pCube);
+
+        var pObj = {
+          cube: pCube,
+          order: def.order,
+          name: def.name,
+          colorName: def.colorName,
+          baseColor: def.colorRgb,
+          ringRadius: def.ringRadius,
+          baseSize: def.baseSize,
+          orbitSpeed: def.orbitSpeed,
+          spinSpeed: def.spinSpeed,
+          axialTilt: def.axialTilt,
+          startAngle: def.startAngle,
+          isLargest: !!def.isLargest,
+
+          // Live dynamic state
+          currentAngle: def.startAngle,
+          currentX: def.ringRadius * Math.cos(def.startAngle),
+          currentY: 0.0,
+          currentZ: -def.ringRadius * Math.sin(def.startAngle),
+          spinAngle: 0.0,
+          currentScale: 1.0,
+          targetScale: 1.0,
+          highlightTimer: 0.0
+        };
+        planets.push(pObj);
+      }
+
+      // 8. Build HUD Controls & Legend UI
+      buildLegendUI();
+      setupInteractions();
+
+      // Initial render pass
+      r.render();
+      CAMERAS = [r.camera.view];
+
+      // 9. Start continuous 60 FPS animation loop
+      requestAnimationFrame(animationLoop);
+
+      showToast('🪐 3D Cube Solar System Loaded');
+    };
+
+    // Primary 60 FPS Animation & Simulation Loop
+    function animationLoop(timestamp) {
+      requestAnimationFrame(animationLoop);
+
+      if (!lastTimestamp) lastTimestamp = timestamp;
+      var dt = (timestamp - lastTimestamp) / 1000.0;
+      lastTimestamp = timestamp;
+      if (dt > 0.1) dt = 0.1; // clamp lag
+
+      if (!isPaused) {
+        simTime += dt * speedMultiplier;
+      }
+
+      // 1. Slowly rotate the Sun cube at the center
+      sun.rotY = (simTime * 18.0) % 360;
+      applyTransform(sun.cube, 0, 0, 0, 10, sun.rotY, 4, 1.0);
+
+      // 2. Animate Sun Rays: thin stretched cubes radiating outward that gently pulse in length
+      var sunHalf = sun.size * 0.5; // ~16.0
+      var sunRotRad = (sun.rotY * Math.PI) / 180.0;
+
+      for (var rIdx = 0; rIdx < sunRays.length; rIdx++) {
+        var ray = sunRays[rIdx];
+        // Rays rotate together with the sun
+        var theta = ray.baseAngle + sunRotRad;
+
+        // Gentle sinusoidal pulse in length between ~16 and ~30
+        var pulse = Math.sin(simTime * 3.2 + ray.phase) * 0.5 + 0.5;
+        var rayLen = 16.0 + pulse * 14.0;
+        var thickness = 2.0;
+
+        // Center of the ray is placed so inner edge starts near the sun's surface
+        var dist = sunHalf + rayLen * 0.5;
+        var rayX = dist * Math.cos(theta);
+        var rayZ = -dist * Math.sin(theta);
+        var rayY = Math.sin(simTime * 2.2 + ray.index) * 1.4; // subtle wave
+
+        // Outward direction vector u = (cos(theta), 0, -sin(theta))
+        var ux = Math.cos(theta), uz = -Math.sin(theta);
+        // Tangent vector v = (-sin(theta), 0, -cos(theta)) ensuring right-handed det = +1
+        var vx = -Math.sin(theta), vz = -Math.cos(theta);
+
+        var m = ray.cube.transform.matrix;
+        // Col 0 (tangent width)
+        m[0] = vx * thickness; m[1] = 0; m[2] = vz * thickness; m[3] = 0;
+        // Col 1 (up height)
+        m[4] = 0; m[5] = thickness; m[6] = 0; m[7] = 0;
+        // Col 2 (radial length)
+        m[8] = ux * rayLen; m[9] = 0; m[10] = uz * rayLen; m[11] = 0;
+        // Col 3 (position)
+        m[12] = rayX; m[13] = rayY; m[14] = rayZ; m[15] = 1;
+
+        // Subtle flare intensity with pulse
+        var flare = 0.85 + pulse * 0.25;
+        ray.cube.color = [
+          Math.min(1.0, ray.baseColor[0] * flare),
+          Math.min(1.0, ray.baseColor[1] * flare),
+          Math.min(1.0, ray.baseColor[2] * flare)
+        ];
+      }
+
+      // 3. Animate 8 Planets:
+      // - Orbit sun counterclockwise from above (x = R*cos(a), z = -R*sin(a))
+      // - Inner planets orbit faster, outer slower
+      // - Spin on own axis
+      // - Flash or scale up when highlighted
+      for (var p = 0; p < planets.length; p++) {
+        var planet = planets[p];
+
+        if (!isPaused) {
+          planet.currentAngle = planet.startAngle + planet.orbitSpeed * simTime;
+          planet.spinAngle = (planet.spinAngle + planet.spinSpeed * dt * speedMultiplier) % 360;
+        }
+
+        // Counterclockwise orbit coordinates in X-Z plane
+        var px = planet.ringRadius * Math.cos(planet.currentAngle);
+        var py = 0.0;
+        var pz = -planet.ringRadius * Math.sin(planet.currentAngle);
+
+        planet.currentX = px;
+        planet.currentY = py;
+        planet.currentZ = pz;
+
+        // Target scale handling (selected planet scales up)
+        var isSelected = (selectedPlanet === planet);
+        planet.targetScale = isSelected ? 1.85 : 1.0;
+        planet.currentScale += (planet.targetScale - planet.currentScale) * 0.16;
+
+        var activeScale = planet.currentScale;
+        if (isSelected) {
+          // Gentle breathing pulse while selected
+          activeScale *= (1.0 + 0.06 * Math.sin(simTime * 5.5));
+        }
+
+        // Apply position, axial tilt, and self-spin
+        applyTransform(planet.cube, px, py, pz, planet.axialTilt, planet.spinAngle, 0, activeScale);
+
+        // Flash highlight effect
+        if (planet.highlightTimer > 0) {
+          planet.highlightTimer -= dt * 2.2;
+          if (planet.highlightTimer < 0) planet.highlightTimer = 0;
+
+          var flash = Math.pow(planet.highlightTimer, 1.8);
+          planet.cube.color = [
+            lerp(planet.baseColor[0], 1.0, flash * 0.92),
+            lerp(planet.baseColor[1], 1.0, flash * 0.92),
+            lerp(planet.baseColor[2], 1.0, flash * 0.92)
+          ];
+        } else {
+          planet.cube.color = planet.baseColor;
+        }
+      }
+
+      // 4. Update dynamic floating HTML label tracking selected planet
+      updateFloatingLabel();
+
+      // 5. Trigger XTK Render pass
+      r.render();
+
+      // Update CAMERAS for loader.js download compatibility
+      if (r.camera && r.camera.view) {
+        CAMERAS = [r.camera.view];
+      }
+    }
+
+    // Update Floating HTML Label position in screen space
+    function updateFloatingLabel() {
+      var labelEl = document.getElementById('floating-label');
+      if (!selectedPlanet) {
+        labelEl.style.display = 'none';
+        return;
+      }
+
+      var pt = projectToScreen(selectedPlanet.currentX, selectedPlanet.currentY, selectedPlanet.currentZ);
+      if (pt) {
+        labelEl.style.display = 'block';
+        labelEl.style.left = pt.x + 'px';
+        labelEl.style.top = (pt.y - 20) + 'px';
+        labelEl.textContent = selectedPlanet.name;
+      } else {
+        labelEl.style.display = 'none';
+      }
+    }
+
+    // Highlight and Select a Planet (flash and scale up, show HTML label)
+    function selectPlanet(planet) {
+      selectedPlanet = planet;
+      planet.highlightTimer = 1.0; // Trigger flash
+
+      // Update top HTML inspection card
+      var card = document.getElementById('planet-card');
+      var colorBox = document.getElementById('card-color-box');
+      var nameEl = document.getElementById('card-name');
+      var subEl = document.getElementById('card-sub');
+      var distEl = document.getElementById('card-dist');
+      var speedEl = document.getElementById('card-speed');
+
+      var rgbCss = 'rgb(' + Math.round(planet.baseColor[0]*255) + ',' +
+                            Math.round(planet.baseColor[1]*255) + ',' +
+                            Math.round(planet.baseColor[2]*255) + ')';
+
+      colorBox.style.backgroundColor = rgbCss;
+      nameEl.textContent = planet.name + (planet.isLargest ? ' (Largest Planet)' : '');
+      subEl.textContent = 'Planet #' + planet.order + ' • ' + planet.colorName.toUpperCase() + ' CUBE';
+      distEl.textContent = planet.ringRadius + ' AU';
+      speedEl.textContent = planet.orbitSpeed.toFixed(2) + ' rad/s';
+
+      card.classList.remove('hidden');
+
+      // Update active state in legend list
+      document.querySelectorAll('.planet-item').forEach(function(item) {
+        var order = parseInt(item.getAttribute('data-order'), 10);
+        item.classList.toggle('active', order === planet.order);
+      });
+
+      showToast('✨ Selected: ' + planet.name);
+    }
+
+    // Deselect Planet
+    function deselectPlanet() {
+      selectedPlanet = null;
+      document.getElementById('planet-card').classList.add('hidden');
+      document.getElementById('floating-label').style.display = 'none';
+      document.querySelectorAll('.planet-item').forEach(function(item) {
+        item.classList.remove('active');
+      });
+    }
+
+    // Handle Planet Picking & Clicks
+    function handleSceneClick(clientX, clientY) {
+      // 1. Try XTK color-buffer picking
+      try {
+        var pickId = r.pick(clientX, clientY);
+        if (pickId && pickId !== 0) {
+          var pickedObj = r.get(pickId);
+          if (pickedObj) {
+            for (var i = 0; i < planets.length; i++) {
+              if (planets[i].cube === pickedObj) {
+                selectPlanet(planets[i]);
+                return;
+              }
+            }
+            if (pickedObj === sun.cube) {
+              showToast('☀️ The Sun (Central Star)');
+              return;
+            }
+          }
+        }
+      } catch (err) {}
+
+      // 2. High-precision 2D Screen Projection Proximity Check
+      // Ensures reliable selection on high-DPI displays or slight offsets
+      var closestPlanet = null;
+      var minDist = 38.0; // pixel click threshold
+
+      for (var k = 0; k < planets.length; k++) {
+        var p = planets[k];
+        var pt = projectToScreen(p.currentX, p.currentY, p.currentZ);
+        if (pt) {
+          var d = Math.hypot(pt.x - clientX, pt.y - clientY);
+          if (d < minDist) {
+            minDist = d;
+            closestPlanet = p;
+          }
+        }
+      }
+
+      if (closestPlanet) {
+        selectPlanet(closestPlanet);
+      } else {
+        deselectPlanet();
+      }
+    }
+
+    // Simulation Controls
+    function togglePause() {
+      isPaused = !isPaused;
+      var btn = document.getElementById('btn-pause');
+      var badge = document.getElementById('sim-status-badge');
+      btn.textContent = isPaused ? '▶️ Resume' : '⏸️ Pause';
+      badge.textContent = isPaused ? 'Paused' : 'Running';
+      badge.style.background = isPaused ? 'rgba(239, 68, 68, 0.2)' : 'rgba(255, 204, 0, 0.15)';
+      badge.style.color = isPaused ? '#f87171' : '#ffcc00';
+      badge.style.borderColor = isPaused ? 'rgba(239, 68, 68, 0.4)' : 'rgba(255, 204, 0, 0.35)';
+      showToast(isPaused ? '⏸️ Orbits Paused [Space]' : '▶️ Orbits Resumed [Space]');
+    }
+
+    function speedUp() {
+      speedMultiplier = Math.min(speedMultiplier * 1.3, 8.0);
+      showToast('⚡ Orbit Speed: ' + speedMultiplier.toFixed(2) + 'x [+]');
+    }
+
+    function slowDown() {
+      speedMultiplier = Math.max(speedMultiplier * 0.77, 0.1);
+      showToast('⚡ Orbit Speed: ' + speedMultiplier.toFixed(2) + 'x [−]');
+    }
+
+    function resetCamera() {
+      r.camera.position = [DEFAULT_CAMERA_POS[0], DEFAULT_CAMERA_POS[1], DEFAULT_CAMERA_POS[2]];
+      r.camera.focus = [DEFAULT_CAMERA_FOCUS[0], DEFAULT_CAMERA_FOCUS[1], DEFAULT_CAMERA_FOCUS[2]];
+      r.camera.up = [0, 1, 0];
+      showToast('🔄 Camera Tilted to Orbit Plane [R]');
+    }
+
+    // Build Planet Legend List HTML
+    function buildLegendUI() {
+      var container = document.getElementById('planet-list-container');
+      container.innerHTML = '';
+
+      for (var i = 0; i < PLANET_DEFS.length; i++) {
+        var def = PLANET_DEFS[i];
+        var item = document.createElement('div');
+        item.className = 'planet-item';
+        item.setAttribute('data-order', def.order);
+
+        var rgbCss = 'rgb(' + Math.round(def.colorRgb[0]*255) + ',' +
+                              Math.round(def.colorRgb[1]*255) + ',' +
+                              Math.round(def.colorRgb[2]*255) + ')';
+
+        item.innerHTML =
+          '<div class="planet-info-group">' +
+            '<span class="planet-order">' + def.order + '.</span>' +
+            '<span class="planet-color-dot" style="background-color:' + rgbCss + '"></span>' +
+            '<span class="planet-name-text">' + def.name + '</span>' +
+          '</div>' +
+          '<span class="planet-color-label">' + def.colorName + (def.isLargest ? ' (largest)' : '') + '</span>';
+
+        (function(planetDef) {
+          item.addEventListener('click', function(e) {
+            e.stopPropagation();
+            for (var p = 0; p < planets.length; p++) {
+              if (planets[p].order === planetDef.order) {
+                selectPlanet(planets[p]);
+                break;
+              }
+            }
+          });
+        })(def);
+
+        container.appendChild(item);
+      }
+    }
+
+    // Setup Mouse, Touch, Keyboard, and Button Listeners
+    function setupInteractions() {
+      // Track mousedown to differentiate mouse dragging from clicks
+      window.addEventListener('mousedown', function(e) {
+        mouseDownPos.x = e.clientX;
+        mouseDownPos.y = e.clientY;
+      });
+
+      // Canvas click handling
+      window.addEventListener('click', function(e) {
+        if (e.target.closest('#legend') || e.target.closest('#toggle-legend-btn') || e.target.closest('#planet-card')) {
+          return;
+        }
+        var dragDist = Math.hypot(e.clientX - mouseDownPos.x, e.clientY - mouseDownPos.y);
+        if (dragDist > 6) return; // Ignore camera orbit drags
+
+        handleSceneClick(e.clientX, e.clientY);
+      });
+
+      // Card Close Button
+      document.getElementById('card-close-btn').addEventListener('click', function(e) {
+        e.stopPropagation();
+        deselectPlanet();
+      });
+
+      // Legend Toggle Button
+      var legendEl = document.getElementById('legend');
+      document.getElementById('toggle-legend-btn').addEventListener('click', function(e) {
+        e.stopPropagation();
+        legendEl.classList.toggle('collapsed');
+      });
+
+      // HUD Buttons
+      document.getElementById('btn-pause').addEventListener('click', function(e) {
+        e.stopPropagation();
+        togglePause();
+      });
+
+      document.getElementById('btn-faster').addEventListener('click', function(e) {
+        e.stopPropagation();
+        speedUp();
+      });
+
+      document.getElementById('btn-slower').addEventListener('click', function(e) {
+        e.stopPropagation();
+        slowDown();
+      });
+
+      document.getElementById('btn-reset').addEventListener('click', function(e) {
+        e.stopPropagation();
+        resetCamera();
+      });
+
+      // Keyboard Shortcuts
+      window.addEventListener('keydown', function(e) {
+        if (e.target.tagName === 'INPUT') return;
+
+        switch (e.code) {
+          case 'Space':
+            e.preventDefault();
+            togglePause();
+            break;
+
+          case 'Equal':
+          case 'NumpadAdd':
+            if (e.key === '+' || e.key === '=' || e.code === 'NumpadAdd') {
+              speedUp();
+            }
+            break;
+
+          case 'Minus':
+          case 'NumpadSubtract':
+            slowDown();
+            break;
+
+          case 'KeyR':
+          case 'Digit0':
+            resetCamera();
+            break;
+
+          case 'KeyD':
+            // Save scene JSON via loader.js download()
+            if (typeof download === 'function') {
+              download();
+              showToast('💾 Scene JSON exported via loader.js [D]');
+            }
+            break;
+        }
+
+        // Direct digit shortcuts 1-8 to select planets
+        if (e.code.startsWith('Digit') && !e.code.endsWith('0')) {
+          var num = parseInt(e.code.replace('Digit', ''), 10);
+          if (num >= 1 && num <= 8) {
+            for (var p = 0; p < planets.length; p++) {
+              if (planets[p].order === num) {
+                selectPlanet(planets[p]);
+                break;
+              }
+            }
+          }
+        }
+      });
+    }
+  </script>
+</body>
+</html>
