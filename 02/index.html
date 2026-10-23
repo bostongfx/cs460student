@@ -1,2 +1,1252 @@
-Ready for assignment 2.
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CS460 - 3D Splash Cube Visualization</title>
 
+  <!-- Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Primary XTK Edge script with local fallback -->
+  <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+  <script type="text/javascript">
+    if (typeof X === 'undefined') {
+      document.write('<script type="text/javascript" src="xtk_edge.js"><\/script>');
+    }
+  </script>
+
+  <style>
+    :root {
+      --primary: #00d2ff;
+      --secondary: #ff007f;
+      --accent: #ffd700;
+      --bg-dark: #000000;
+      --panel-bg: rgba(10, 15, 28, 0.72);
+      --panel-border: rgba(0, 210, 255, 0.28);
+      --panel-glow: rgba(0, 210, 255, 0.15);
+      --text-main: #f0f6fc;
+      --text-dim: #8fa0b5;
+      --font-display: 'Orbitron', -apple-system, sans-serif;
+      --font-ui: 'Rajdhani', -apple-system, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden !important;
+      background-color: var(--bg-dark);
+      font-family: var(--font-ui);
+      color: var(--text-main);
+    }
+
+    /* Background Cosmic Starfield Canvas */
+    #space-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* Fullscreen XTK 3D Canvas Container */
+    #xtk-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    #xtk-container canvas {
+      display: block;
+      width: 100% !important;
+      height: 100% !important;
+      cursor: grab;
+    }
+
+    #xtk-container canvas:active {
+      cursor: grabbing;
+    }
+
+    /* HUD Header Overlay */
+    .hud-header {
+      position: absolute;
+      top: 22px;
+      left: 24px;
+      z-index: 10;
+      pointer-events: none;
+      text-shadow: 0 0 16px rgba(0, 210, 255, 0.6);
+    }
+
+    .hud-header h1 {
+      font-family: var(--font-display);
+      font-size: 22px;
+      font-weight: 900;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      background: linear-gradient(135deg, #ffffff 10%, #00d2ff 65%, #3a7bd5 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hud-header .subtitle {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      color: var(--text-dim);
+      margin-top: 3px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #00ff88;
+      box-shadow: 0 0 8px #00ff88;
+      transition: background 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .status-dot.exploding {
+      background: #ff0055;
+      box-shadow: 0 0 10px #ff0055;
+    }
+
+    .status-dot.hover {
+      background: #ffd700;
+      box-shadow: 0 0 10px #ffd700;
+    }
+
+    .status-dot.returning {
+      background: #bd00ff;
+      box-shadow: 0 0 10px #bd00ff;
+    }
+
+    /* Bottom-Center Main Controls HUD */
+    #hud-container {
+      position: absolute;
+      bottom: 28px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      pointer-events: auto;
+    }
+
+    .hud-action-card {
+      background: var(--panel-bg);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--panel-border);
+      border-radius: 18px;
+      padding: 14px 24px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6), 0 0 20px var(--panel-glow);
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .hud-action-card:hover {
+      border-color: rgba(0, 210, 255, 0.55);
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.7), 0 0 28px rgba(0, 210, 255, 0.3);
+    }
+
+    /* Large Splash Button */
+    .splash-btn {
+      font-family: var(--font-display);
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #ffffff;
+      background: linear-gradient(135deg, #0072ff 0%, #00c6ff 50%, #0072ff 100%);
+      background-size: 200% 200%;
+      border: none;
+      border-radius: 12px;
+      padding: 14px 34px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 4px 18px rgba(0, 114, 255, 0.55), 0 0 15px rgba(0, 198, 255, 0.35);
+      transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      position: relative;
+      overflow: hidden;
+      animation: pulseGlow 3s infinite ease-in-out;
+    }
+
+    .splash-btn::after {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: linear-gradient(
+        60deg,
+        transparent 30%,
+        rgba(255, 255, 255, 0.35) 50%,
+        transparent 70%
+      );
+      transform: rotate(25deg) translateY(-100%);
+      transition: transform 0.6s ease;
+      pointer-events: none;
+    }
+
+    .splash-btn:hover {
+      transform: translateY(-2px) scale(1.04);
+      box-shadow: 0 8px 25px rgba(0, 114, 255, 0.75), 0 0 30px rgba(0, 210, 255, 0.6);
+      background-position: 100% 100%;
+    }
+
+    .splash-btn:hover::after {
+      transform: rotate(25deg) translateY(100%);
+    }
+
+    .splash-btn:active {
+      transform: translateY(1px) scale(0.97);
+      box-shadow: 0 2px 10px rgba(0, 114, 255, 0.5);
+    }
+
+    .splash-btn .btn-icon {
+      font-size: 18px;
+    }
+
+    @keyframes pulseGlow {
+      0%, 100% {
+        box-shadow: 0 4px 18px rgba(0, 114, 255, 0.55), 0 0 15px rgba(0, 198, 255, 0.35);
+      }
+      50% {
+        box-shadow: 0 6px 24px rgba(0, 114, 255, 0.8), 0 0 25px rgba(0, 210, 255, 0.55);
+      }
+    }
+
+    /* Status & Hint Pill */
+    .status-container {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 170px;
+    }
+
+    .status-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--text-dim);
+    }
+
+    .status-text {
+      font-family: var(--font-display);
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: #00ff88;
+      transition: color 0.3s ease;
+    }
+
+    /* Shortcut badges */
+    .shortcut-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-dim);
+    }
+
+    .key-badge {
+      display: inline-block;
+      padding: 2px 6px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 11px;
+      color: #ffffff;
+    }
+
+    /* Quick utility buttons */
+    .hud-btn-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-left: 1px solid rgba(255, 255, 255, 0.1);
+      padding-left: 16px;
+    }
+
+    .icon-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      border: 1px solid rgba(0, 210, 255, 0.25);
+      background: rgba(0, 210, 255, 0.08);
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 15px;
+      transition: all 0.2s ease;
+    }
+
+    .icon-btn:hover {
+      background: rgba(0, 210, 255, 0.22);
+      border-color: rgba(0, 210, 255, 0.6);
+      transform: translateY(-1px);
+    }
+
+    .icon-btn:active {
+      transform: translateY(1px);
+    }
+
+    /* Top-Right Info & Telemetry Card */
+    .hud-info-card {
+      position: absolute;
+      top: 22px;
+      right: 24px;
+      z-index: 10;
+      background: var(--panel-bg);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--panel-border);
+      border-radius: 14px;
+      padding: 12px 18px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      pointer-events: none;
+    }
+
+    .telemetry-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .telemetry-label {
+      color: var(--text-dim);
+      letter-spacing: 0.5px;
+    }
+
+    .telemetry-val {
+      font-family: var(--font-display);
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    /* Bottom Control Hints overlay */
+    .controls-hint {
+      font-size: 11px;
+      letter-spacing: 1.2px;
+      color: rgba(255, 255, 255, 0.45);
+      pointer-events: none;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 2px;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+      .hud-header h1 { font-size: 18px; }
+      .hud-action-card {
+        padding: 10px 16px;
+        gap: 12px;
+      }
+      .splash-btn {
+        padding: 12px 24px;
+        font-size: 14px;
+      }
+      .hud-info-card {
+        display: none;
+      }
+      .controls-hint {
+        font-size: 9px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Ambient Starfield Canvas -->
+  <canvas id="space-canvas"></canvas>
+
+  <!-- XTK 3D Canvas Container -->
+  <div id="xtk-container"></div>
+
+  <!-- HUD Header Overlay -->
+  <div class="hud-header">
+    <h1>Splash Cube 3D</h1>
+    <div class="subtitle">
+      <span class="status-dot" id="status-dot"></span>
+      <span id="header-status-text">XTK INTERACTIVE VISUALIZATION</span>
+    </div>
+  </div>
+
+  <!-- Top-Right Telemetry Card -->
+  <div class="hud-info-card">
+    <div class="telemetry-row">
+      <span class="telemetry-label">CENTRAL CUBE:</span>
+      <span class="telemetry-val" style="color: #3b82f6;">1 Large (Blue)</span>
+    </div>
+    <div class="telemetry-row">
+      <span class="telemetry-label">SPLASH CUBES:</span>
+      <span class="telemetry-val" style="color: #ff007f;">50 (Rainbow)</span>
+    </div>
+    <div class="telemetry-row">
+      <span class="telemetry-label">RECALL TIMER:</span>
+      <span class="telemetry-val" id="recall-timer-val">2.0s</span>
+    </div>
+    <div class="telemetry-row">
+      <span class="telemetry-label">FPS:</span>
+      <span class="telemetry-val" id="fps-val">60</span>
+    </div>
+  </div>
+
+  <!-- Main Bottom HUD Action Bar -->
+  <div id="hud-container">
+    <div class="hud-action-card">
+      <!-- Prominent Splash Trigger Button -->
+      <button class="splash-btn" id="splash-btn" title="Click or Press Space to Explode">
+        <span class="btn-icon">💥</span>
+        <span>Splash</span>
+      </button>
+
+      <!-- Status Indicator -->
+      <div class="status-container">
+        <span class="status-label">STATUS</span>
+        <span class="status-text" id="status-text">READY</span>
+        <div class="shortcut-badge">
+          <span>Click scene or press</span>
+          <span class="key-badge">Space</span>
+        </div>
+      </div>
+
+      <!-- Quick Utility Buttons -->
+      <div class="hud-btn-group">
+        <button class="icon-btn" id="reset-cam-btn" title="Reset Camera View (R)">🎥</button>
+        <button class="icon-btn" id="audio-toggle-btn" title="Toggle Sound Synth">🔊</button>
+      </div>
+    </div>
+
+    <!-- Mouse Controls Hint -->
+    <div class="controls-hint">
+      <span>🖱️ Left-Drag: Rotate Camera</span>
+      <span>•</span>
+      <span>🔍 Scroll: Zoom</span>
+      <span>•</span>
+      <span>🖱️ Click / Space: Splash</span>
+      <span>•</span>
+      <span>🔄 [R]: Reset View</span>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    // =========================================================================
+    // 1. SOUND SYNTHESIZER (WEB AUDIO API - ZERO EXTERNAL ASSETS)
+    // =========================================================================
+    const Sound = {
+      ctx: null,
+      muted: false,
+
+      init: function() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (AudioContext) {
+            this.ctx = new AudioContext();
+          }
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      },
+
+      playExplosion: function() {
+        if (this.muted) return;
+        this.init();
+        if (!this.ctx) return;
+
+        const ctx = this.ctx;
+        const now = ctx.currentTime;
+
+        // 1. Deep sub-bass whoosh
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(160, now);
+        osc.frequency.exponentialRampToValueAtTime(32, now + 0.45);
+
+        gain.gain.setValueAtTime(0.35, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.6);
+
+        // 2. Filtered burst noise
+        const bufferSize = ctx.sampleRate * 0.3;
+        const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = Math.random() * 2 - 1;
+        }
+
+        const noise = ctx.createBufferSource();
+        noise.buffer = buffer;
+
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(900, now);
+        filter.frequency.exponentialRampToValueAtTime(120, now + 0.35);
+
+        const noiseGain = ctx.createGain();
+        noiseGain.gain.setValueAtTime(0.25, now);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+
+        noise.connect(filter);
+        filter.connect(noiseGain);
+        noiseGain.connect(ctx.destination);
+        noise.start(now);
+      },
+
+      playRecallStart: function() {
+        if (this.muted) return;
+        this.init();
+        if (!this.ctx) return;
+
+        const ctx = this.ctx;
+        const now = ctx.currentTime;
+
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(220, now);
+        osc.frequency.exponentialRampToValueAtTime(580, now + 0.85);
+
+        gain.gain.setValueAtTime(0.001, now);
+        gain.gain.linearRampToValueAtTime(0.12, now + 0.4);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.9);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.95);
+      },
+
+      playReassemble: function() {
+        if (this.muted) return;
+        this.init();
+        if (!this.ctx) return;
+
+        const ctx = this.ctx;
+        const now = ctx.currentTime;
+
+        // Crystalline harmonic chime
+        [523.25, 659.25, 783.99].forEach((freq, idx) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, now + idx * 0.04);
+
+          gain.gain.setValueAtTime(0.15, now + idx * 0.04);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.04 + 0.6);
+
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now + idx * 0.04);
+          osc.stop(now + idx * 0.04 + 0.65);
+        });
+      }
+    };
+
+    // =========================================================================
+    // 2. BACKGROUND COSMIC STARFIELD ENGINE (BLACK BACKGROUND + STARS)
+    // =========================================================================
+    const Starfield = {
+      canvas: null,
+      ctx: null,
+      stars: [],
+      numStars: 280,
+      shockwave: { active: false, radius: 0, maxRadius: 500, alpha: 0 },
+
+      init: function() {
+        this.canvas = document.getElementById('space-canvas');
+        this.ctx = this.canvas.getContext('2d');
+        this.resize();
+        window.addEventListener('resize', () => this.resize());
+
+        // Generate stars
+        this.stars = [];
+        for (let i = 0; i < this.numStars; i++) {
+          this.stars.push({
+            x: Math.random() * this.canvas.width,
+            y: Math.random() * this.canvas.height,
+            size: Math.random() * 1.8 + 0.5,
+            baseAlpha: Math.random() * 0.6 + 0.35,
+            twinkleSpeed: Math.random() * 2.5 + 0.8,
+            twinklePhase: Math.random() * Math.PI * 2,
+            hasSpikes: Math.random() < 0.05,
+            tint: i % 7 === 0 ? '#8fe3ff' : i % 11 === 0 ? '#ffda8f' : i % 13 === 0 ? '#e3b8ff' : '#ffffff'
+          });
+        }
+
+        this.render();
+      },
+
+      resize: function() {
+        if (!this.canvas) return;
+        this.canvas.width = window.innerWidth;
+        this.canvas.height = window.innerHeight;
+      },
+
+      triggerShockwave: function() {
+        this.shockwave.active = true;
+        this.shockwave.radius = 10;
+        this.shockwave.maxRadius = Math.max(this.canvas.width, this.canvas.height) * 0.65;
+        this.shockwave.alpha = 0.65;
+      },
+
+      render: function() {
+        const ctx = this.ctx;
+        const w = this.canvas.width;
+        const h = this.canvas.height;
+        const time = performance.now() / 1000;
+
+        // Deep Pure Black Base
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, w, h);
+
+        // Subtle Ambient Cosmic Nebulae
+        const cx = w * 0.5;
+        const cy = h * 0.5;
+
+        const grad1 = ctx.createRadialGradient(cx, cy, 10, cx, cy, Math.max(w, h) * 0.5);
+        grad1.addColorStop(0, 'rgba(0, 30, 70, 0.12)');
+        grad1.addColorStop(0.6, 'rgba(15, 8, 40, 0.05)');
+        grad1.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = grad1;
+        ctx.fillRect(0, 0, w, h);
+
+        // Draw Twinkling Stars
+        for (let i = 0; i < this.stars.length; i++) {
+          const s = this.stars[i];
+          const twinkle = Math.sin(time * s.twinkleSpeed + s.twinklePhase);
+          const alpha = Math.max(0.1, Math.min(1.0, s.baseAlpha + twinkle * 0.3));
+
+          ctx.fillStyle = s.tint;
+          ctx.globalAlpha = alpha;
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Delicate 4-point diffraction cross spikes on bright stars
+          if (s.hasSpikes && alpha > 0.6) {
+            ctx.strokeStyle = s.tint;
+            ctx.lineWidth = 0.7;
+            ctx.globalAlpha = alpha * 0.5;
+            const spikeLen = s.size * 3.5;
+            ctx.beginPath();
+            ctx.moveTo(s.x - spikeLen, s.y);
+            ctx.lineTo(s.x + spikeLen, s.y);
+            ctx.moveTo(s.x, s.y - spikeLen);
+            ctx.lineTo(s.x, s.y + spikeLen);
+            ctx.stroke();
+          }
+        }
+        ctx.globalAlpha = 1.0;
+
+        // Render Shockwave on Explosion
+        if (this.shockwave.active) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(cx, cy, this.shockwave.radius, 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(0, 210, 255, ${this.shockwave.alpha})`;
+          ctx.lineWidth = 2.5;
+          ctx.shadowColor = '#00d2ff';
+          ctx.shadowBlur = 15;
+          ctx.stroke();
+          ctx.restore();
+
+          this.shockwave.radius += (this.shockwave.maxRadius - this.shockwave.radius) * 0.08 + 4;
+          this.shockwave.alpha *= 0.93;
+          if (this.shockwave.alpha < 0.01) {
+            this.shockwave.active = false;
+          }
+        }
+
+        requestAnimationFrame(() => this.render());
+      }
+    };
+
+    // =========================================================================
+    // 3. COLOR UTILITIES (RAINBOW HSV SPECTRUM)
+    // =========================================================================
+
+    // Convert HSV to RGB (all inputs and outputs in [0, 1])
+    function hsvToRgb(h, s, v) {
+      const i = Math.floor(h * 6);
+      const f = h * 6 - i;
+      const p = v * (1 - s);
+      const q = v * (1 - f * s);
+      const t = v * (1 - (1 - f) * s);
+      let r, g, b;
+      switch (i % 6) {
+        case 0: r = v; g = t; b = p; break;
+        case 1: r = q; g = v; b = p; break;
+        case 2: r = p; g = v; b = t; break;
+        case 3: r = p; g = q; b = v; break;
+        case 4: r = t; g = p; b = v; break;
+        case 5: r = v; g = p; b = q; break;
+      }
+      return [r, g, b];
+    }
+
+    // Generate 50 distinct rainbow colors evenly spaced around the color wheel
+    function getRainbowColor(index, total) {
+      const hue = index / total; // [0.0 to 1.0)
+      return hsvToRgb(hue, 1.0, 1.0);
+    }
+
+    // =========================================================================
+    // 4. MATRIX TRANSFORMATION HELPER
+    // =========================================================================
+
+    // Zero-allocation 4x4 matrix transformation applied to XTK cube
+    function applyTransform(cube, x, y, z, sx, sy, sz, rx, ry, rz) {
+      const cx = Math.cos(rx), sx_r = Math.sin(rx);
+      const cy = Math.cos(ry), sy_r = Math.sin(ry);
+      const cz = Math.cos(rz), sz_r = Math.sin(rz);
+
+      const m = cube.transform.matrix;
+
+      // Col 0
+      m[0] = (cy * cz) * sx;
+      m[1] = (cy * sz_r) * sx;
+      m[2] = (-sy_r) * sx;
+      m[3] = 0.0;
+
+      // Col 1
+      m[4] = (sx_r * sy_r * cz - cx * sz_r) * sy;
+      m[5] = (sx_r * sy_r * sz_r + cx * cz) * sy;
+      m[6] = (sx_r * cy) * sy;
+      m[7] = 0.0;
+
+      // Col 2
+      m[8] = (cx * sy_r * cz + sx_r * sz_r) * sz;
+      m[9] = (cx * sy_r * sz_r - sx_r * cz) * sz;
+      m[10] = (cx * cy) * sz;
+      m[11] = 0.0;
+
+      // Col 3 (Translation)
+      m[12] = x;
+      m[13] = y;
+      m[14] = z;
+      m[15] = 1.0;
+
+      cube.transform.modified();
+    }
+
+    // Smooth Easing Functions
+    function easeOutCubic(t) {
+      return 1 - Math.pow(1 - t, 3);
+    }
+
+    function easeInOutCubic(t) {
+      return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    }
+
+    // =========================================================================
+    // 5. 3D SCENE & SPLASH ENGINE
+    // =========================================================================
+
+    const NUM_SPLASH_CUBES = 50; // Exactly 50 rainbow cubes
+
+    // State definitions
+    const STATE = {
+      IDLE: 'IDLE',
+      EXPLODING: 'EXPLODING',
+      APEX: 'APEX',
+      RETURNING: 'RETURNING',
+      REFORMING: 'REFORMING'
+    };
+
+    let currentState = STATE.IDLE;
+    let splashTimer = 0;
+    let idleTimer = 0;
+    let recallTriggeredSound = false;
+
+    // Timeline durations (in seconds)
+    // - Explode outward: 0 to 1.1s
+    // - Apex zero-g hover: 1.1s to 2.0s (total elapsed = 2.0s)
+    // - Sketch requirement: "After 2 seconds, cubes return to form the original cube"
+    // - Returning to center: 2.0s to 3.0s (1.0s recall)
+    // - Reassembling pulse: 3.0s to 3.35s
+    const T_EXPLODE = 1.1;
+    const T_APEX = 2.0;       // At exactly 2.0s, recall starts!
+    const T_RETURN = 3.0;
+    const T_REFORM = 3.35;
+
+    let renderer = null;
+    let centralCube = null;
+    const splashCubes = [];
+
+    // FPS Telemetry
+    let frameCount = 0;
+    let lastFpsUpdate = performance.now();
+    let currentFps = 60;
+
+    // Initialize 3D Engine
+    function init3DScene() {
+      renderer = new X.renderer3D();
+      renderer.container = 'xtk-container';
+      renderer.init();
+
+      // Black background
+      renderer.bgColor = [0, 0, 0];
+
+      // Camera view configuration
+      renderer.camera.position = [0, 45, 270];
+      renderer.camera.focus = [0, 0, 0];
+      renderer.camera.up = [0, 1, 0];
+
+      // 1. Create Central Large Blue Cube
+      centralCube = new X.cube();
+      centralCube.lengthX = 50;
+      centralCube.lengthY = 50;
+      centralCube.lengthZ = 50;
+      // Vibrant royal electric blue
+      centralCube.color = [0.12, 0.48, 1.0];
+      centralCube.opacity = 1.0;
+      renderer.add(centralCube);
+
+      // 2. Create 50 Smaller Rainbow Cubes
+      for (let i = 0; i < NUM_SPLASH_CUBES; i++) {
+        const c = new X.cube();
+        c.lengthX = 12;
+        c.lengthY = 12;
+        c.lengthZ = 12;
+        // Each cube has a unique, distinct rainbow color!
+        c.color = getRainbowColor(i, NUM_SPLASH_CUBES);
+        c.opacity = 1.0;
+        // Initially hidden
+        c.visible = false;
+        renderer.add(c);
+
+        // Uniform 3D spherical outward directions using Fibonacci sphere
+        const y = 1 - (i / (NUM_SPLASH_CUBES - 1)) * 2; // y in [-1, 1]
+        const radiusAtY = Math.sqrt(Math.max(0, 1 - y * y));
+        const goldenAngle = 2.399963229728653; // radians
+        const phi = i * goldenAngle;
+        const x = Math.cos(phi) * radiusAtY;
+        const z = Math.sin(phi) * radiusAtY;
+
+        // Dynamic outward distance (140 to 200 units from center)
+        const dist = 145 + 50 * Math.sin(i * 3.7 + 0.9);
+
+        // Individual tumbling rotation speeds around 3 axes
+        const rotVel = [
+          (Math.sin(i * 4.3 + 0.5) * 3.5 + 1.8),
+          (Math.cos(i * 3.1 + 1.2) * 3.5 + 1.8),
+          (Math.sin(i * 2.7 + 2.1) * 3.5 + 1.8)
+        ];
+
+        // Slight initial offset inside the central cube
+        const startOffset = [
+          Math.sin(i * 2.9) * 15,
+          Math.cos(i * 1.7) * 15,
+          Math.sin(i * 3.3) * 15
+        ];
+
+        splashCubes.push({
+          cube: c,
+          dir: [x, y, z],
+          dist: dist,
+          rotVel: rotVel,
+          startOffset: startOffset,
+          currentPos: [0, 0, 0],
+          currentRot: [0, 0, 0]
+        });
+      }
+
+      // Initial Render
+      renderer.render();
+
+      // Main Animation Loop
+      let lastTime = performance.now();
+
+      renderer.onRender = function() {
+        const now = performance.now();
+        const dt = Math.min(0.05, (now - lastTime) / 1000);
+        lastTime = now;
+
+        // FPS update
+        frameCount++;
+        if (now - lastFpsUpdate >= 500) {
+          currentFps = Math.round((frameCount * 1000) / (now - lastFpsUpdate));
+          document.getElementById('fps-val').textContent = currentFps;
+          frameCount = 0;
+          lastFpsUpdate = now;
+        }
+
+        idleTimer += dt;
+        updateAnimation(dt);
+      };
+    }
+
+    // =========================================================================
+    // 6. ANIMATION & PHYSICS ENGINE
+    // =========================================================================
+
+    function updateAnimation(dt) {
+      if (currentState === STATE.IDLE) {
+        // Central blue cube is active and visible
+        centralCube.visible = true;
+
+        // Gentle idle floating wobble and slow spin
+        const floatY = Math.sin(idleTimer * 1.8) * 3.0;
+        const spinY = idleTimer * 0.25;
+        const spinX = Math.sin(idleTimer * 0.9) * 0.08;
+        applyTransform(centralCube, 0, floatY, 0, 1.0, 1.0, 1.0, spinX, spinY, 0);
+
+        // Hide all 50 small cubes
+        for (let i = 0; i < NUM_SPLASH_CUBES; i++) {
+          const item = splashCubes[i];
+          if (item.cube.visible) {
+            item.cube.visible = false;
+            applyTransform(item.cube, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+          }
+        }
+        return;
+      }
+
+      // We are in an active splash cycle!
+      splashTimer += dt;
+
+      // -----------------------------------------------------------------------
+      // PHASE 1: EXPLODING OUTWARD (0 to 1.1s)
+      // -----------------------------------------------------------------------
+      if (splashTimer <= T_EXPLODE) {
+        updateHudStatus('EXPLODING');
+
+        // Central cube quickly scales down and vanishes
+        const centralScale = Math.max(0, 1.0 - splashTimer / 0.15);
+        if (centralScale <= 0.001) {
+          centralCube.visible = false;
+          applyTransform(centralCube, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+        } else {
+          applyTransform(centralCube, 0, 0, 0, centralScale, centralScale, centralScale, 0, 0, 0);
+        }
+
+        const progress = splashTimer / T_EXPLODE;
+        const ease = easeOutCubic(progress);
+
+        for (let i = 0; i < NUM_SPLASH_CUBES; i++) {
+          const item = splashCubes[i];
+          item.cube.visible = true;
+
+          // Outward distance from center
+          const currentDist = item.dist * ease;
+
+          const px = item.startOffset[0] * (1 - ease) + item.dir[0] * currentDist;
+          const py = item.startOffset[1] * (1 - ease) + item.dir[1] * currentDist;
+          const pz = item.startOffset[2] * (1 - ease) + item.dir[2] * currentDist;
+          item.currentPos = [px, py, pz];
+
+          // 3D tumbling rotation
+          const rx = item.rotVel[0] * splashTimer;
+          const ry = item.rotVel[1] * splashTimer;
+          const rz = item.rotVel[2] * splashTimer;
+          item.currentRot = [rx, ry, rz];
+
+          // Scale ramps smoothly from 0.4 up to 1.0
+          const sc = Math.min(1.0, 0.4 + 0.6 * progress);
+
+          applyTransform(item.cube, px, py, pz, sc, sc, sc, rx, ry, rz);
+        }
+      }
+      // -----------------------------------------------------------------------
+      // PHASE 2: APEX / SUSPENSION IN ZERO-G (1.1s to 2.0s)
+      // -----------------------------------------------------------------------
+      else if (splashTimer <= T_APEX) {
+        updateHudStatus('APEX');
+
+        centralCube.visible = false;
+        applyTransform(centralCube, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+
+        const hoverTime = splashTimer - T_EXPLODE;
+
+        for (let i = 0; i < NUM_SPLASH_CUBES; i++) {
+          const item = splashCubes[i];
+          item.cube.visible = true;
+
+          // Gentle breathing float near maximum distance
+          const drift = Math.sin(hoverTime * 2.8 + i) * 3.5;
+          const currentDist = item.dist + drift;
+
+          const px = item.dir[0] * currentDist;
+          const py = item.dir[1] * currentDist;
+          const pz = item.dir[2] * currentDist;
+          item.currentPos = [px, py, pz];
+
+          // Gentle continuous tumbling
+          const rx = item.rotVel[0] * splashTimer;
+          const ry = item.rotVel[1] * splashTimer;
+          const rz = item.rotVel[2] * splashTimer;
+          item.currentRot = [rx, ry, rz];
+
+          applyTransform(item.cube, px, py, pz, 1.0, 1.0, 1.0, rx, ry, rz);
+        }
+      }
+      // -----------------------------------------------------------------------
+      // PHASE 3: RETURN TO CENTER ("After 2 seconds, cubes return to form original cube")
+      // -----------------------------------------------------------------------
+      else if (splashTimer <= T_RETURN) {
+        updateHudStatus('RETURNING');
+
+        if (!recallTriggeredSound) {
+          Sound.playRecallStart();
+          recallTriggeredSound = true;
+        }
+
+        centralCube.visible = false;
+        applyTransform(centralCube, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+
+        const returnProgress = (splashTimer - T_APEX) / (T_RETURN - T_APEX);
+        const ease = easeInOutCubic(returnProgress);
+
+        for (let i = 0; i < NUM_SPLASH_CUBES; i++) {
+          const item = splashCubes[i];
+          item.cube.visible = true;
+
+          // Interpolate from peak position back to origin/startOffset
+          const invEase = 1 - ease;
+          const px = item.dir[0] * (item.dist * invEase) + item.startOffset[0] * ease;
+          const py = item.dir[1] * (item.dist * invEase) + item.startOffset[1] * ease;
+          const pz = item.dir[2] * (item.dist * invEase) + item.startOffset[2] * ease;
+
+          // Rotation gradually eases toward alignment
+          const rx = item.rotVel[0] * splashTimer * invEase;
+          const ry = item.rotVel[1] * splashTimer * invEase;
+          const rz = item.rotVel[2] * splashTimer * invEase;
+
+          // Cube scale maintains body until final reassembly
+          const sc = Math.max(0.6, 1.0 - ease * 0.35);
+
+          applyTransform(item.cube, px, py, pz, sc, sc, sc, rx, ry, rz);
+        }
+      }
+      // -----------------------------------------------------------------------
+      // PHASE 4: IMPACT & REFORMING PULSE (3.0s to 3.35s)
+      // -----------------------------------------------------------------------
+      else if (splashTimer <= T_REFORM) {
+        updateHudStatus('REFORMING');
+
+        // Hide 50 small cubes
+        for (let i = 0; i < NUM_SPLASH_CUBES; i++) {
+          const item = splashCubes[i];
+          item.cube.visible = false;
+          applyTransform(item.cube, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+        }
+
+        // Central blue cube reappears with an elastic impact bounce!
+        centralCube.visible = true;
+        const reformProgress = (splashTimer - T_RETURN) / (T_REFORM - T_RETURN);
+        const pulseScale = 1.0 + 0.22 * Math.sin(reformProgress * Math.PI) * (1 - reformProgress);
+
+        applyTransform(centralCube, 0, 0, 0, pulseScale, pulseScale, pulseScale, 0, 0, 0);
+      }
+      // -----------------------------------------------------------------------
+      // COMPLETE: BACK TO IDLE
+      // -----------------------------------------------------------------------
+      else {
+        currentState = STATE.IDLE;
+        updateHudStatus('READY');
+      }
+    }
+
+    // =========================================================================
+    // 7. INTERACTION HANDLER (CLICK, SPACEBAR, BUTTON)
+    // =========================================================================
+
+    function triggerSplash() {
+      // Audio & Starfield Shockwave
+      Sound.playExplosion();
+      Starfield.triggerShockwave();
+
+      // Reset animation state
+      currentState = STATE.EXPLODING;
+      splashTimer = 0;
+      recallTriggeredSound = false;
+
+      // Button active pulse animation
+      const btn = document.getElementById('splash-btn');
+      if (btn) {
+        btn.style.transform = 'scale(0.92)';
+        setTimeout(() => { btn.style.transform = ''; }, 180);
+      }
+    }
+
+    function updateHudStatus(stateName) {
+      const statusText = document.getElementById('status-text');
+      const statusDot = document.getElementById('status-dot');
+      const headerText = document.getElementById('header-status-text');
+
+      if (!statusText || !statusDot) return;
+
+      statusDot.className = 'status-dot';
+
+      switch (stateName) {
+        case 'EXPLODING':
+          statusText.textContent = 'EXPLODING...';
+          statusText.style.color = '#ff0055';
+          statusDot.classList.add('exploding');
+          if (headerText) headerText.textContent = '50 RAINBOW CUBES EXPLODING';
+          break;
+        case 'APEX':
+          statusText.textContent = 'APEX (ZERO-G)';
+          statusText.style.color = '#ffd700';
+          statusDot.classList.add('hover');
+          if (headerText) headerText.textContent = 'SUSPENDED IN ZERO-G';
+          break;
+        case 'RETURNING':
+          statusText.textContent = 'RECALLING...';
+          statusText.style.color = '#bd00ff';
+          statusDot.classList.add('returning');
+          if (headerText) headerText.textContent = 'MAGNETIC RECALL ACTIVE';
+          break;
+        case 'REFORMING':
+          statusText.textContent = 'REFORMING';
+          statusText.style.color = '#00d2ff';
+          if (headerText) headerText.textContent = 'REASSEMBLING CENTRAL CUBE';
+          break;
+        case 'READY':
+        default:
+          statusText.textContent = 'READY';
+          statusText.style.color = '#00ff88';
+          if (headerText) headerText.textContent = 'CLICK OR PRESS SPACEBAR';
+          break;
+      }
+    }
+
+    function resetCamera() {
+      if (!renderer || !renderer.camera) return;
+      renderer.camera.position = [0, 45, 270];
+      renderer.camera.focus = [0, 0, 0];
+      renderer.camera.up = [0, 1, 0];
+    }
+
+    // Set up listeners once DOM is ready
+    function setupInteractions() {
+      // 1. HUD Splash button
+      const splashBtn = document.getElementById('splash-btn');
+      splashBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        triggerSplash();
+      });
+
+      // 2. Camera reset button
+      document.getElementById('reset-cam-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        resetCamera();
+      });
+
+      // 3. Audio toggle button
+      const audioBtn = document.getElementById('audio-toggle-btn');
+      audioBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        Sound.muted = !Sound.muted;
+        audioBtn.textContent = Sound.muted ? '🔇' : '🔊';
+        audioBtn.style.opacity = Sound.muted ? '0.5' : '1.0';
+      });
+
+      // 4. Keyboard Shortcuts: Spacebar triggers explosion, R resets camera
+      window.addEventListener('keydown', (e) => {
+        if (e.code === 'Space' || e.key === ' ' || e.keyCode === 32) {
+          e.preventDefault();
+          triggerSplash();
+        } else if (e.code === 'KeyR' || e.key === 'r') {
+          e.preventDefault();
+          resetCamera();
+        }
+      }, true);
+
+      // 5. Mouse Interaction: Distinguish Click vs Drag!
+      // - Dragging rotates the camera (standard XTK behavior)
+      // - Quick click (without dragging) triggers the splash!
+      let isPointerDown = false;
+      let startX = 0;
+      let startY = 0;
+      let startTime = 0;
+
+      window.addEventListener('pointerdown', (e) => {
+        // Only trigger on primary left clicks
+        if (e.button !== 0) return;
+        // If clicking on HUD elements or buttons, ignore scene click
+        if (e.target && typeof e.target.closest === 'function' && e.target.closest('#hud-container, .hud-info-card, button, input, a')) {
+          return;
+        }
+        isPointerDown = true;
+        startX = e.clientX;
+        startY = e.clientY;
+        startTime = performance.now();
+      }, true);
+
+      window.addEventListener('pointerup', (e) => {
+        if (!isPointerDown) return;
+        isPointerDown = false;
+
+        if (e.target && typeof e.target.closest === 'function' && e.target.closest('#hud-container, .hud-info-card, button, input, a')) {
+          return;
+        }
+
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        const dist = Math.hypot(dx, dy);
+        const dt = performance.now() - startTime;
+
+        // A click has minimal movement (< 6px) and short duration (< 400ms)
+        if (dist < 6 && dt < 400) {
+          triggerSplash();
+        }
+      }, true);
+    }
+
+    // =========================================================================
+    // 8. LIFECYCLE BOOTSTRAP
+    // =========================================================================
+    window.addEventListener('DOMContentLoaded', () => {
+      Starfield.init();
+      setupInteractions();
+      init3DScene();
+    });
+  </script>
+</body>
+</html>
