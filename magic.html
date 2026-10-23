@@ -1,0 +1,1980 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta content="text/html;charset=utf-8" http-equiv="Content-Type">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Flashy Fish - Survival & Boss Fight</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        html,
+        body {
+            background: #021329 url('https://cs460.org/assignments/04/bg.jpg') no-repeat center center fixed;
+            background-size: cover;
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+            overflow: hidden !important;
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+            color: #ffffff;
+        }
+
+        #c {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        /* Underwater Light Rays (God Rays) */
+        .light-rays {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 2;
+            background: linear-gradient(135deg,
+                    rgba(255, 255, 255, 0.12) 0%,
+                    rgba(0, 180, 255, 0.05) 30%,
+                    transparent 70%),
+                radial-gradient(circle at 50% 0%, rgba(200, 245, 255, 0.18) 0%, transparent 65%);
+            animation: rayShimmer 8s ease-in-out infinite alternate;
+        }
+
+        @keyframes rayShimmer {
+            0% {
+                opacity: 0.65;
+                transform: scaleX(1);
+            }
+
+            100% {
+                opacity: 0.95;
+                transform: scaleX(1.08);
+            }
+        }
+
+        /* HUD Overlay */
+        #hud {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 16px 24px;
+        }
+
+        .hud-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            width: 100%;
+        }
+
+        .hud-card {
+            background: rgba(4, 20, 48, 0.65);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border: 1px solid rgba(80, 180, 255, 0.25);
+            border-radius: 12px;
+            padding: 10px 18px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+        }
+
+        .hud-stats {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .hud-title {
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #72c5ff;
+            font-weight: 600;
+        }
+
+        .hud-value {
+            font-size: 26px;
+            font-weight: 800;
+            color: #ffffff;
+            text-shadow: 0 0 12px rgba(0, 200, 255, 0.6);
+        }
+
+        .hud-subvalue {
+            font-size: 14px;
+            color: #e0f2fe;
+            font-weight: 500;
+        }
+
+        /* Hearts for Lives */
+        .lives-container {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 24px;
+        }
+
+        .heart {
+            color: #ff3366;
+            filter: drop-shadow(0 0 8px rgba(255, 51, 102, 0.8));
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .heart.lost {
+            color: #4a5568;
+            filter: none;
+            opacity: 0.4;
+            transform: scale(0.85);
+        }
+
+        /* Dash Meter */
+        .dash-gauge {
+            margin-top: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .gauge-bar-bg {
+            width: 140px;
+            height: 10px;
+            background: rgba(15, 23, 42, 0.8);
+            border-radius: 6px;
+            border: 1px solid rgba(56, 189, 248, 0.4);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .gauge-bar-fill {
+            height: 100%;
+            width: 100%;
+            background: linear-gradient(90deg, #06b6d4, #3b82f6);
+            box-shadow: 0 0 10px #38bdf8;
+            transition: width 0.08s linear;
+        }
+
+        .gauge-bar-fill.ready {
+            background: linear-gradient(90deg, #10b981, #06b6d4);
+            box-shadow: 0 0 12px #34d399;
+        }
+
+        /* Boss Health Bar */
+        #boss-hud {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            width: min(90vw, 420px);
+            z-index: 15;
+            transition: opacity 0.4s ease;
+        }
+
+        .boss-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 15px;
+            font-weight: 800;
+            letter-spacing: 2px;
+            color: #ff3344;
+            text-transform: uppercase;
+            text-shadow: 0 0 12px rgba(255, 50, 70, 0.8);
+            margin-bottom: 6px;
+        }
+
+        .boss-bar-bg {
+            width: 100%;
+            height: 18px;
+            background: rgba(10, 15, 25, 0.85);
+            border: 2px solid #ff3344;
+            border-radius: 9px;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(255, 30, 60, 0.4);
+            position: relative;
+        }
+
+        .boss-bar-fill {
+            height: 100%;
+            width: 100%;
+            background: linear-gradient(90deg, #ff2a2a, #ff7a00);
+            box-shadow: 0 0 14px #ff3b30;
+            transition: width 0.15s ease-out;
+        }
+
+        /* Center Notification Banners */
+        #banner {
+            position: absolute;
+            top: 22%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.9);
+            padding: 14px 28px;
+            border-radius: 14px;
+            font-size: 22px;
+            font-weight: 800;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            text-align: center;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 25;
+            transition: all 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        #banner.show {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        #banner.danger {
+            background: rgba(220, 20, 60, 0.85);
+            border: 2px solid #ff4466;
+            color: #ffffff;
+            box-shadow: 0 0 30px rgba(255, 0, 50, 0.7);
+        }
+
+        #banner.victory {
+            background: rgba(16, 185, 129, 0.9);
+            border: 2px solid #34d399;
+            color: #ffffff;
+            box-shadow: 0 0 35px rgba(16, 185, 129, 0.8);
+        }
+
+        /* Game Over & Victory Modal */
+        #gameover-modal {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(2, 10, 25, 0.82);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 50;
+            pointer-events: auto;
+            opacity: 0;
+            transition: opacity 0.4s ease;
+        }
+
+        #gameover-modal.show {
+            display: flex;
+            opacity: 1;
+        }
+
+        .modal-card {
+            background: linear-gradient(145deg, rgba(8, 28, 60, 0.95), rgba(4, 15, 35, 0.95));
+            border: 1px solid rgba(56, 189, 248, 0.4);
+            border-radius: 20px;
+            padding: 36px 48px;
+            text-align: center;
+            max-width: 440px;
+            width: 90%;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), 0 0 30px rgba(3, 105, 161, 0.3);
+        }
+
+        .modal-title {
+            font-size: 38px;
+            font-weight: 900;
+            letter-spacing: 2px;
+            margin-bottom: 8px;
+            color: #ff3366;
+            text-shadow: 0 0 20px rgba(255, 51, 102, 0.6);
+        }
+
+        .modal-subtitle {
+            font-size: 15px;
+            color: #94a3b8;
+            margin-bottom: 24px;
+        }
+
+        .modal-stats {
+            background: rgba(15, 23, 42, 0.6);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 24px;
+            display: flex;
+            justify-content: space-around;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #7dd3fc;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .stat-val {
+            font-size: 24px;
+            font-weight: 800;
+            color: #ffffff;
+        }
+
+        .btn-restart {
+            background: linear-gradient(90deg, #0284c7, #2563eb);
+            color: #ffffff;
+            border: none;
+            border-radius: 12px;
+            padding: 14px 32px;
+            font-size: 17px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            cursor: pointer;
+            box-shadow: 0 8px 24px rgba(37, 99, 235, 0.5);
+            transition: all 0.2s ease;
+        }
+
+        .btn-restart:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 28px rgba(37, 99, 235, 0.7);
+        }
+
+        .btn-restart:active {
+            transform: translateY(1px);
+        }
+
+        .key-hint {
+            margin-top: 14px;
+            font-size: 13px;
+            color: #64748b;
+        }
+
+        /* Mobile Controls */
+        #touch-controls {
+            position: absolute;
+            bottom: 24px;
+            right: 24px;
+            z-index: 20;
+            pointer-events: auto;
+            display: flex;
+            gap: 16px;
+        }
+
+        .touch-btn {
+            width: 76px;
+            height: 76px;
+            border-radius: 50%;
+            background: rgba(3, 105, 161, 0.4);
+            border: 2px solid rgba(56, 189, 248, 0.7);
+            color: white;
+            font-weight: 800;
+            font-size: 14px;
+            letter-spacing: 1px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+            touch-action: manipulation;
+            cursor: pointer;
+        }
+
+        .touch-btn:active {
+            background: rgba(56, 189, 248, 0.7);
+            transform: scale(0.92);
+        }
+
+        .touch-btn small {
+            font-size: 9px;
+            opacity: 0.8;
+            margin-top: 2px;
+        }
+
+        .controls-hint {
+            font-size: 12px;
+            color: rgba(224, 242, 254, 0.75);
+            background: rgba(3, 15, 35, 0.6);
+            padding: 8px 14px;
+            border-radius: 8px;
+            border: 1px solid rgba(56, 189, 248, 0.2);
+            pointer-events: none;
+            max-width: 320px;
+            line-height: 1.4;
+        }
+
+        @media (max-width: 600px) {
+            .hud-value {
+                font-size: 20px;
+            }
+
+            .controls-hint {
+                display: none;
+            }
+
+            .touch-btn {
+                width: 66px;
+                height: 66px;
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Shimmering Light Rays from Surface -->
+    <div class="light-rays"></div>
+
+    <!-- WebGL Canvas -->
+    <canvas id="c"></canvas>
+
+    <!-- Floating Banner -->
+    <div id="banner"></div>
+
+    <!-- Top & Bottom HUD -->
+    <div id="hud">
+        <div class="hud-top">
+            <div class="hud-card hud-stats">
+                <div class="hud-title">Score</div>
+                <div class="hud-value" id="score-display">0</div>
+                <div class="hud-subvalue" id="highscore-display">High: 0</div>
+            </div>
+
+            <!-- Boss Health Bar -->
+            <div id="boss-hud">
+                <div class="boss-header">
+                    <span>⚠️</span>
+                    <span>MEGALODON - APEX PREDATOR</span>
+                    <span>⚠️</span>
+                </div>
+                <div class="boss-bar-bg">
+                    <div class="boss-bar-fill" id="boss-hp-fill"></div>
+                </div>
+            </div>
+
+            <div class="hud-card hud-stats" style="align-items: flex-end;">
+                <div class="hud-title">Lives</div>
+                <div class="lives-container" id="lives-display">
+                    <span class="heart">❤️</span>
+                    <span class="heart">❤️</span>
+                    <span class="heart">❤️</span>
+                </div>
+                <div class="dash-gauge">
+                    <div style="display: flex; justify-content: space-between; font-size: 11px; color: #7dd3fc;">
+                        <span>DASH</span>
+                        <span id="dash-ready-text">READY</span>
+                    </div>
+                    <div class="gauge-bar-bg">
+                        <div class="gauge-bar-fill ready" id="dash-fill"></div>
+                    </div>
+                </div>
+                <div style="font-size: 11px; color: #bae6fd; margin-top: 4px;" id="fish-counter">Fish Eaten: 0 / 25
+                </div>
+            </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: flex-end; width: 100%;">
+            <div class="controls-hint">
+                <strong>Controls:</strong> Arrow Keys / WASD or Touch Drag to swim.<br>
+                <strong>Spacebar / Dash:</strong> Speed burst & invulnerability.<br>
+                <strong>Survival:</strong> Eat smaller fish to grow. Avoid glowing predators! Lure the Shark into spiky
+                sea urchins to defeat it!
+            </div>
+
+            <!-- Touch Dash Button for Mobile & Mouse -->
+            <div id="touch-controls">
+                <div class="touch-btn" id="btn-dash">
+                    <span>DASH</span>
+                    <small>SPACE</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Over / Victory Modal -->
+    <div id="gameover-modal">
+        <div class="modal-card">
+            <div class="modal-title" id="modal-title">GAME OVER</div>
+            <div class="modal-subtitle" id="modal-cause">Consumed by a larger predator</div>
+            <div class="modal-stats">
+                <div class="stat-item">
+                    <span class="stat-label">Final Score</span>
+                    <span class="stat-val" id="modal-score">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Fish Eaten</span>
+                    <span class="stat-val" id="modal-eaten">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">High Score</span>
+                    <span class="stat-val" id="modal-high">0</span>
+                </div>
+            </div>
+            <button class="btn-restart" id="btn-restart">PLAY AGAIN</button>
+            <div class="key-hint">Press <strong>R</strong> to restart</div>
+        </div>
+    </div>
+
+    <!-- WebGL Shaders -->
+    <script id="vertexshader" type="glsl">
+        attribute vec3 position;
+        uniform mat4 u_transform;
+        uniform float u_pointsize;
+
+        void main(void){
+            gl_PointSize = u_pointsize;
+            vec4 final_position = u_transform * vec4(position, 1.0);
+            gl_Position = final_position;
+        }
+    </script>
+
+    <script id="fragmentshader" type="glsl">
+        precision mediump float;
+        uniform vec4 color;
+        uniform float u_render_mode; // 0 = standard triangle, 1 = round glow point, 2 = glassy bubble
+
+        void main(void){
+            if (u_render_mode > 1.5) {
+                // Realistic bubble with translucent body, rim glow & specular highlight
+                vec2 coord = gl_PointCoord - vec2(0.5);
+                float dist = length(coord);
+                if (dist > 0.5) discard;
+                float rim = smoothstep(0.25, 0.48, dist);
+                float highlight = smoothstep(0.14, 0.04, length(coord - vec2(-0.16, -0.16)));
+                float alpha = color.a * (rim * 0.75 + highlight * 0.95 + 0.12);
+                gl_FragColor = vec4(color.rgb, alpha);
+            } else if (u_render_mode > 0.5) {
+                // Round particle with soft feathered edge
+                vec2 coord = gl_PointCoord - vec2(0.5);
+                float dist = length(coord);
+                if (dist > 0.5) discard;
+                float alpha = color.a * (1.0 - smoothstep(0.2, 0.5, dist));
+                gl_FragColor = vec4(color.rgb, alpha);
+            } else {
+                gl_FragColor = color;
+            }
+        }
+    </script>
+
+    <script>
+        // ==========================================
+        // SYNTHESIZED WEB AUDIO API SYSTEM
+        // ==========================================
+        var audioCtx = null;
+        function getAudioContext() {
+            if (!audioCtx) {
+                var AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (AudioContext) {
+                    audioCtx = new AudioContext();
+                }
+            }
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            return audioCtx;
+        }
+
+        function playEatSound(isBig) {
+            var ctx = getAudioContext();
+            if (!ctx) return;
+            var now = ctx.currentTime;
+            var osc = ctx.createOscillator();
+            var gain = ctx.createGain();
+
+            osc.type = isBig ? 'triangle' : 'sine';
+            var startFreq = isBig ? 280 : 520;
+            var endFreq = isBig ? 620 : 1080;
+
+            osc.frequency.setValueAtTime(startFreq, now);
+            osc.frequency.exponentialRampToValueAtTime(endFreq, now + 0.12);
+
+            gain.gain.setValueAtTime(0.2, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+
+            osc.start(now);
+            osc.stop(now + 0.15);
+        }
+
+        function playHurtSound() {
+            var ctx = getAudioContext();
+            if (!ctx) return;
+            var now = ctx.currentTime;
+
+            // Low frequency thud
+            var osc = ctx.createOscillator();
+            var gain = ctx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(140, now);
+            osc.frequency.exponentialRampToValueAtTime(35, now + 0.35);
+
+            gain.gain.setValueAtTime(0.35, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(now);
+            osc.stop(now + 0.36);
+        }
+
+        function playDashSound() {
+            var ctx = getAudioContext();
+            if (!ctx) return;
+            var now = ctx.currentTime;
+
+            var osc = ctx.createOscillator();
+            var gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(320, now);
+            osc.frequency.exponentialRampToValueAtTime(840, now + 0.15);
+            osc.frequency.exponentialRampToValueAtTime(220, now + 0.3);
+
+            gain.gain.setValueAtTime(0.25, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(now);
+            osc.stop(now + 0.31);
+        }
+
+        function playBossWarningSound() {
+            var ctx = getAudioContext();
+            if (!ctx) return;
+            var now = ctx.currentTime;
+            var osc = ctx.createOscillator();
+            var gain = ctx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(110, now);
+            osc.frequency.linearRampToValueAtTime(150, now + 0.3);
+            osc.frequency.linearRampToValueAtTime(110, now + 0.6);
+
+            gain.gain.setValueAtTime(0.25, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.8);
+
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(now);
+            osc.stop(now + 0.85);
+        }
+
+        function playExplosionSound() {
+            var ctx = getAudioContext();
+            if (!ctx) return;
+            var now = ctx.currentTime;
+
+            var bufferSize = ctx.sampleRate * 0.4;
+            var buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+            var data = buffer.getChannelData(0);
+            for (var i = 0; i < bufferSize; i++) {
+                data[i] = Math.random() * 2 - 1;
+            }
+
+            var noise = ctx.createBufferSource();
+            noise.buffer = buffer;
+
+            var filter = ctx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(600, now);
+            filter.frequency.exponentialRampToValueAtTime(60, now + 0.4);
+
+            var gain = ctx.createGain();
+            gain.gain.setValueAtTime(0.4, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+
+            noise.connect(filter);
+            filter.connect(gain);
+            gain.connect(ctx.destination);
+
+            noise.start(now);
+            noise.stop(now + 0.4);
+        }
+
+        function playVictorySound() {
+            var ctx = getAudioContext();
+            if (!ctx) return;
+            var notes = [523.25, 659.25, 783.99, 1046.50];
+            notes.forEach(function (freq, index) {
+                var now = ctx.currentTime + index * 0.12;
+                var osc = ctx.createOscillator();
+                var gain = ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(freq, now);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.36);
+            });
+        }
+
+        // ==========================================
+        // MAIN GAME ENGINE & WEBGL SETUP
+        // ==========================================
+        var c, gl, shaderprogram;
+        var a_position, u_color, u_pointsize, u_transform, u_render_mode;
+
+        // Buffers
+        var fish_v_buffer, fish_i_buffer;
+        var eye_v_buffer, other_eye_v_buffer;
+        var shark_v_buffer, shark_i_buffer;
+        var urchin_v_buffer, urchin_i_buffer;
+        var dynamic_point_buffer;
+
+        // Game State Variables
+        var gameState = 'PLAYING'; // PLAYING, GAMEOVER, VICTORY
+        var score = 0;
+        var highScore = parseInt(localStorage.getItem('flashy_fish_highscore') || '0', 10);
+        var fishEaten = 0;
+        var bossSpawnGoal = 25;
+        var bossSpawned = false;
+        var bossDefeated = false;
+        var maxPredators = 0;
+
+        // Player Entity
+        var player = {
+            pos: [0, 0, 0],
+            vel: [0, 0],
+            scale: 0.22,
+            baseScale: 0.22,
+            direction: 1,
+            lives: 5,
+            maxLives: 5,
+            invulnerableTimer: 0,
+            dashCooldown: 0,
+            dashCooldownMax: 2.8,
+            dashActiveTimer: 0,
+            dashDuration: 0.28,
+            isDashing: false,
+            speed: 0.008
+        };
+
+        // Entities Lists
+        var ecosystemFish = [];
+        var foodPellets = [];
+        var obstacles = [];
+        var particles = [];
+        var ambientBubbles = [];
+        var boss = null;
+
+        // Screen Shake
+        var screenShakeTrauma = 0;
+
+        // Controls
+        var keys = {};
+        var touchPointer = { active: false, x: 0, y: 0 };
+        var lastSpawnTime = 0;
+        var lastPelletSpawnTime = 0;
+        var lastFrameTime = performance.now();
+
+        window.onload = function () {
+            initWebGL();
+            initHUD();
+            initControls();
+            startNewGame();
+            requestAnimationFrame(animate);
+        };
+
+        function initWebGL() {
+            c = document.getElementById('c');
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+
+            gl = c.getContext('webgl', { premultipliedAlpha: false, alpha: true, antialias: true });
+            if (!gl) {
+                alert('WebGL is not supported by your browser.');
+                return;
+            }
+
+            // Shaders compilation
+            var v_shader = gl.createShader(gl.VERTEX_SHADER);
+            var f_shader = gl.createShader(gl.FRAGMENT_SHADER);
+
+            gl.shaderSource(v_shader, document.getElementById('vertexshader').innerText);
+            gl.compileShader(v_shader);
+            if (!gl.getShaderParameter(v_shader, gl.COMPILE_STATUS)) {
+                console.error(gl.getShaderInfoLog(v_shader));
+            }
+
+            gl.shaderSource(f_shader, document.getElementById('fragmentshader').innerText);
+            gl.compileShader(f_shader);
+            if (!gl.getShaderParameter(f_shader, gl.COMPILE_STATUS)) {
+                console.error(gl.getShaderInfoLog(f_shader));
+            }
+
+            shaderprogram = gl.createProgram();
+            gl.attachShader(shaderprogram, v_shader);
+            gl.attachShader(shaderprogram, f_shader);
+            gl.linkProgram(shaderprogram);
+            gl.useProgram(shaderprogram);
+
+            a_position = gl.getAttribLocation(shaderprogram, 'position');
+            u_color = gl.getUniformLocation(shaderprogram, 'color');
+            u_pointsize = gl.getUniformLocation(shaderprogram, 'u_pointsize');
+            u_transform = gl.getUniformLocation(shaderprogram, 'u_transform');
+            u_render_mode = gl.getUniformLocation(shaderprogram, 'u_render_mode');
+
+            // Shared Standard Fish Geometry
+            var fish_vertices = new Float32Array([
+                0.5, 0.0, 0.0,    // 0: nose
+                0.2, 0.25, 0.0,   // 1: upper body
+                -0.2, 0.15, 0.0,  // 2: upper tail base
+                -0.4, 0.3, 0.0,   // 3: upper tail tip
+                -0.4, -0.3, 0.0,  // 4: lower tail tip
+                -0.2, -0.15, 0.0, // 5: lower tail base
+                0.2, -0.25, 0.0   // 6: lower body
+            ]);
+
+            var fish_indices = new Uint8Array([
+                0, 1, 6,
+                1, 2, 6,
+                2, 5, 6,
+                2, 3, 5,
+                3, 4, 5
+            ]);
+
+            fish_v_buffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, fish_v_buffer);
+            gl.bufferData(gl.ARRAY_BUFFER, fish_vertices, gl.STATIC_DRAW);
+
+            fish_i_buffer = gl.createBuffer();
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, fish_i_buffer);
+            gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, fish_indices, gl.STATIC_DRAW);
+
+            // Eye Vertices
+            eye_v_buffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, eye_v_buffer);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0.2, 0.18, 0.0]), gl.STATIC_DRAW);
+
+            other_eye_v_buffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, other_eye_v_buffer);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0.2, -0.18, 0.0]), gl.STATIC_DRAW);
+
+            // Shark Boss Geometry (Aggressive Predatory Profile)
+            var shark_vertices = new Float32Array([
+                0.75, 0.0, 0.0,    // 0: snout tip
+                0.40, 0.22, 0.0,   // 1: upper head
+                0.08, 0.52, 0.0,   // 2: dorsal fin tip
+                -0.12, 0.20, 0.0,  // 3: dorsal fin back
+                -0.52, 0.14, 0.0,  // 4: tail base top
+                -0.88, 0.44, 0.0,  // 5: upper caudal fin
+                -0.65, 0.0, 0.0,   // 6: caudal notch
+                -0.82, -0.32, 0.0, // 7: lower caudal fin
+                -0.52, -0.12, 0.0, // 8: tail base bottom
+                -0.10, -0.22, 0.0, // 9: lower belly
+                0.15, -0.42, 0.0,  // 10: pectoral fin tip
+                0.38, -0.16, 0.0   // 11: lower jaw
+            ]);
+
+            var shark_indices = new Uint8Array([
+                0, 1, 11,   // snout
+                1, 2, 3,    // dorsal fin
+                1, 3, 9,    // upper body
+                1, 9, 11,   // mid body
+                9, 10, 11,  // pectoral fin
+                3, 4, 9,    // rear body upper
+                4, 8, 9,    // rear body lower
+                4, 5, 6,    // upper tail fin
+                4, 6, 8,    // tail notch
+                6, 7, 8     // lower tail fin
+            ]);
+
+            shark_v_buffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, shark_v_buffer);
+            gl.bufferData(gl.ARRAY_BUFFER, shark_vertices, gl.STATIC_DRAW);
+
+            shark_i_buffer = gl.createBuffer();
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, shark_i_buffer);
+            gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, shark_indices, gl.STATIC_DRAW);
+
+            // Spiky Sea Urchin Obstacle Geometry (Spiked star)
+            var urchin_verts = [0.0, 0.0, 0.0];
+            var numSpikes = 10;
+            for (var s = 0; s < numSpikes * 2; s++) {
+                var angle = (s * Math.PI) / numSpikes;
+                var radius = (s % 2 === 0) ? 0.42 : 0.16;
+                urchin_verts.push(Math.cos(angle) * radius, Math.sin(angle) * radius, 0.0);
+            }
+
+            var urchin_inds = [];
+            for (var s = 1; s <= numSpikes * 2; s++) {
+                var next = (s % (numSpikes * 2)) + 1;
+                urchin_inds.push(0, s, next);
+            }
+
+            urchin_v_buffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, urchin_v_buffer);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(urchin_verts), gl.STATIC_DRAW);
+
+            urchin_i_buffer = gl.createBuffer();
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, urchin_i_buffer);
+            gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint8Array(urchin_inds), gl.STATIC_DRAW);
+
+            // Dynamic Point Buffer for Particles/Bubbles/Pellets
+            dynamic_point_buffer = gl.createBuffer();
+
+            // Init Ambient Bubbles
+            for (var b = 0; b < 45; b++) {
+                ambientBubbles.push({
+                    x: (Math.random() * 2 - 1) * (c.width / c.height),
+                    y: Math.random() * 2 - 1,
+                    speed: 0.0015 + Math.random() * 0.003,
+                    wobbleSpeed: 1 + Math.random() * 2,
+                    wobbleAmount: 0.001 + Math.random() * 0.002,
+                    seed: Math.random() * 10,
+                    size: 8 + Math.random() * 16,
+                    alpha: 0.35 + Math.random() * 0.45
+                });
+            }
+        }
+
+        function resizeCanvas() {
+            c.width = window.innerWidth;
+            c.height = window.innerHeight;
+            if (gl) {
+                gl.viewport(0, 0, c.width, c.height);
+            }
+        }
+
+        function initHUD() {
+            document.getElementById('highscore-display').innerText = 'High: ' + highScore;
+            document.getElementById('btn-restart').onclick = function () {
+                startNewGame();
+            };
+            document.getElementById('btn-dash').addEventListener('pointerdown', function (e) {
+                e.preventDefault();
+                triggerDash();
+            });
+        }
+
+        function initControls() {
+            window.addEventListener('keydown', function (e) {
+                keys[e.key] = true;
+                if (e.key === ' ' || e.key === 'Spacebar') {
+                    e.preventDefault();
+                    triggerDash();
+                }
+                if (e.key === 'r' || e.key === 'R') {
+                    if (gameState === 'GAMEOVER' || gameState === 'VICTORY') {
+                        startNewGame();
+                    }
+                }
+                getAudioContext();
+            });
+
+            window.addEventListener('keyup', function (e) {
+                keys[e.key] = false;
+            });
+
+            // Touch / Mouse Pointer steering
+            var handlePointer = function (e) {
+                var aspect = c.width / c.height;
+                var px = (e.clientX / c.width) * 2 - 1;
+                var py = -((e.clientY / c.height) * 2 - 1);
+                touchPointer.x = px * aspect;
+                touchPointer.y = py;
+                touchPointer.active = true;
+                getAudioContext();
+            };
+
+            window.addEventListener('pointerdown', function (e) {
+                if (e.target.closest('#hud button') || e.target.closest('#touch-controls')) return;
+                handlePointer(e);
+            });
+
+            window.addEventListener('pointermove', function (e) {
+                if (touchPointer.active) {
+                    handlePointer(e);
+                }
+            });
+
+            window.addEventListener('pointerup', function () {
+                touchPointer.active = false;
+            });
+
+            window.addEventListener('pointercancel', function () {
+                touchPointer.active = false;
+            });
+        }
+
+        function startNewGame() {
+            gameState = 'PLAYING';
+            score = 0;
+            fishEaten = 0;
+            bossSpawned = false;
+            bossDefeated = false;
+            boss = null;
+            screenShakeTrauma = 0;
+
+            player.pos = [0, 0, 0];
+            player.vel = [0, 0];
+            player.scale = player.baseScale;
+            player.direction = 1;
+            player.lives = player.maxLives;
+            player.invulnerableTimer = 0;
+            player.dashCooldown = 0;
+            player.dashActiveTimer = 0;
+            player.isDashing = false;
+
+            ecosystemFish = [];
+            foodPellets = [];
+            obstacles = [];
+            particles = [];
+
+            // Spawn initial diverse ecosystem
+            spawnEcosystemBatch(65);
+
+            // Hide Game Over Modal
+            var modal = document.getElementById('gameover-modal');
+            modal.classList.remove('show');
+            setTimeout(function () { modal.style.display = 'none'; }, 200);
+
+            // Hide Boss HUD & Banner
+            document.getElementById('boss-hud').style.display = 'none';
+            hideBanner();
+
+            updateHUD();
+        }
+
+        function spawnEcosystemBatch(count) {
+            var aspect = c.width / c.height;
+            for (var i = 0; i < count; i++) {
+                var x = (Math.random() * 2.4 - 1.2) * aspect;
+                var y = Math.random() * 1.8 - 0.9;
+                var isPredator = Math.random() < 0.08; // ~22% are dangerous predators
+
+                var scale, color;
+                if (isPredator) {
+                    // Larger, threatening predator fish with glowing crimson/orange shades
+                    scale = player.scale * (1.2 + Math.random() * 0.7);
+                    color = [0.95 + Math.random() * 0.05, 0.15 + Math.random() * 0.2, 0.2 + Math.random() * 0.2, 0.95];
+                } else {
+                    // Smaller edible prey fish with tropical luminous colors
+                    scale = 0.08 + Math.random() * 0.12;
+                    var hueChoice = Math.random();
+                    if (hueChoice < 0.33) {
+                        color = [0.2, 0.85 + Math.random() * 0.15, 0.95, 0.85]; // Cyan/Aquamarine
+                    } else if (hueChoice < 0.66) {
+                        color = [0.98, 0.85, 0.15, 0.85]; // Golden Yellow
+                    } else {
+                        color = [0.15, 0.95, 0.45, 0.85]; // Neon Emerald
+                    }
+                }
+
+                ecosystemFish.push({
+                    pos: [x, y, 0],
+                    vel: [(Math.random() - 0.5) * 0.006 + 0.004, (Math.random() - 0.5) * 0.003],
+                    scale: scale,
+                    color: color,
+                    direction: Math.random() > 0.5 ? 1 : -1,
+                    isPredator: isPredator,
+                    baseSpeed: 0.0018 + Math.random() * 0.0025,
+                    maxSpeed: 0.006 + Math.random() * 0.003,
+                    wiggleSeed: Math.random() * 10
+                });
+            }
+        }
+
+        function triggerDash() {
+            if (player.dashCooldown <= 0 && gameState === 'PLAYING') {
+                player.isDashing = true;
+                player.dashActiveTimer = player.dashDuration;
+                player.dashCooldown = player.dashCooldownMax;
+                playDashSound();
+
+                // Spawn dash shockwave bubbles
+                for (var p = 0; p < 18; p++) {
+                    var angle = Math.random() * Math.PI * 2;
+                    var speed = 0.005 + Math.random() * 0.015;
+                    particles.push({
+                        x: player.pos[0] - player.direction * 0.1,
+                        y: player.pos[1],
+                        vx: Math.cos(angle) * speed - player.direction * 0.01,
+                        vy: Math.sin(angle) * speed,
+                        color: [0.3, 0.9, 1.0, 0.9],
+                        size: 10 + Math.random() * 14,
+                        life: 1.0,
+                        decay: 2.5,
+                        isBubble: true
+                    });
+                }
+            }
+        }
+
+        function triggerScreenShake(amount) {
+            screenShakeTrauma = Math.min(1.0, screenShakeTrauma + amount);
+        }
+
+        function showBanner(text, type, durationMs) {
+            var banner = document.getElementById('banner');
+            banner.innerText = text;
+            banner.className = 'show ' + (type || 'danger');
+            if (durationMs) {
+                setTimeout(function () {
+                    hideBanner();
+                }, durationMs);
+            }
+        }
+
+        function hideBanner() {
+            var banner = document.getElementById('banner');
+            banner.classList.remove('show');
+        }
+
+        function spawnFoodPellet() {
+            var aspect = c.width / c.height;
+            foodPellets.push({
+                x: (Math.random() * 2 - 1) * aspect * 0.9,
+                y: 1.05,
+                vy: -(0.0025 + Math.random() * 0.002),
+                wobbleSeed: Math.random() * 5,
+                color: [1.0, 0.85, 0.2, 0.9], // Glowing golden plankton pellet
+                size: 9 + Math.random() * 4
+            });
+        }
+
+        function spawnBoss() {
+            bossSpawned = true;
+            playBossWarningSound();
+            showBanner('⚠️ DANGER: MEGALODON INCOMING! ⚠️', 'danger', 4500);
+
+            var aspect = c.width / c.height;
+            boss = {
+                pos: [aspect + 0.6, 0.2, 0],
+                vel: [-0.008, 0],
+                scale: 1.25,
+                hp: 100,
+                maxHp: 100,
+                direction: -1,
+                state: 'STALKING', // STALKING, LOCKON, CHARGING, STUNNED, RECOVER
+                stateTimer: 2.5,
+                chargeTarget: [0, 0],
+                targetAngle: 0,
+                hitInvulnerable: 0
+            };
+
+            // Spawn spiky sea urchin obstacles into the arena to lure the boss into
+            obstacles = [
+                { pos: [-0.45 * aspect, 0.35, 0], rot: 0, scale: 0.28, color: [0.65, 0.15, 0.85, 0.95] },
+                { pos: [0.45 * aspect, -0.3, 0], rot: 0, scale: 0.28, color: [0.65, 0.15, 0.85, 0.95] },
+                { pos: [0.0, 0.55, 0], rot: 0, scale: 0.32, color: [0.85, 0.2, 0.3, 0.95] }
+            ];
+
+            document.getElementById('boss-hud').style.display = 'flex';
+            updateBossHUD();
+        }
+
+        function updateBossHUD() {
+            if (!boss) return;
+            var fill = document.getElementById('boss-hp-fill');
+            var pct = Math.max(0, (boss.hp / boss.maxHp) * 100);
+            fill.style.width = pct + '%';
+        }
+
+        function spawnEatParticles(x, y, color, count) {
+            for (var p = 0; p < (count || 22); p++) {
+                var angle = Math.random() * Math.PI * 2;
+                var spd = 0.006 + Math.random() * 0.018;
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: Math.cos(angle) * spd,
+                    vy: Math.sin(angle) * spd,
+                    color: [color[0], color[1], color[2], 0.9],
+                    size: 8 + Math.random() * 12,
+                    life: 1.0,
+                    decay: 1.8 + Math.random() * 1.5,
+                    isBubble: false
+                });
+            }
+        }
+
+        function triggerDamageToPlayer(cause) {
+            if (player.invulnerableTimer > 0 || player.isDashing) return;
+
+            player.lives--;
+            player.invulnerableTimer = 3.5; // 2 seconds of invulnerability
+            triggerScreenShake(0.65);
+            playHurtSound();
+
+            // Knockback
+            player.pos[0] -= player.direction * 0.15;
+
+            // Blood/impact burst
+            spawnEatParticles(player.pos[0], player.pos[1], [1.0, 0.1, 0.2, 1.0], 25);
+
+            updateHUD();
+
+            if (player.lives <= 0) {
+                gameOver(cause || 'Consumed by a predator');
+            }
+        }
+
+        function gameOver(cause) {
+            gameState = 'GAMEOVER';
+            playHurtSound();
+            triggerScreenShake(0.8);
+
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('flashy_fish_highscore', highScore.toString());
+            }
+
+            document.getElementById('modal-title').innerText = 'GAME OVER';
+            document.getElementById('modal-title').style.color = '#ff3366';
+            document.getElementById('modal-cause').innerText = cause;
+            document.getElementById('modal-score').innerText = score;
+            document.getElementById('modal-eaten').innerText = fishEaten;
+            document.getElementById('modal-high').innerText = highScore;
+
+            var modal = document.getElementById('gameover-modal');
+            modal.style.display = 'flex';
+            setTimeout(function () { modal.classList.add('show'); }, 10);
+        }
+
+        function victory() {
+            gameState = 'VICTORY';
+            bossDefeated = true;
+            playVictorySound();
+            showBanner('🏆 MEGALODON SLAIN! SURVIVAL CONTINUES 🏆', 'victory', 6000);
+            score += 500;
+
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('flashy_fish_highscore', highScore.toString());
+            }
+
+            document.getElementById('boss-hud').style.display = 'none';
+
+            // Massive celebratory particle shower
+            if (boss) {
+                spawnEatParticles(boss.pos[0], boss.pos[1], [1.0, 0.8, 0.1, 1.0], 60);
+                spawnEatParticles(boss.pos[0], boss.pos[1], [0.2, 0.9, 1.0, 1.0], 60);
+                boss = null;
+            }
+
+            updateHUD();
+        }
+
+        function updateHUD() {
+            document.getElementById('score-display').innerText = score;
+            document.getElementById('highscore-display').innerText = 'High: ' + highScore;
+            document.getElementById('fish-counter').innerText = 'Fish Eaten: ' + fishEaten + ' / ' + bossSpawnGoal;
+
+            // Update hearts
+            var heartsContainer = document.getElementById('lives-display');
+            var heartsHtml = '';
+            for (var l = 0; l < player.maxLives; l++) {
+                if (l < player.lives) {
+                    heartsHtml += '<span class="heart">❤️</span>';
+                } else {
+                    heartsHtml += '<span class="heart lost">💔</span>';
+                }
+            }
+            heartsContainer.innerHTML = heartsHtml;
+
+            // Dash gauge
+            var dashFill = document.getElementById('dash-fill');
+            var dashText = document.getElementById('dash-ready-text');
+            if (player.dashCooldown <= 0) {
+                dashFill.style.width = '100%';
+                dashFill.className = 'gauge-bar-fill ready';
+                dashText.innerText = 'READY';
+                dashText.style.color = '#34d399';
+            } else {
+                var pct = Math.max(0, (1 - (player.dashCooldown / player.dashCooldownMax)) * 100);
+                dashFill.style.width = pct + '%';
+                dashFill.className = 'gauge-bar-fill';
+                dashText.innerText = Math.ceil(player.dashCooldown) + 's';
+                dashText.style.color = '#7dd3fc';
+            }
+        }
+
+        // ==========================================
+        // MAIN UPDATE & RENDER LOOP
+        // ==========================================
+        function animate() {
+            requestAnimationFrame(animate);
+
+            var now = performance.now();
+            var dt = Math.min((now - lastFrameTime) * 0.001, 0.1);
+            lastFrameTime = now;
+
+            var aspect = c.width / c.height;
+
+            // Update Timers & Cooldowns
+            if (player.dashActiveTimer > 0) {
+                player.dashActiveTimer -= dt;
+                if (player.dashActiveTimer <= 0) {
+                    player.isDashing = false;
+                }
+            }
+            if (player.dashCooldown > 0) {
+                player.dashCooldown -= dt;
+                updateHUD();
+            }
+            if (player.invulnerableTimer > 0) {
+                player.invulnerableTimer -= dt;
+            }
+
+            // Screen Shake Decay & CSS Canvas Transform
+            if (screenShakeTrauma > 0) {
+                screenShakeTrauma = Math.max(0, screenShakeTrauma - dt * 2.2);
+                var shakePix = screenShakeTrauma * screenShakeTrauma * 24;
+                var sx = (Math.random() - 0.5) * shakePix;
+                var sy = (Math.random() - 0.5) * shakePix;
+                c.style.transform = 'translate(' + sx + 'px, ' + sy + 'px)';
+            } else {
+                c.style.transform = 'none';
+            }
+
+            // 1. Player Movement & Input
+            if (gameState === 'PLAYING') {
+                var moveX = 0, moveY = 0;
+                var currentSpeed = player.speed * (player.isDashing ? 3.4 : 1.0);
+
+                if (keys['ArrowLeft'] || keys['a'] || keys['A']) { moveX -= 1; }
+                if (keys['ArrowRight'] || keys['d'] || keys['D']) { moveX += 1; }
+                if (keys['ArrowUp'] || keys['w'] || keys['W']) { moveY += 1; }
+                if (keys['ArrowDown'] || keys['s'] || keys['S']) { moveY -= 1; }
+
+                // Pointer touch drag steering
+                if (touchPointer.active) {
+                    var dx = touchPointer.x - player.pos[0];
+                    var dy = touchPointer.y - player.pos[1];
+                    var dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist > 0.04) {
+                        moveX = dx / dist;
+                        moveY = dy / dist;
+                    }
+                }
+
+                if (moveX !== 0 || moveY !== 0) {
+                    var mag = Math.sqrt(moveX * moveX + moveY * moveY);
+                    player.pos[0] += (moveX / mag) * currentSpeed;
+                    player.pos[1] += (moveY / mag) * currentSpeed;
+
+                    if (moveX < -0.1) player.direction = -1;
+                    if (moveX > 0.1) player.direction = 1;
+                }
+
+                // Clamping within view boundaries
+                player.pos[0] = Math.max(-aspect + 0.1, Math.min(aspect - 0.1, player.pos[0]));
+                player.pos[1] = Math.max(-0.92, Math.min(0.92, player.pos[1]));
+
+                // Dash trailing bubbles
+                if (player.isDashing && Math.random() < 0.6) {
+                    particles.push({
+                        x: player.pos[0] - player.direction * (player.scale * 0.4),
+                        y: player.pos[1] + (Math.random() - 0.5) * 0.06,
+                        vx: -player.direction * 0.005,
+                        vy: (Math.random() - 0.5) * 0.004,
+                        color: [0.4, 0.9, 1.0, 0.8],
+                        size: 8 + Math.random() * 8,
+                        life: 1.0,
+                        decay: 3.5,
+                        isBubble: true
+                    });
+                }
+            }
+
+            // 2. Dynamic Spawning based on Player Scale & Growth
+            // "The bigger you get, the faster the world spawns new fish."
+            var spawnInterval = Math.max(0.65, 2.5 - (player.scale - player.baseScale) * 3.5);
+            if (now - lastSpawnTime > spawnInterval * 1000 && ecosystemFish.length < 90) {
+                lastSpawnTime = now;
+                spawnEcosystemBatch(2);
+            }
+
+            // Food Pellets Sinking
+            if (now - lastPelletSpawnTime > 1800 && foodPellets.length < 15) {
+                lastPelletSpawnTime = now;
+                spawnFoodPellet();
+            }
+
+            // Boss Encounter Trigger
+            if (fishEaten >= bossSpawnGoal && !bossSpawned) {
+                spawnBoss();
+            }
+
+            // 3. Update Food Pellets
+            for (var p = foodPellets.length - 1; p >= 0; p--) {
+                var pellet = foodPellets[p];
+                pellet.y += pellet.vy;
+                pellet.x += Math.sin(now * 0.003 + pellet.wobbleSeed) * 0.001;
+
+                // Player eating pellet
+                var pdx = pellet.x - player.pos[0];
+                var pdy = pellet.y - player.pos[1];
+                var pDist = Math.sqrt(pdx * pdx + pdy * pdy);
+                if (pDist < player.scale * 0.45 + 0.04) {
+                    foodPellets.splice(p, 1);
+                    score += 2;
+                    player.scale = Math.min(1.2, player.scale + 0.004); // Grow slightly
+                    playEatSound(false);
+                    spawnEatParticles(pellet.x, pellet.y, pellet.color, 8);
+                    updateHUD();
+                    continue;
+                }
+
+                // Remove out-of-screen pellets
+                if (pellet.y < -1.1) {
+                    foodPellets.splice(p, 1);
+                }
+            }
+
+            // 4. Update Ecosystem Fish (Flocking Boids & Predator Avoidance)
+            for (var i = ecosystemFish.length - 1; i >= 0; i--) {
+                var f = ecosystemFish[i];
+
+                var sepX = 0, sepY = 0;
+                var aliX = 0, aliY = 0;
+                var cohX = 0, cohY = 0;
+                var neighborCount = 0;
+
+                // Flocking against nearby small fish
+                for (var j = 0; j < ecosystemFish.length; j++) {
+                    if (i === j) continue;
+                    var other = ecosystemFish[j];
+                    var ndx = f.pos[0] - other.pos[0];
+                    var ndy = f.pos[1] - other.pos[1];
+                    var nDistSq = ndx * ndx + ndy * ndy;
+
+                    if (nDistSq < 0.08 * 0.08) {
+                        // Separation
+                        var d = Math.sqrt(nDistSq) || 0.001;
+                        sepX += (ndx / d) / d;
+                        sepY += (ndy / d) / d;
+                    } else if (nDistSq < 0.28 * 0.28) {
+                        // Alignment & Cohesion (only among prey)
+                        if (!f.isPredator && !other.isPredator) {
+                            aliX += other.vel[0];
+                            aliY += other.vel[1];
+                            cohX += other.pos[0];
+                            cohY += other.pos[1];
+                            neighborCount++;
+                        }
+                    }
+                }
+
+                if (neighborCount > 0) {
+                    aliX /= neighborCount;
+                    aliY /= neighborCount;
+                    cohX = (cohX / neighborCount) - f.pos[0];
+                    cohY = (cohY / neighborCount) - f.pos[1];
+                }
+
+                // Interaction with Player
+                var pDistX = f.pos[0] - player.pos[0];
+                var pDistY = f.pos[1] - player.pos[1];
+                var pDist = Math.sqrt(pDistX * pDistX + pDistY * pDistY);
+
+                if (!f.isPredator) {
+                    // Prey fish flee from player if player is bigger
+                    if (pDist < 0.45 && player.scale > f.scale) {
+                        sepX += (pDistX / pDist) * 18.0;
+                        sepY += (pDistY / pDist) * 18.0;
+                    }
+
+                    // Prey fish chase sinking food pellets
+                    for (var pl = 0; pl < foodPellets.length; pl++) {
+                        var fldx = foodPellets[pl].x - f.pos[0];
+                        var fldy = foodPellets[pl].y - f.pos[1];
+                        var fldDist = Math.sqrt(fldx * fldx + fldy * fldy);
+                        if (fldDist < 0.35) {
+                            cohX += (fldx / fldDist) * 8.0;
+                            cohY += (fldy / fldDist) * 8.0;
+
+                            // Small fish eats pellet
+                            if (fldDist < f.scale * 0.4 + 0.03) {
+                                foodPellets.splice(pl, 1);
+                                f.scale = Math.min(player.scale * 0.9, f.scale + 0.006);
+                                spawnEatParticles(f.pos[0], f.pos[1], f.color, 6);
+                                break;
+                            }
+                        }
+                    }
+                } else {
+                    // Predator fish behavior:
+                    // If bigger than player, stalk player!
+                    if (f.scale > player.scale) {
+                        if (pDist < 0.6) {
+                            cohX -= (pDistX / pDist) * 1.0;
+                            cohY -= (pDistY / pDist) * 1.0;
+                        }
+                    } else {
+                        // Player grew bigger! Predator now panics and flees!
+                        if (pDist < 0.5) {
+                            sepX += (pDistX / pDist) * 20.0;
+                            sepY += (pDistY / pDist) * 20.0;
+                        }
+                    }
+                }
+
+                // Apply flocking accelerations
+                f.vel[0] += (sepX * 0.0006 + aliX * 0.02 + cohX * 0.0008);
+                f.vel[1] += (sepY * 0.0006 + aliY * 0.02 + cohY * 0.0008);
+
+                // Natural gentle sinusoidal vertical wiggle
+                f.vel[1] += Math.sin(now * 0.004 + f.wiggleSeed) * 0.0003;
+
+                // Speed clamping
+                var spd = Math.sqrt(f.vel[0] * f.vel[0] + f.vel[1] * f.vel[1]);
+                var maxS = f.isPredator ? f.maxSpeed * 1.1 : f.maxSpeed;
+                if (spd > maxS) {
+                    f.vel[0] = (f.vel[0] / spd) * maxS;
+                    f.vel[1] = (f.vel[1] / spd) * maxS;
+                }
+                if (spd < f.baseSpeed) {
+                    f.vel[0] += (f.direction * f.baseSpeed * 0.1);
+                }
+
+                f.pos[0] += f.vel[0];
+                f.pos[1] += f.vel[1];
+
+                if (f.vel[0] > 0.001) f.direction = 1;
+                if (f.vel[0] < -0.001) f.direction = -1;
+
+                // Screen Wrap
+                if (f.pos[0] > aspect + 0.3) {
+                    f.pos[0] = -aspect - 0.2;
+                } else if (f.pos[0] < -aspect - 0.3) {
+                    f.pos[0] = aspect + 0.2;
+                }
+                if (f.pos[1] > 0.98) f.vel[1] = -Math.abs(f.vel[1]);
+                if (f.pos[1] < -0.98) f.vel[1] = Math.abs(f.vel[1]);
+
+                // Collision with Player
+                var collisionDist = (player.scale + f.scale) * 0.38;
+                if (pDist < collisionDist) {
+                    if (player.isDashing) {
+                        // Dash slices through fish / predator!
+                        ecosystemFish.splice(i, 1);
+                        score += f.isPredator ? 35 : 10;
+                        fishEaten++;
+                        player.scale = Math.min(1.4, player.scale + 0.015);
+                        triggerScreenShake(f.isPredator ? 0.35 : 0.15);
+                        playEatSound(true);
+                        spawnEatParticles(f.pos[0], f.pos[1], f.color, 24);
+                        updateHUD();
+                        continue;
+                    } else if (player.scale >= f.scale * 0.98) {
+                        // Player eats smaller fish!
+                        ecosystemFish.splice(i, 1);
+                        score += f.isPredator ? 40 : 10;
+                        fishEaten++;
+                        // Big fish grows when it eats!
+                        player.scale = Math.min(1.4, player.scale + (f.isPredator ? 0.024 : 0.012));
+                        playEatSound(f.isPredator);
+                        spawnEatParticles(f.pos[0], f.pos[1], f.color, 20);
+                        updateHUD();
+                        continue;
+                    } else {
+                        // Fish is bigger predator -> bites player!
+                        triggerDamageToPlayer('Devoured by an apex predator fish');
+                    }
+                }
+            }
+
+            // 5. Boss AI & Mechanics
+            if (boss) {
+                boss.stateTimer -= dt;
+                if (boss.hitInvulnerable > 0) boss.hitInvulnerable -= dt;
+
+                var bdx = player.pos[0] - boss.pos[0];
+                var bdy = player.pos[1] - boss.pos[1];
+                var bDist = Math.sqrt(bdx * bdx + bdy * bdy);
+
+                if (boss.state === 'STALKING') {
+                    // Turn towards player and track
+                    boss.direction = bdx > 0 ? 1 : -1;
+                    boss.pos[0] += (bdx / bDist) * 0.007;
+                    boss.pos[1] += (bdy / bDist) * 0.007;
+
+                    if (boss.stateTimer <= 0) {
+                        // Enter LOCKON phase
+                        boss.state = 'LOCKON';
+                        boss.stateTimer = 0.85;
+                        boss.chargeTarget = [player.pos[0], player.pos[1]];
+                        playBossWarningSound();
+                    }
+                } else if (boss.state === 'LOCKON') {
+                    // Shiver in place preparing to lunge
+                    boss.pos[0] += (Math.random() - 0.5) * 0.008;
+                    boss.pos[1] += (Math.random() - 0.5) * 0.008;
+
+                    if (boss.stateTimer <= 0) {
+                        // Initiate violent charge
+                        boss.state = 'CHARGING';
+                        boss.stateTimer = 1.6;
+                        var cdx = boss.chargeTarget[0] - boss.pos[0];
+                        var cdy = boss.chargeTarget[1] - boss.pos[1];
+                        var cDist = Math.sqrt(cdx * cdx + cdy * cdy) || 0.001;
+                        boss.vel = [(cdx / cDist) * 0.024, (cdy / cDist) * 0.024];
+                        boss.direction = boss.vel[0] > 0 ? 1 : -1;
+                        triggerScreenShake(0.3);
+                    }
+                } else if (boss.state === 'CHARGING') {
+                    boss.pos[0] += boss.vel[0];
+                    boss.pos[1] += boss.vel[1];
+
+                    // Spurt bubbles behind charging shark
+                    if (Math.random() < 0.7) {
+                        particles.push({
+                            x: boss.pos[0] - boss.direction * 0.6,
+                            y: boss.pos[1] + (Math.random() - 0.5) * 0.1,
+                            vx: -boss.direction * 0.006,
+                            vy: (Math.random() - 0.5) * 0.005,
+                            color: [0.9, 0.95, 1.0, 0.8],
+                            size: 14 + Math.random() * 12,
+                            life: 1.0,
+                            decay: 2.2,
+                            isBubble: true
+                        });
+                    }
+
+                    // Check collision with Sea Urchin Obstacles!
+                    for (var obs = obstacles.length - 1; obs >= 0; obs--) {
+                        var urchin = obstacles[obs];
+                        var udx = urchin.pos[0] - boss.pos[0];
+                        var udy = urchin.pos[1] - boss.pos[1];
+                        var uDist = Math.sqrt(udx * udx + udy * udy);
+
+                        if (uDist < (boss.scale * 0.5 + urchin.scale * 0.4)) {
+                            // Boss crashed into the obstacle!
+                            obstacles.splice(obs, 1);
+                            boss.hp -= 35;
+                            boss.state = 'STUNNED';
+                            boss.stateTimer = 2.8;
+                            triggerScreenShake(0.85);
+                            playExplosionSound();
+                            spawnEatParticles(urchin.pos[0], urchin.pos[1], [0.85, 0.2, 0.9, 1.0], 50);
+                            updateBossHUD();
+
+                            if (boss.hp <= 0) {
+                                victory();
+                                break;
+                            }
+                        }
+                    }
+
+                    if (boss && boss.stateTimer <= 0) {
+                        boss.state = 'STALKING';
+                        boss.stateTimer = 2.8;
+                    }
+                } else if (boss.state === 'STUNNED') {
+                    // Shark is stunned: spins slowly and stars/bubbles pop
+                    boss.pos[0] += Math.sin(now * 0.008) * 0.002;
+                    if (Math.random() < 0.2) {
+                        particles.push({
+                            x: boss.pos[0] + (Math.random() - 0.5) * 0.4,
+                            y: boss.pos[1] + (Math.random() - 0.5) * 0.2,
+                            vx: (Math.random() - 0.5) * 0.004,
+                            vy: 0.004 + Math.random() * 0.004,
+                            color: [1.0, 0.9, 0.1, 0.9],
+                            size: 8 + Math.random() * 8,
+                            life: 1.0,
+                            decay: 2.0,
+                            isBubble: true
+                        });
+                    }
+                    if (boss.stateTimer <= 0) {
+                        boss.state = 'STALKING';
+                        boss.stateTimer = 2.5;
+                    }
+                }
+
+                // Boss vs Player Collision
+                if (boss && bDist < (boss.scale * 0.45 + player.scale * 0.35)) {
+                    if (player.isDashing && boss.hitInvulnerable <= 0) {
+                        // Dash attack deals damage to Boss!
+                        boss.hp -= 20;
+                        boss.hitInvulnerable = 0.6;
+                        triggerScreenShake(0.6);
+                        playExplosionSound();
+                        spawnEatParticles(player.pos[0], player.pos[1], [1.0, 0.3, 0.2, 1.0], 35);
+                        updateBossHUD();
+                        // Bounce player
+                        player.pos[0] -= player.direction * 0.25;
+
+                        if (boss.hp <= 0) {
+                            victory();
+                        }
+                    } else if (boss.state !== 'STUNNED') {
+                        // Shark bites player
+                        triggerDamageToPlayer('Shredded by the Megalodon');
+                    }
+                }
+            }
+
+            // 6. Update Urchins (Rotate & Player Collision)
+            for (var u = 0; u < obstacles.length; u++) {
+                var urch = obstacles[u];
+                urch.rot += 0.015;
+
+                // Player collision with urchin
+                var updx = urch.pos[0] - player.pos[0];
+                var updy = urch.pos[1] - player.pos[1];
+                var upDist = Math.sqrt(updx * updx + updy * updy);
+
+                if (upDist < (player.scale * 0.35 + urch.scale * 0.35)) {
+                    if (player.isDashing) {
+                        // Dashing smashes urchin safely!
+                        obstacles.splice(u, 1);
+                        playExplosionSound();
+                        triggerScreenShake(0.4);
+                        spawnEatParticles(urch.pos[0], urch.pos[1], urch.color, 35);
+                        break;
+                    } else {
+                        triggerDamageToPlayer('Impaled by a spiky sea urchin');
+                    }
+                }
+            }
+
+            // 7. Update Particles
+            for (var pt = particles.length - 1; pt >= 0; pt--) {
+                var part = particles[pt];
+                part.x += part.vx;
+                part.y += part.vy;
+                part.vx *= 0.94;
+                part.vy *= 0.94;
+                part.life -= dt * part.decay;
+                if (part.life <= 0) {
+                    particles.splice(pt, 1);
+                }
+            }
+
+            // 8. Update Ambient Bubbles
+            for (var ab = 0; ab < ambientBubbles.length; ab++) {
+                var bub = ambientBubbles[ab];
+                bub.y += bub.speed;
+                bub.x += Math.sin(now * 0.002 * bub.wobbleSpeed + bub.seed) * bub.wobbleAmount;
+                if (bub.y > 1.05) {
+                    bub.y = -1.05;
+                    bub.x = (Math.random() * 2 - 1) * aspect;
+                }
+            }
+
+            // ==========================================
+            // WEBGL RENDERING PASS
+            // ==========================================
+            gl.clearColor(0.0, 0.0, 0.0, 0.0);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+
+            gl.enable(gl.BLEND);
+            gl.blendEquation(gl.FUNC_ADD);
+            gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+            gl.disable(gl.DEPTH_TEST);
+
+            // 1. Render Ambient Rising Bubbles (gl.POINTS)
+            gl.uniform1f(u_render_mode, 2.0); // Bubble mode with rim lighting
+            for (var ab = 0; ab < ambientBubbles.length; ab++) {
+                var bub = ambientBubbles[ab];
+                drawPoint(bub.x, bub.y, [0.85, 0.95, 1.0, bub.alpha], bub.size);
+            }
+
+            // 2. Render Food Pellets (gl.POINTS)
+            gl.uniform1f(u_render_mode, 1.0); // Glowing round point mode
+            for (var fp = 0; fp < foodPellets.length; fp++) {
+                var pel = foodPellets[fp];
+                drawPoint(pel.x, pel.y, pel.color, pel.size);
+            }
+
+            // 3. Render Spiky Sea Urchin Obstacles (Triangles)
+            gl.uniform1f(u_render_mode, 0.0);
+            gl.bindBuffer(gl.ARRAY_BUFFER, urchin_v_buffer);
+            gl.enableVertexAttribArray(a_position);
+            gl.vertexAttribPointer(a_position, 3, gl.FLOAT, false, 0, 0);
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, urchin_i_buffer);
+
+            for (var ob = 0; ob < obstacles.length; ob++) {
+                var o = obstacles[ob];
+                var cosR = Math.cos(o.rot);
+                var sinR = Math.sin(o.rot);
+                var s = o.scale;
+                var mat = [
+                    (s / aspect) * cosR, s * sinR, 0, 0,
+                    -(s / aspect) * sinR, s * cosR, 0, 0,
+                    0, 0, 1, 0,
+                    o.pos[0] / aspect, o.pos[1], 0, 1
+                ];
+                gl.uniformMatrix4fv(u_transform, false, new Float32Array(mat));
+                gl.uniform4fv(u_color, o.color);
+                gl.drawElements(gl.TRIANGLES, 30, gl.UNSIGNED_BYTE, 0);
+            }
+
+            // 4. Render Ecosystem Fish
+            gl.bindBuffer(gl.ARRAY_BUFFER, fish_v_buffer);
+            gl.vertexAttribPointer(a_position, 3, gl.FLOAT, false, 0, 0);
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, fish_i_buffer);
+
+            var t = performance.now() * 0.001;
+
+            for (var f = 0; f < ecosystemFish.length; f++) {
+                var fish = ecosystemFish[f];
+                var theta = Math.sin(t * 4.0 + fish.wiggleSeed) * 6 * Math.PI / 180;
+                var s = fish.scale * fish.direction;
+
+                var transform = [
+                    (s / aspect) * Math.cos(theta), Math.abs(s) * Math.sin(theta), 0, 0,
+                    -(s / aspect) * Math.sin(theta), Math.abs(s) * Math.cos(theta), 0, 0,
+                    0, 0, 1, 0,
+                    fish.pos[0] / aspect, fish.pos[1], 0, 1
+                ];
+                gl.uniformMatrix4fv(u_transform, false, new Float32Array(transform));
+                gl.uniform1f(u_render_mode, 0.0);
+
+                // Body color
+                var bodyColor = fish.color;
+                if (fish.isPredator) {
+                    // Pulsing menacing red aura for predators
+                    var pulse = 0.8 + 0.2 * Math.sin(t * 5.0 + f);
+                    bodyColor = [fish.color[0] * pulse, fish.color[1] * pulse, fish.color[2] * pulse, fish.color[3]];
+                }
+                gl.uniform4fv(u_color, bodyColor);
+                gl.drawElements(gl.TRIANGLES, 15, gl.UNSIGNED_BYTE, 0);
+
+                // Eye
+                gl.uniform1f(u_render_mode, 1.0);
+                gl.bindBuffer(gl.ARRAY_BUFFER, fish.direction === 1 ? eye_v_buffer : other_eye_v_buffer);
+                gl.vertexAttribPointer(a_position, 3, gl.FLOAT, false, 0, 0);
+                gl.uniform1f(u_pointsize, Math.abs(fish.scale) * 22.0);
+                var eyeColor = fish.isPredator ? [1.0, 0.0, 0.0, 1.0] : [0.05, 0.05, 0.1, 0.9];
+                gl.uniform4fv(u_color, eyeColor);
+                gl.drawArrays(gl.POINTS, 0, 1);
+
+                // Re-bind body buffer for next iteration
+                gl.bindBuffer(gl.ARRAY_BUFFER, fish_v_buffer);
+                gl.vertexAttribPointer(a_position, 3, gl.FLOAT, false, 0, 0);
+            }
+
+            // 5. Render Player Fish
+            var isInvulnFlashing = (player.invulnerableTimer > 0 && Math.sin(t * 30.0) > 0);
+            if (!isInvulnFlashing && gameState !== 'GAMEOVER') {
+                gl.bindBuffer(gl.ARRAY_BUFFER, fish_v_buffer);
+                gl.vertexAttribPointer(a_position, 3, gl.FLOAT, false, 0, 0);
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, fish_i_buffer);
+
+                var pTheta = Math.sin(t * (player.isDashing ? 12.0 : 5.0)) * 6 * Math.PI / 180;
+                var pS = player.scale * player.direction;
+
+                var pTransform = [
+                    (pS / aspect) * Math.cos(pTheta), Math.abs(pS) * Math.sin(pTheta), 0, 0,
+                    -(pS / aspect) * Math.sin(pTheta), Math.abs(pS) * Math.cos(pTheta), 0, 0,
+                    0, 0, 1, 0,
+                    player.pos[0] / aspect, player.pos[1], 0, 1
+                ];
+                gl.uniformMatrix4fv(u_transform, false, new Float32Array(pTransform));
+                gl.uniform1f(u_render_mode, 0.0);
+
+                // Player Body: Radiant fiery orange/crimson with golden sheen during dash
+                var pColor = player.isDashing
+                    ? [1.0, 0.9, 0.3, 0.95]
+                    : [1.0, 0.22, 0.28, 0.88];
+
+                gl.uniform4fv(u_color, pColor);
+                gl.drawElements(gl.TRIANGLES, 15, gl.UNSIGNED_BYTE, 0);
+
+                // Player Eye
+                gl.uniform1f(u_render_mode, 1.0);
+                gl.bindBuffer(gl.ARRAY_BUFFER, player.direction === 1 ? eye_v_buffer : other_eye_v_buffer);
+                gl.vertexAttribPointer(a_position, 3, gl.FLOAT, false, 0, 0);
+                gl.uniform1f(u_pointsize, player.scale * 24.0);
+                gl.uniform4fv(u_color, [0.05, 0.08, 0.2, 0.95]);
+                gl.drawArrays(gl.POINTS, 0, 1);
+            }
+
+            // 6. Render Shark Boss
+            if (boss) {
+                gl.bindBuffer(gl.ARRAY_BUFFER, shark_v_buffer);
+                gl.vertexAttribPointer(a_position, 3, gl.FLOAT, false, 0, 0);
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, shark_i_buffer);
+
+                var bTheta = Math.sin(t * (boss.state === 'CHARGING' ? 10.0 : 3.0)) * 4 * Math.PI / 180;
+                var bS = boss.scale * boss.direction;
+
+                var bTransform = [
+                    (bS / aspect) * Math.cos(bTheta), Math.abs(bS) * Math.sin(bTheta), 0, 0,
+                    -(bS / aspect) * Math.sin(bTheta), Math.abs(bS) * Math.cos(bTheta), 0, 0,
+                    0, 0, 1, 0,
+                    boss.pos[0] / aspect, boss.pos[1], 0, 1
+                ];
+                gl.uniformMatrix4fv(u_transform, false, new Float32Array(bTransform));
+                gl.uniform1f(u_render_mode, 0.0);
+
+                // Shark Color: Dark slate blue-grey with blood-red belly
+                var bColor = [0.25, 0.32, 0.42, 0.96];
+                if (boss.state === 'LOCKON' || boss.state === 'CHARGING') {
+                    bColor = [0.75, 0.25, 0.3, 0.96]; // Enraged red
+                } else if (boss.state === 'STUNNED') {
+                    bColor = [0.5, 0.5, 0.5, 0.8]; // Stunned grey
+                }
+                gl.uniform4fv(u_color, bColor);
+                gl.drawElements(gl.TRIANGLES, 30, gl.UNSIGNED_BYTE, 0);
+
+                // Shark Eye (Glowing vicious red)
+                gl.uniform1f(u_render_mode, 1.0);
+                gl.bindBuffer(gl.ARRAY_BUFFER, eye_v_buffer);
+                gl.vertexAttribPointer(a_position, 3, gl.FLOAT, false, 0, 0);
+                gl.uniform1f(u_pointsize, boss.scale * 28.0);
+                gl.uniform4fv(u_color, [1.0, 0.1, 0.1, 1.0]);
+                gl.drawArrays(gl.POINTS, 0, 1);
+            }
+
+            // 7. Render Particle Bursts (gl.POINTS)
+            if (particles.length > 0) {
+                for (var p = 0; p < particles.length; p++) {
+                    var pt = particles[p];
+                    gl.uniform1f(u_render_mode, pt.isBubble ? 2.0 : 1.0);
+                    var pAlpha = pt.color[3] * pt.life;
+                    drawPoint(pt.x, pt.y, [pt.color[0], pt.color[1], pt.color[2], pAlpha], pt.size * pt.life);
+                }
+            }
+        }
+
+        // Helper to render an individual point using identity transform
+        function drawPoint(x, y, color, size) {
+            var aspect = c.width / c.height;
+            var identity = [
+                1 / aspect, 0, 0, 0,
+                0, 1, 0, 0,
+                0, 0, 1, 0,
+                0, 0, 0, 1
+            ];
+            gl.uniformMatrix4fv(u_transform, false, new Float32Array(identity));
+            gl.uniform4fv(u_color, color);
+            gl.uniform1f(u_pointsize, size);
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, dynamic_point_buffer);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([x, y, 0.0]), gl.DYNAMIC_DRAW);
+            gl.vertexAttribPointer(a_position, 3, gl.FLOAT, false, 0, 0);
+            gl.enableVertexAttribArray(a_position);
+
+            gl.drawArrays(gl.POINTS, 0, 1);
+        }
+    </script>
+</body>
+
+</html>
