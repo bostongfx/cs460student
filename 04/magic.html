@@ -1,0 +1,1074 @@
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <title>Spellbreaker</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&display=swap" rel="stylesheet">
+  <style>
+    html,
+    body {
+      background: radial-gradient(ellipse at center, #120822 0%, #030108 70%);
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: hidden;
+      font-family: "Cinzel", Georgia, serif;
+      user-select: none;
+    }
+
+    #stage {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 0 60px rgba(140, 80, 255, 0.35), 0 0 0 1px rgba(200, 170, 255, 0.15);
+      cursor: none;
+    }
+
+    #c {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    #hud {
+      position: absolute;
+      top: 2.2%;
+      left: 3%;
+      right: 3%;
+      display: flex;
+      justify-content: space-between;
+      color: #e9dcff;
+      font-size: 2.4vmin;
+      letter-spacing: 0.25em;
+      text-shadow: 0 0 12px rgba(170, 120, 255, 0.9);
+      pointer-events: none;
+    }
+
+    #hud span b {
+      color: #fff;
+      font-weight: 900;
+    }
+
+    #lives b {
+      color: #ffd27a;
+      text-shadow: 0 0 10px #ffb347;
+      letter-spacing: 0.4em;
+    }
+
+    #banner {
+      position: absolute;
+      top: 62%;
+      left: 0;
+      right: 0;
+      text-align: center;
+      pointer-events: none;
+      transition: opacity 0.5s, transform 0.5s;
+    }
+
+    #banner.hidden {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+
+    #banner h1 {
+      margin: 0;
+      font-size: 7vmin;
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      background: linear-gradient(180deg, #fff6d8 0%, #ffc86b 45%, #c86bff 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      filter: drop-shadow(0 0 18px rgba(200, 120, 255, 0.8));
+    }
+
+    #banner p {
+      margin: 1.2vmin 0 0;
+      color: #cdb8ff;
+      font-size: 2vmin;
+      letter-spacing: 0.35em;
+      text-transform: uppercase;
+      animation: breathe 2.4s ease-in-out infinite;
+    }
+
+    @keyframes breathe {
+      50% {
+        opacity: 0.45;
+      }
+    }
+
+    .pop {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      font-weight: 900;
+      font-size: 2.6vmin;
+      pointer-events: none;
+      text-shadow: 0 0 10px currentColor;
+      animation: rise 0.9s ease-out forwards;
+      white-space: nowrap;
+    }
+
+    @keyframes rise {
+      from {
+        opacity: 1;
+        margin-top: 0;
+        scale: 1.3;
+      }
+
+      to {
+        opacity: 0;
+        margin-top: -6vmin;
+        scale: 0.9;
+      }
+    }
+  </style>
+
+  <script id="fullvs" type="glsl">
+    attribute vec2 a_pos;
+    varying vec2 v_uv;
+    void main(void) {
+      v_uv = a_pos * 0.5 + 0.5;
+      gl_Position = vec4(a_pos, 0., 1.);
+    }
+  </script>
+
+  <script id="bgfs" type="glsl">
+    precision highp float;
+    varying vec2 v_uv;
+    uniform float u_time;
+    uniform float u_energy;
+    uniform float u_aspect;
+    uniform vec2 u_light;
+
+    float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+
+    float noise(vec2 p) {
+      vec2 i = floor(p), f = fract(p);
+      f = f * f * (3. - 2. * f);
+      return mix(mix(hash(i), hash(i + vec2(1., 0.)), f.x),
+                 mix(hash(i + vec2(0., 1.)), hash(i + vec2(1., 1.)), f.x), f.y);
+    }
+
+    float fbm(vec2 p) {
+      float v = 0., a = 0.5;
+      for (int i = 0; i < 5; i++) {
+        v += a * noise(p);
+        p = p * 2.03 + vec2(1.7, 9.2);
+        a *= 0.5;
+      }
+      return v;
+    }
+
+    void main(void) {
+      vec2 p = v_uv * 2. - 1.;
+      p.x *= u_aspect;
+      float t = u_time;
+
+      vec3 col = mix(vec3(0.012, 0.008, 0.035), vec3(0.045, 0.018, 0.1), v_uv.y);
+
+      float n = fbm(p * 1.3 + vec2(t * 0.02, -t * 0.015));
+      float n2 = fbm(p * 2.5 - vec2(t * 0.03, 0.) + n);
+      col += vec3(0.3, 0.08, 0.45) * pow(n2, 3.) * 0.9;
+      col += vec3(0.04, 0.22, 0.38) * pow(n, 4.) * 0.9;
+
+      for (int i = 0; i < 3; i++) {
+        float fi = float(i);
+        float y = 0.55 - fi * 0.22 + 0.12 * sin(p.x * 1.1 + t * 0.25 + fi * 2.) + 0.25 * (fbm(vec2(p.x * 0.8 + t * 0.04 * (fi + 1.), fi * 4.)) - 0.5);
+        float d = p.y - y;
+        float band = exp(-d * d * 22.) * (0.4 + 0.6 * fbm(vec2(p.x * 4. + fi * 10., t * 0.3)));
+        vec3 ac = fi < 0.5 ? vec3(0.1, 0.9, 0.6) : (fi < 1.5 ? vec3(0.5, 0.3, 1.) : vec3(1., 0.3, 0.7));
+        col += ac * band * 0.13 * (1. + u_energy * 1.5);
+      }
+
+      vec2 g = p * 38.;
+      vec2 id = floor(g);
+      vec2 f = fract(g) - 0.5;
+      float h = hash(id);
+      if (h > 0.965) {
+        vec2 o = vec2(hash(id + 3.), hash(id + 7.)) - 0.5;
+        float d = length(f - o * 0.6);
+        float tw = 0.5 + 0.5 * sin(t * (1. + h * 3.) + h * 50.);
+        col += vec3(0.8, 0.85, 1.) * (1. - smoothstep(0., 0.09, d)) * tw;
+      }
+
+      vec2 c = p - vec2(0., 0.45);
+      float r = length(c);
+      float a = atan(c.y, c.x);
+      float circle = 0.;
+      circle += 1. - smoothstep(0., 0.006, abs(r - 0.92));
+      circle += 1. - smoothstep(0., 0.004, abs(r - 0.84));
+      float tick = abs(fract((a + t * 0.06) * 48. / 6.2832) - 0.5);
+      circle += (1. - smoothstep(0.08, 0.14, tick)) * step(0.85, r) * step(r, 0.91) * 0.7;
+      float N = 6.;
+      float an = mod(a - t * 0.1, 6.2832 / N) - 3.1416 / N;
+      circle += 1. - smoothstep(0., 0.005, abs(r * cos(an) - 0.62));
+      float an2 = mod(a + t * 0.14 + 0.5236, 6.2832 / 3.) - 3.1416 / 3.;
+      circle += (1. - smoothstep(0., 0.005, abs(r * cos(an2) - 0.36))) * 0.8;
+      circle += 1. - smoothstep(0., 0.004, abs(r - 0.3));
+      col += vec3(0.55, 0.35, 1.) * circle * (0.07 + 0.12 * u_energy) * (0.8 + 0.2 * sin(t * 1.5));
+
+      vec2 lp = p - u_light;
+      col += vec3(0.35, 0.55, 1.) * 0.1 / (1. + dot(lp, lp) * 10.);
+
+      gl_FragColor = vec4(col, 1.);
+    }
+  </script>
+
+  <script id="spritevs" type="glsl">
+    attribute vec2 a_pos;
+    attribute vec2 a_uv;
+    attribute vec4 a_color;
+    attribute vec4 a_data;
+    attribute float a_kind;
+    uniform vec2 u_scale;
+    varying vec2 v_uv;
+    varying vec4 v_color;
+    varying vec4 v_data;
+    varying float v_kind;
+    void main(void) {
+      v_uv = a_uv;
+      v_color = a_color;
+      v_data = a_data;
+      v_kind = a_kind;
+      gl_Position = vec4(a_pos * u_scale, 0., 1.);
+    }
+  </script>
+
+  <script id="spritefs" type="glsl">
+    precision highp float;
+    varying vec2 v_uv;
+    varying vec4 v_color;
+    varying vec4 v_data;
+    varying float v_kind;
+    uniform float u_time;
+
+    float sdSeg(vec2 p, vec2 a, vec2 b) {
+      vec2 pa = p - a, ba = b - a;
+      float h = clamp(dot(pa, ba) / dot(ba, ba), 0., 1.);
+      return length(pa - ba * h);
+    }
+
+    float bit(float s, float i) { return mod(floor(s / pow(2., i)), 2.); }
+
+    vec4 segOf(float i) {
+      if (i < 0.5) return vec4(0., -0.75, 0., 0.75);
+      if (i < 1.5) return vec4(-0.75, 0., 0.75, 0.);
+      if (i < 2.5) return vec4(-0.53, -0.53, 0.53, 0.53);
+      if (i < 3.5) return vec4(-0.53, 0.53, 0.53, -0.53);
+      if (i < 4.5) return vec4(-0.6, -0.45, 0., 0.75);
+      if (i < 5.5) return vec4(0., 0.75, 0.6, -0.45);
+      if (i < 6.5) return vec4(-0.6, -0.45, 0.6, -0.45);
+      return vec4(-0.35, 0.3, 0.35, 0.3);
+    }
+
+    float rune(vec2 q, float seed) {
+      float d = abs(length(q) - 0.75);
+      for (int k = 0; k < 8; k++) {
+        float i = float(k);
+        if (bit(seed, i) > 0.5) {
+          vec4 s = segOf(i);
+          d = min(d, sdSeg(q, s.xy, s.zw));
+        }
+      }
+      return d;
+    }
+
+    void main(void) {
+      vec4 c = v_color;
+      vec2 uv = v_uv;
+      float t = u_time;
+
+      if (v_kind < 0.5) {
+        vec2 p = uv * v_data.xy;
+        vec2 b = v_data.xy - vec2(0.03);
+        float r = 0.014;
+        vec2 dq = abs(p) - (b - r);
+        float d = length(max(dq, 0.)) + min(max(dq.x, dq.y), 0.) - r;
+        float inside = 1. - smoothstep(-0.003, 0.003, d);
+        float seed = v_data.z;
+        float hp = v_data.w;
+        float g = p.y / b.y * 0.5 + 0.5;
+
+        vec3 col = c.rgb * (0.22 + 0.35 * g);
+        col += c.rgb * smoothstep(-0.018, 0., d) * 1.1;
+        float rd = rune(p / (b.y * 0.85), seed);
+        float pulse = 0.55 + 0.45 * sin(t * 2.2 + seed * 0.37);
+        col += mix(c.rgb, vec3(1.), 0.55) * (1. - smoothstep(0.04, 0.11, rd)) * pulse * (0.45 + 0.55 * hp);
+        float sh = sin((p.x + p.y * 0.7) * 9. - t * 2.5 + seed * 0.11);
+        col += vec3(pow(max(sh, 0.), 24.)) * 0.35;
+        if (hp < 0.99) {
+          float cr = abs(p.y - b.y * 0.6 * sin(p.x * 37. + seed) * sin(p.x * 11. - seed));
+          col *= 0.6 + 0.4 * smoothstep(0., 0.006, cr);
+          col *= 0.65 + 0.35 * hp;
+        }
+        col = mix(col, vec3(1.), c.a);
+        float glow = exp(-max(d, 0.) * 55.) * (1. - smoothstep(0., 0.03, d)) * (1. - inside) * 0.55;
+        gl_FragColor = vec4(col * inside + c.rgb * glow, inside);
+      } else if (v_kind < 1.5) {
+        float d = length(uv);
+        float core = 1. - smoothstep(0.12, 0.32, d);
+        float halo = exp(-d * d * 7.) * 0.7;
+        vec3 col = (vec3(1.) * core + c.rgb * halo) * c.a;
+        col *= 1. - smoothstep(0.85, 1., d);
+        gl_FragColor = vec4(col, 0.);
+      } else if (v_kind < 2.5) {
+        vec2 p = uv * v_data.xy;
+        float L = v_data.z;
+        float hh = v_data.w;
+        float d = length(vec2(max(abs(p.x) - L, 0.), p.y)) - hh;
+        float inside = 1. - smoothstep(-0.003, 0.003, d);
+        float flow = 0.5 + 0.5 * sin(p.x * 40. - t * 9.) * sin(p.x * 13. + t * 4.);
+        vec3 col = mix(c.rgb * 0.45, c.rgb, flow);
+        col += vec3(1.) * exp(-p.y * p.y / (hh * hh) * 6.) * 0.6;
+        col += c.rgb * smoothstep(-0.01, 0., d);
+        float glow = exp(-max(d, 0.) * 30.) * (1. - smoothstep(0., 0.06, d)) * (1. - inside) * 0.8;
+        gl_FragColor = vec4(col * inside + c.rgb * glow, inside);
+      } else if (v_kind < 3.5) {
+        float d = abs(length(uv) - 0.85);
+        float a = exp(-d * d * 900.) * c.a + exp(-d * d * 60.) * 0.3 * c.a;
+        gl_FragColor = vec4(c.rgb * a, 0.);
+      } else {
+        vec2 q = uv;
+        float d = abs(q.x) + abs(q.y) - 0.62;
+        float inside = 1. - smoothstep(-0.02, 0.02, d);
+        vec3 col = c.rgb * 0.35 + c.rgb * smoothstep(-0.12, 0., d) * 1.2;
+        float ty = v_data.z;
+        float gd;
+        if (ty < 0.5) gd = min(length(q - vec2(-0.16, 0.)), length(q - vec2(0.16, 0.))) - 0.09;
+        else if (ty < 1.5) gd = max(abs(q.x) - 0.28, abs(q.y) - 0.06);
+        else gd = abs(length(q) - 0.2) - 0.045;
+        col += vec3(1.) * (1. - smoothstep(-0.01, 0.02, gd));
+        float glow = exp(-max(d, 0.) * 8.) * (1. - smoothstep(0., 0.38, d)) * (1. - inside) * 0.8;
+        gl_FragColor = vec4(col * inside + c.rgb * glow, inside);
+      }
+    }
+  </script>
+
+  <script id="postfs" type="glsl">
+    precision highp float;
+    varying vec2 v_uv;
+    uniform sampler2D u_tex;
+    uniform vec2 u_res;
+    uniform float u_time;
+    uniform float u_aberr;
+    uniform vec2 u_shake;
+    uniform vec4 u_waves[6];
+
+    void main(void) {
+      vec2 uv = v_uv + u_shake;
+      float asp = u_res.x / u_res.y;
+
+      for (int i = 0; i < 6; i++) {
+        vec4 w = u_waves[i];
+        if (w.w > 0.) {
+          vec2 dl = uv - w.xy;
+          dl.x *= asp;
+          float dist = length(dl);
+          float k = (dist - w.z) * 18.;
+          float s = exp(-k * k) * w.w;
+          vec2 dir = dl / max(dist, 0.0001);
+          dir.x /= asp;
+          uv -= dir * s * 0.025;
+        }
+      }
+
+      vec2 cd = (uv - 0.5) * u_aberr;
+      vec3 col;
+      col.r = texture2D(u_tex, uv + cd).r;
+      col.g = texture2D(u_tex, uv).g;
+      col.b = texture2D(u_tex, uv - cd).b;
+
+      vec3 bl = vec3(0.);
+      vec2 px = 1. / u_res;
+      for (int i = 0; i < 12; i++) {
+        float fi = float(i);
+        float a = fi * 0.5236;
+        float rr = mod(fi, 2.) < 0.5 ? 9. : 18.;
+        bl += texture2D(u_tex, uv + vec2(cos(a), sin(a)) * px * rr).rgb;
+      }
+      bl /= 12.;
+      col += max(bl - 0.2, 0.) * 0.9;
+
+      vec2 vq = v_uv - 0.5;
+      col *= 1. - dot(vq, vq) * 0.9;
+      col += (fract(sin(dot(v_uv * u_res + u_time, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) * 0.03;
+      col = col / (1. + col * 0.15);
+
+      gl_FragColor = vec4(col, 1.);
+    }
+  </script>
+
+  <script>
+    var W = 1.6;
+    var FLOATS = 13;
+    var MAXQ = 8000;
+    var CORNERS = [-1, -1, 1, -1, 1, 1, -1, -1, 1, 1, -1, 1];
+    var data = new Float32Array(FLOATS * 6 * MAXQ);
+    var vcount = 0;
+
+    var gl, canvas, stage, fbo, fboTex, quadBuf, spriteBuf, progBg, progSprite, progPost;
+
+    var paddle = { x: 0, y: -0.86, hw: 0.16, hh: 0.03, target: 0, squash: 0 };
+    var balls = [], bricks = [], particles = [], motes = [], waves = [], powerups = [];
+    var score = 0, lives = 3, level = 1, combo = 0, state = "ready", stateT = 0;
+    var T = 0, levelT = 0, timeScale = 1, slowT = 0, wardT = 0;
+    var shake = 0, aberr = 0, energy = 0, paused = false;
+    var keys = {};
+
+    var POWER_COLORS = [[0.3, 0.9, 1], [1, 0.78, 0.3], [0.75, 0.4, 1]];
+    var POWER_NAMES = ["SPLIT", "WARD", "SLOW"];
+
+    window.onload = function () {
+      canvas = document.getElementById("c");
+      stage = document.getElementById("stage");
+      gl = canvas.getContext("webgl", { antialias: false, alpha: false });
+
+      progBg = makeProgram("fullvs", "bgfs");
+      progSprite = makeProgram("spritevs", "spritefs");
+      progPost = makeProgram("fullvs", "postfs");
+
+      quadBuf = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(CORNERS), gl.STATIC_DRAW);
+
+      spriteBuf = gl.createBuffer();
+
+      fboTex = gl.createTexture();
+      fbo = gl.createFramebuffer();
+
+      window.onresize = resize;
+      resize();
+
+      for (var i = 0; i < 70; i++) {
+        motes.push(newMote(Math.random() * 2.2 - 1.1));
+      }
+
+      buildLevel();
+      stickBall();
+      showBanner("Spellbreaker", "← → or mouse to move · space to cast");
+      hud();
+
+      requestAnimationFrame(frame);
+    };
+
+    function makeProgram(vsId, fsId) {
+      var p = gl.createProgram();
+      [[vsId, gl.VERTEX_SHADER], [fsId, gl.FRAGMENT_SHADER]].forEach(function (s) {
+        var sh = gl.createShader(s[1]);
+        gl.shaderSource(sh, document.getElementById(s[0]).textContent);
+        gl.compileShader(sh);
+        if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+          console.log(s[0], gl.getShaderInfoLog(sh));
+        }
+        gl.attachShader(p, sh);
+      });
+      gl.linkProgram(p);
+      var prog = { p: p, u: {}, a: {} };
+      ["a_pos", "a_uv", "a_color", "a_data", "a_kind"].forEach(function (n) {
+        prog.a[n] = gl.getAttribLocation(p, n);
+      });
+      prog.uni = function (n) {
+        if (!(n in prog.u)) prog.u[n] = gl.getUniformLocation(p, n);
+        return prog.u[n];
+      };
+      return prog;
+    }
+
+    function resize() {
+      var w = innerWidth * 0.96, h = w / W;
+      if (h > innerHeight * 0.96) {
+        h = innerHeight * 0.96;
+        w = h * W;
+      }
+      stage.style.width = w + "px";
+      stage.style.height = h + "px";
+      var dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = Math.round(w * dpr);
+      canvas.height = Math.round(h * dpr);
+
+      gl.bindTexture(gl.TEXTURE_2D, fboTex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, canvas.width, canvas.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, fboTex, 0);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    }
+
+    function hsv(h, s, v) {
+      h = ((h % 1) + 1) % 1;
+      var i = Math.floor(h * 6), f = h * 6 - i;
+      var p = v * (1 - s), q = v * (1 - f * s), t = v * (1 - (1 - f) * s);
+      return [[v, t, p], [q, v, p], [p, v, t], [p, q, v], [t, p, v], [v, p, q]][i % 6];
+    }
+
+    function clamp(v, a, b) {
+      return Math.max(a, Math.min(b, v));
+    }
+
+    function buildLevel() {
+      bricks = [];
+      var rows = 7, cols = 12, gap = 0.018;
+      var bw = (2 * W - 0.2) / cols;
+      var hw = bw / 2 - gap / 2, hh = 0.042;
+      var pattern = (level - 1) % 4;
+      var bonus = Math.floor((level - 1) / 4);
+
+      for (var r = 0; r < rows; r++) {
+        for (var c = 0; c < cols; c++) {
+          var on = true, hp = 1;
+          if (pattern == 0) {
+            hp = r < 2 ? 2 : 1;
+          } else if (pattern == 1) {
+            on = Math.abs(c - 5.5) / 6.5 + Math.abs(r - 3) / 4 < 1;
+            hp = Math.abs(c - 5.5) < 2 && Math.abs(r - 3) < 1.5 ? 3 : 1;
+          } else if (pattern == 2) {
+            on = (r + c) % 2 == 0 || r == 0 || r == rows - 1;
+            hp = r == 0 ? 3 : r == rows - 1 ? 2 : 1;
+          } else {
+            on = Math.sin(c * 0.9 + r * 1.3) > -0.4;
+            hp = 1 + ((r * 7 + c * 3) % 3);
+          }
+          if (!on) continue;
+          var maxhp = Math.min(3, hp + bonus);
+          var col = maxhp == 3 ? hsv(0.11, 0.7, 1) : hsv(0.72 - r * 0.07 + level * 0.17, 0.75, 1);
+          bricks.push({
+            x: -W + 0.1 + bw * (c + 0.5),
+            y: 0.74 - r * (hh * 2 + gap),
+            hw: hw, hh: hh,
+            hp: maxhp, maxhp: maxhp,
+            col: col,
+            seed: 3 + Math.floor(Math.random() * 252),
+            delay: 0.1 + (r * cols + c) * 0.009,
+            flash: 0,
+            alive: true
+          });
+        }
+      }
+      levelT = 0;
+    }
+
+    function stickBall() {
+      balls = [{ x: paddle.x, y: 0, vx: 0, vy: 0, r: 0.022, stuck: true, trail: [] }];
+      powerups = [];
+    }
+
+    function baseSpeed() {
+      return 1.3 + 0.08 * (level - 1);
+    }
+
+    function launch() {
+      balls.forEach(function (b) {
+        if (!b.stuck) return;
+        var a = Math.PI / 2 + (Math.random() - 0.5) * 0.5;
+        b.vx = Math.cos(a) * baseSpeed();
+        b.vy = Math.sin(a) * baseSpeed();
+        b.stuck = false;
+      });
+      state = "play";
+      hideBanner();
+      playSound("bounce", 1.4);
+    }
+
+    function restart() {
+      score = 0;
+      lives = 3;
+      level = 1;
+      combo = 0;
+      slowT = 0;
+      wardT = 0;
+      buildLevel();
+      stickBall();
+      state = "ready";
+      showBanner("Spellbreaker", "space to cast");
+      hud();
+    }
+
+    function newMote(y) {
+      var col = Math.random() < 0.5 ? [0.6, 0.4, 1] : [0.3, 0.8, 1];
+      return {
+        x: (Math.random() * 2 - 1) * W,
+        y: y,
+        vy: 0.02 + Math.random() * 0.06,
+        s: 0.012 + Math.random() * 0.02,
+        a: 0.12 + Math.random() * 0.25,
+        ph: Math.random() * 10,
+        col: col
+      };
+    }
+
+    function burst(x, y, col, count, speed, life) {
+      for (var i = 0; i < count; i++) {
+        var a = Math.random() * Math.PI * 2;
+        var s = speed * (0.25 + Math.random());
+        var white = Math.random() < 0.3;
+        particles.push({
+          x: x, y: y,
+          vx: Math.cos(a) * s, vy: Math.sin(a) * s,
+          life: life * (0.5 + Math.random() * 0.5),
+          max: life,
+          size: 0.006 + Math.random() * 0.012,
+          col: white ? [1, 1, 1] : col
+        });
+      }
+    }
+
+    function addWave(x, y, str) {
+      waves.push({ x: x, y: y, t: 0, str: str });
+      if (waves.length > 6) waves.shift();
+    }
+
+    function playSound(id, rate) {
+      var s = document.getElementById(id).cloneNode();
+      s.volume = id == "bounce" ? 0.45 : 0.6;
+      s.preservesPitch = false;
+      s.mozPreservesPitch = false;
+      s.playbackRate = rate || 1;
+      s.play().catch(function () { });
+    }
+
+    function popup(x, y, text, col) {
+      var el = document.createElement("div");
+      el.className = "pop";
+      el.textContent = text;
+      el.style.color = "rgb(" + col.map(function (v) { return Math.round(155 + v * 100); }).join(",") + ")";
+      el.style.left = ((x / W + 1) / 2) * 100 + "%";
+      el.style.top = (1 - (y + 1) / 2) * 100 + "%";
+      stage.appendChild(el);
+      el.addEventListener("animationend", function () {
+        el.remove();
+      });
+    }
+
+    function showBanner(title, sub) {
+      var b = document.getElementById("banner");
+      b.querySelector("h1").textContent = title;
+      b.querySelector("p").textContent = sub;
+      b.classList.remove("hidden");
+    }
+
+    function hideBanner() {
+      document.getElementById("banner").classList.add("hidden");
+    }
+
+    function hud() {
+      document.getElementById("score").innerHTML = "SCORE <b>" + score + "</b>";
+      document.getElementById("level").innerHTML = "LEVEL <b>" + level + "</b>";
+      document.getElementById("lives").innerHTML = "<b>" + "◆".repeat(Math.max(lives, 0)) + "</b>";
+    }
+
+    function hitBrick(br) {
+      br.hp--;
+      br.flash = 1;
+      combo++;
+      if (br.hp <= 0) {
+        br.alive = false;
+        var gain = 10 * br.maxhp * combo;
+        score += gain;
+        popup(br.x, br.y, "+" + gain + (combo > 1 ? "  ×" + combo : ""), br.col);
+        burst(br.x, br.y, br.col, 30, 1.1, 0.9);
+        addWave(br.x, br.y, 1);
+        shake += 0.01;
+        aberr += 0.004;
+        playSound("explosion", 0.85 + Math.min(combo, 14) * 0.05);
+        if (Math.random() < 0.14) {
+          powerups.push({ x: br.x, y: br.y, type: Math.floor(Math.random() * 3), seed: Math.random() * 10 });
+        }
+      } else {
+        burst(br.x, br.y - br.hh, br.col, 8, 0.6, 0.4);
+        shake += 0.003;
+        playSound("bounce", 0.7);
+      }
+      hud();
+    }
+
+    function collideBall(b) {
+      if (b.x > W - b.r && b.vx > 0) {
+        b.vx = -b.vx;
+        b.x = W - b.r;
+        burst(b.x, b.y, [0.5, 0.7, 1], 5, 0.5, 0.3);
+        playSound("bounce", 1.2);
+      } else if (b.x < -W + b.r && b.vx < 0) {
+        b.vx = -b.vx;
+        b.x = -W + b.r;
+        burst(b.x, b.y, [0.5, 0.7, 1], 5, 0.5, 0.3);
+        playSound("bounce", 1.2);
+      }
+      if (b.y > 1 - b.r && b.vy > 0) {
+        b.vy = -b.vy;
+        b.y = 1 - b.r;
+        burst(b.x, b.y, [0.5, 0.7, 1], 5, 0.5, 0.3);
+        playSound("bounce", 1.2);
+      }
+
+      if (b.vy < 0 && b.y - b.r <= paddle.y + paddle.hh && b.y + b.r >= paddle.y - paddle.hh &&
+        Math.abs(b.x - paddle.x) <= paddle.hw + b.r) {
+        var hit = clamp((b.x - paddle.x) / paddle.hw, -1, 1);
+        var a = Math.PI / 2 - hit * 1.05;
+        var sp = Math.min(Math.hypot(b.vx, b.vy) * 1.012, baseSpeed() * 1.7);
+        b.vx = Math.cos(a) * sp;
+        b.vy = Math.sin(a) * sp;
+        b.y = paddle.y + paddle.hh + b.r;
+        combo = 0;
+        paddle.squash = 1;
+        burst(b.x, b.y, [1, 0.8, 0.4], 10, 0.7, 0.4);
+        playSound("bounce", 1);
+      }
+
+      for (var i = 0; i < bricks.length; i++) {
+        var br = bricks[i];
+        if (!br.alive) continue;
+        var cx = clamp(b.x, br.x - br.hw, br.x + br.hw);
+        var cy = clamp(b.y, br.y - br.hh, br.y + br.hh);
+        var dx = b.x - cx, dy = b.y - cy;
+        if (dx * dx + dy * dy < b.r * b.r) {
+          var ox = br.hw + b.r - Math.abs(b.x - br.x);
+          var oy = br.hh + b.r - Math.abs(b.y - br.y);
+          if (ox < oy) {
+            var sx = b.x >= br.x ? 1 : -1;
+            b.vx = Math.abs(b.vx) * sx;
+            b.x += sx * ox;
+          } else {
+            var sy = b.y >= br.y ? 1 : -1;
+            b.vy = Math.abs(b.vy) * sy;
+            b.y += sy * oy;
+          }
+          hitBrick(br);
+          break;
+        }
+      }
+    }
+
+    function catchPower(p) {
+      var col = POWER_COLORS[p.type];
+      popup(p.x, p.y + 0.05, POWER_NAMES[p.type] + "!", col);
+      burst(p.x, p.y, col, 24, 0.9, 0.7);
+      addWave(p.x, p.y, 0.6);
+      playSound("bounce", 1.7);
+      if (p.type == 0) {
+        var src = balls.filter(function (b) { return !b.stuck; })[0];
+        if (!src) return;
+        var a = Math.atan2(src.vy, src.vx), sp = Math.hypot(src.vx, src.vy);
+        [-0.5, 0.5].forEach(function (o) {
+          if (balls.length >= 16) return;
+          balls.push({ x: src.x, y: src.y, vx: Math.cos(a + o) * sp, vy: Math.sin(a + o) * sp, r: src.r, stuck: false, trail: [] });
+        });
+      } else if (p.type == 1) {
+        wardT = 12;
+      } else {
+        slowT = 8;
+      }
+    }
+
+    function update(dt) {
+      T += dt;
+      levelT += dt;
+      slowT -= dt;
+      wardT -= dt;
+      timeScale += ((slowT > 0 ? 0.55 : 1) - timeScale) * Math.min(1, dt * 5);
+      var gdt = dt * timeScale;
+
+      var dir = (keys.ArrowRight || keys.d ? 1 : 0) - (keys.ArrowLeft || keys.a ? 1 : 0);
+      paddle.target = clamp(paddle.target + dir * 2.8 * dt, -W + paddle.hw, W - paddle.hw);
+      paddle.x += (paddle.target - paddle.x) * Math.min(1, dt * 20);
+      paddle.hw += ((wardT > 0 ? 0.26 : 0.16) - paddle.hw) * Math.min(1, dt * 8);
+      paddle.squash *= Math.exp(-dt * 9);
+
+      balls.forEach(function (b) {
+        if (b.stuck) {
+          b.x = paddle.x;
+          b.y = paddle.y + paddle.hh + b.r + 0.004;
+          return;
+        }
+        var dist = Math.hypot(b.vx, b.vy) * gdt;
+        var steps = Math.max(1, Math.ceil(dist / (b.r * 0.5)));
+        var h = gdt / steps;
+        for (var s = 0; s < steps; s++) {
+          b.x += b.vx * h;
+          b.y += b.vy * h;
+          collideBall(b);
+        }
+        b.trail.push([b.x, b.y]);
+        if (b.trail.length > 18) b.trail.shift();
+        if (b.y < -1.15) b.dead = true;
+      });
+      balls = balls.filter(function (b) { return !b.dead; });
+
+      particles.forEach(function (p) {
+        p.vx *= Math.exp(-gdt * 2.5);
+        p.vy = p.vy * Math.exp(-gdt * 2.5) - 0.5 * gdt;
+        p.x += p.vx * gdt;
+        p.y += p.vy * gdt;
+        p.life -= gdt;
+      });
+      particles = particles.filter(function (p) { return p.life > 0; });
+
+      motes.forEach(function (m, i) {
+        m.y += m.vy * gdt * (1 + energy * 3);
+        m.x += Math.sin(T * 0.7 + m.ph) * 0.01 * dt;
+        if (m.y > 1.1) motes[i] = newMote(-1.1);
+      });
+
+      waves.forEach(function (w) { w.t += dt; });
+      waves = waves.filter(function (w) { return w.t < 0.7; });
+
+      powerups.forEach(function (p) {
+        p.y -= 0.45 * gdt;
+        if (Math.abs(p.x - paddle.x) < paddle.hw + 0.05 && Math.abs(p.y - paddle.y) < 0.07) {
+          p.dead = true;
+          catchPower(p);
+        }
+        if (p.y < -1.1) p.dead = true;
+      });
+      powerups = powerups.filter(function (p) { return !p.dead; });
+
+      bricks.forEach(function (br) { br.flash = Math.max(0, br.flash - dt * 5); });
+
+      shake *= Math.exp(-dt * 8);
+      aberr *= Math.exp(-dt * 5);
+      energy += (Math.min(combo / 8, 1) - energy) * Math.min(1, dt * 3);
+
+      if (state == "play" && balls.length == 0) {
+        lives--;
+        combo = 0;
+        shake += 0.03;
+        aberr += 0.012;
+        addWave(paddle.x, paddle.y, 1.5);
+        playSound("explosion", 0.5);
+        if (lives <= 0) {
+          state = "over";
+          showBanner("The Spell Fades", "score " + score + " · space to begin anew");
+        } else {
+          stickBall();
+          state = "ready";
+          showBanner("Ward Broken", lives + (lives == 1 ? " life" : " lives") + " remain · space to cast");
+        }
+        hud();
+      }
+
+      if (state == "play" && bricks.every(function (b) { return !b.alive; })) {
+        state = "clear";
+        stateT = 0;
+        balls.forEach(function (b) { burst(b.x, b.y, [0.6, 0.8, 1], 30, 1.4, 1); });
+        balls = [];
+        powerups = [];
+        addWave(0, 0.3, 2);
+        shake += 0.02;
+        showBanner("Level " + level + " Cleansed", "");
+      }
+
+      if (state == "clear") {
+        stateT += dt;
+        if (stateT > 1.8) {
+          level++;
+          buildLevel();
+          stickBall();
+          state = "ready";
+          showBanner("Level " + level, "space to cast");
+          hud();
+        }
+      }
+    }
+
+    function quad(x, y, hw, hh, rot, r, g, b, a, d0, d1, d2, d3, kind) {
+      if (vcount >= MAXQ * 6) return;
+      var c = Math.cos(rot), s = Math.sin(rot), o = vcount * FLOATS;
+      for (var i = 0; i < 12; i += 2) {
+        var ux = CORNERS[i], uy = CORNERS[i + 1], lx = ux * hw, ly = uy * hh;
+        data[o++] = x + lx * c - ly * s;
+        data[o++] = y + lx * s + ly * c;
+        data[o++] = ux;
+        data[o++] = uy;
+        data[o++] = r;
+        data[o++] = g;
+        data[o++] = b;
+        data[o++] = a;
+        data[o++] = d0;
+        data[o++] = d1;
+        data[o++] = d2;
+        data[o++] = d3;
+        data[o++] = kind;
+      }
+      vcount += 6;
+    }
+
+    function orb(x, y, size, col, a) {
+      quad(x, y, size, size, 0, col[0], col[1], col[2], a, 0, 0, 0, 0, 1);
+    }
+
+    function buildSprites() {
+      vcount = 0;
+
+      motes.forEach(function (m) {
+        orb(m.x, m.y, m.s, m.col, m.a * (0.6 + 0.4 * Math.sin(T * 2 + m.ph)));
+      });
+
+      bricks.forEach(function (br) {
+        if (!br.alive) return;
+        var k = clamp((levelT - br.delay) * 3, 0, 1);
+        if (k <= 0) return;
+        var s = 1 + 2.7 * Math.pow(k - 1, 3) + 1.7 * Math.pow(k - 1, 2);
+        var fy = Math.sin(T * 1.2 + br.x * 2) * 0.004 + (1 - k) * 0.2;
+        var qw = br.hw + 0.03, qh = br.hh + 0.03;
+        quad(br.x, br.y + fy, qw * s, qh * s, 0, br.col[0], br.col[1], br.col[2], br.flash, qw, qh, br.seed, br.hp / br.maxhp, 0);
+      });
+
+      waves.forEach(function (w) {
+        var rad = w.t * 0.9 * 2;
+        var a = (1 - w.t / 0.7) * 0.8 * Math.min(w.str, 1.2);
+        quad(w.x, w.y, rad / 0.85, rad / 0.85, 0, 0.7, 0.6, 1, a, 0, 0, 0, 0, 3);
+      });
+
+      powerups.forEach(function (p) {
+        var c = POWER_COLORS[p.type];
+        orb(p.x, p.y, 0.12, c, 0.35);
+        quad(p.x, p.y, 0.075, 0.075, Math.sin(T * 3 + p.seed) * 0.4, c[0], c[1], c[2], 1, 0, 0, p.type, 0, 4);
+      });
+
+      if (state == "ready") {
+        for (var i = 1; i <= 6; i++) {
+          orb(paddle.x, paddle.y + 0.06 + i * 0.07, 0.025, [0.6, 0.8, 1], (0.3 + 0.25 * Math.sin(T * 5 - i)) * (1 - i / 7));
+        }
+      }
+
+      var pc = slowT > 0 ? [0.75, 0.5, 1] : wardT > 0 ? [1, 0.85, 0.45] : [1, 0.7, 0.3];
+      var phh = paddle.hh * (1 - 0.35 * paddle.squash);
+      var phw = paddle.hw * (1 + 0.06 * paddle.squash);
+      orb(paddle.x, paddle.y, phw * 1.3, pc, 0.25);
+      quad(paddle.x, paddle.y, phw + 0.06, phh + 0.06, 0, pc[0], pc[1], pc[2], 1, phw + 0.06, phh + 0.06, phw - phh, phh, 2);
+
+      var bc = hsv(0.55 + energy * 0.3, 0.6, 1);
+      balls.forEach(function (b) {
+        b.trail.forEach(function (p, i) {
+          var f = (i + 1) / b.trail.length;
+          orb(p[0], p[1], b.r * 3.2 * (0.3 + 0.7 * f), bc, f * f * 0.45);
+        });
+        orb(b.x, b.y, b.r * 4, bc, 1.3);
+      });
+
+      particles.forEach(function (p) {
+        var f = p.life / p.max;
+        var sp = Math.hypot(p.vx, p.vy);
+        quad(p.x, p.y, p.size * (1 + sp * 4), p.size, Math.atan2(p.vy, p.vx), p.col[0], p.col[1], p.col[2], f * 1.2, 0, 0, 0, 0, 1);
+      });
+    }
+
+    function drawFullscreen(prog) {
+      gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
+      gl.enableVertexAttribArray(prog.a.a_pos);
+      gl.vertexAttribPointer(prog.a.a_pos, 2, gl.FLOAT, false, 0, 0);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+      gl.disableVertexAttribArray(prog.a.a_pos);
+    }
+
+    function render() {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.disable(gl.BLEND);
+
+      var lead = balls[0] || { x: 0, y: -2 };
+      gl.useProgram(progBg.p);
+      gl.uniform1f(progBg.uni("u_time"), T);
+      gl.uniform1f(progBg.uni("u_energy"), energy);
+      gl.uniform1f(progBg.uni("u_aspect"), W);
+      gl.uniform2f(progBg.uni("u_light"), lead.x, lead.y);
+      drawFullscreen(progBg);
+
+      buildSprites();
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+      gl.useProgram(progSprite.p);
+      gl.uniform2f(progSprite.uni("u_scale"), 1 / W, 1);
+      gl.uniform1f(progSprite.uni("u_time"), T);
+      gl.bindBuffer(gl.ARRAY_BUFFER, spriteBuf);
+      gl.bufferData(gl.ARRAY_BUFFER, data.subarray(0, vcount * FLOATS), gl.DYNAMIC_DRAW);
+      var layout = [["a_pos", 2, 0], ["a_uv", 2, 8], ["a_color", 4, 16], ["a_data", 4, 32], ["a_kind", 1, 48]];
+      layout.forEach(function (l) {
+        var loc = progSprite.a[l[0]];
+        gl.enableVertexAttribArray(loc);
+        gl.vertexAttribPointer(loc, l[1], gl.FLOAT, false, FLOATS * 4, l[2]);
+      });
+      gl.drawArrays(gl.TRIANGLES, 0, vcount);
+      layout.forEach(function (l) {
+        gl.disableVertexAttribArray(progSprite.a[l[0]]);
+      });
+      gl.disable(gl.BLEND);
+
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.useProgram(progPost.p);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, fboTex);
+      gl.uniform1i(progPost.uni("u_tex"), 0);
+      gl.uniform2f(progPost.uni("u_res"), canvas.width, canvas.height);
+      gl.uniform1f(progPost.uni("u_time"), T);
+      gl.uniform1f(progPost.uni("u_aberr"), 0.0015 + aberr);
+      gl.uniform2f(progPost.uni("u_shake"), (Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+      var wv = new Float32Array(24);
+      waves.forEach(function (w, i) {
+        wv[i * 4] = (w.x / W + 1) / 2;
+        wv[i * 4 + 1] = (w.y + 1) / 2;
+        wv[i * 4 + 2] = w.t * 0.9;
+        wv[i * 4 + 3] = w.str * (1 - w.t / 0.7);
+      });
+      gl.uniform4fv(progPost.uni("u_waves"), wv);
+      drawFullscreen(progPost);
+    }
+
+    var last = 0;
+    function frame(now) {
+      requestAnimationFrame(frame);
+      now /= 1000;
+      var dt = Math.min(now - last, 1 / 30);
+      last = now;
+      if (!paused) update(dt);
+      render();
+    }
+
+    window.onkeydown = function (e) {
+      keys[e.key] = true;
+      if (e.key == " ") {
+        e.preventDefault();
+        if (state == "over") restart();
+        else if (state == "ready") launch();
+      }
+      if (e.key == "p") paused = !paused;
+    };
+
+    window.onkeyup = function (e) {
+      keys[e.key] = false;
+    };
+
+    window.onmousemove = function (e) {
+      var rect = stage.getBoundingClientRect();
+      var x = ((e.clientX - rect.left) / rect.width * 2 - 1) * W;
+      paddle.target = clamp(x, -W + paddle.hw, W - paddle.hw);
+    };
+
+    window.onmousedown = function () {
+      if (state == "over") restart();
+      else if (state == "ready") launch();
+    };
+  </script>
+</head>
+
+<body>
+  <div id="stage">
+    <canvas id="c"></canvas>
+    <div id="hud">
+      <span id="score"></span>
+      <span id="level"></span>
+      <span id="lives"></span>
+    </div>
+    <div id="banner"><h1></h1><p></p></div>
+  </div>
+  <audio id="bounce" src="sound/bounce.mp3" preload="auto"></audio>
+  <audio id="explosion" src="sound/explosion.mp3" preload="auto"></audio>
+</body>
+
+</html>
